@@ -236,6 +236,10 @@
 % between Forth runs; other integers are local and change during runs.
 % \begin{itemize}
 % \item The input buffer is from \texttt{input_min} (included) to
+%   \texttt{input_max} (excluded): this contains already parsed text
+%   from \texttt{input_min} (included) to \texttt{input_parsed}
+%   (excluded), text to be parsed from \texttt{input_parsed} (included)
+%   to \texttt{input_end} (excluded), and an unused region until
 %   \texttt{input_max} (excluded).
 % \item The pad is from \texttt{pad_min} (included) to \texttt{pad_max}
 %   (excluded).
@@ -272,11 +276,21 @@
 % encoding for Unicode (this is still needed in \pdfTeX{}, but only at
 % the very last step of output).
 %
-% \begin{variable}{\g_@@_forth_input_min_int, \g_@@_forth_input_max_int}
-%   The input buffer ranges from \cs{g_@@_forth_input_min_int}
-%   (included) to \cs{g_@@_forth_input_max_int} (excluded).
+% \begin{variable}
+%   {
+%     \g_@@_forth_input_min_int,
+%     \l_@@_forth_input_parsed_int,
+%     \l_@@_forth_input_end_int,
+%     \g_@@_forth_input_max_int
+%   }
+%   The contents of the input buffer range from
+%   \cs{g_@@_forth_input_min_int} (included) to
+%   \cs{g_@@_forth_input_max_int} (excluded), split into a region that
+%   is already parsed, a region to be parsed, and an unused region.
 %    \begin{macrocode}
 \int_new:N \g_@@_forth_input_min_int
+\int_new:N \l_@@_forth_input_parsed_int
+\int_new:N \l_@@_forth_input_end_int
 \int_new:N \g_@@_forth_input_max_int
 %    \end{macrocode}
 % \end{variable}
@@ -354,6 +368,10 @@
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \@@_forth_init_data:
   {
+    \int_set_eq:NN \l_@@_forth_input_parsed_int
+      \g_@@_forth_input_min_int
+    \int_set_eq:NN \l_@@_forth_input_end_int
+      \g_@@_forth_input_min_int
     \int_set_eq:NN \l_@@_forth_data_here_int
       \g_@@_forth_data_min_int
     \int_set_eq:NN \l_@@_forth_data_word_int
@@ -375,11 +393,11 @@
 %   here initial values for the array parameters, all at once to avoid
 %   mistakes.
 %    \begin{macrocode}
-\int_gset:Nn \g_@@_forth_input_min_int { 0 }
-\int_gset:Nn \g_@@_forth_input_max_int { 128 }
-\int_gset:Nn \g_@@_forth_pad_min_int { 128 }
-\int_gset:Nn \g_@@_forth_pad_max_int { 256 }
-\int_gset:Nn \g_@@_forth_data_min_int { 256 }
+\int_gset:Nn \g_@@_forth_input_min_int { 1 }
+\int_gset:Nn \g_@@_forth_input_max_int { 129 }
+\int_gset:Nn \g_@@_forth_pad_min_int { 129 }
+\int_gset:Nn \g_@@_forth_pad_max_int { 257 }
+\int_gset:Nn \g_@@_forth_data_min_int { 257 }
 \int_gset:Nn \g_@@_forth_data_max_int { 65280 }
 \int_gset:Nn \g_@@_forth_stack_min_int { 65280 }
 \int_gset:Nn \g_@@_forth_stack_max_int { 65408 }
@@ -804,70 +822,204 @@
 %
 % \subsubsection{Input}
 %
-% \begin{macro}[int]{\@@_forth_input_spaces:}
-% \begin{macro}[aux]{\@@_forth_input_spaces_aux:w}
-%   Strip leading spaces from \cs{l_@@_forth_input_str} using \cs{use:nn},
-%   then grab everything and store it back into the input string.
+% \begin{variable}{\l_@@_forth_input_str}
+%   When running Forth, no distinction is made between the program and
+%   the input arguments to \cs{runner}, so those are combined into a
+%   single string.
 %    \begin{macrocode}
-\cs_new_protected_nopar:Npn \@@_forth_input_spaces:
+\str_new:N \l_@@_forth_input_str
+%    \end{macrocode}
+% \end{variable}
+%
+% \begin{macro}[int]{\@@_forth_str_put_char:Nn}
+%   Append to the string |#1| the character with character code~|#2|.
+%   This function is useful when converting from strings stored into
+%   cells to displayed strings.
+%    \begin{macrocode}
+\group_begin:
+  \char_set_catcode_other:n { 0 }
+  \cs_new_protected:Npn \@@_forth_str_put_char:Nn #1#2
+    {
+      \group_begin:
+        \char_set_lccode:nn { 0 } {#2}
+        \tex_lowercase:D
+          {
+            \group_end:
+            \tl_put_right:Nn #1 { ^^@ }
+          }
+    }
+\group_end:
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int, TF]{\@@_forth_input_line:}
+% \begin{macro}[aux]{\@@_forth_input_line_aux:w}
+%   This refills the input buffer, and returns \texttt{true} if
+%   successful and \texttt{false} otherwise.  Empty the input buffer.
+%   If the input string is empty, we are done.  Otherwise, split it at
+%   the first new line character (|^^J|).  If that first line is longer
+%   than the size \texttt{tmpa} of the input buffer (computed only once
+%   to make code more readable), then keep a part of length the size of
+%   the buffer in the buffer, and leave the rest in the input string.
+%   Otherwise, put the line (with its newline character) in the buffer,
+%   and leave the rest in the input string.
+%    \begin{macrocode}
+\prg_new_protected_conditional:Npnn \@@_forth_input_line: { TF }
   {
-    \exp_after:wN \use:nn
-    \exp_after:wN \@@_forth_input_spaces_aux:w
-    \l_@@_forth_input_str \q_stop
+    \int_set_eq:NN \l_@@_forth_input_parsed_int
+      \g_@@_forth_input_min_int
+    \int_set_eq:NN \l_@@_forth_input_end_int
+      \g_@@_forth_input_min_int
+    \tl_if_empty:NTF \l_@@_forth_input_str
+      { \prg_return_false: }
+      {
+        \exp_after:wN \@@_forth_input_line_aux:w
+          \l_@@_forth_input_str \q_stop
+        \prg_return_true:
+      }
   }
-\cs_new_protected_nopar:Npn \@@_forth_input_spaces_aux:w #1 \q_stop
-  { \tl_set:Nn \l_@@_forth_input_str {#1} }
+\cs_new_protected:Npn \@@_forth_input_line_aux:w #1 ^^J #2 \q_stop
+  {
+    \int_set:Nn \l_@@_tmpa_int
+      { \g_@@_forth_input_max_int - \g_@@_forth_input_min_int }
+    \int_compare:nNnTF
+      { \str_count:n { #1 ^^J } } > \l_@@_tmpa_int
+      {
+        \tl_set:Nx \l_@@_tmpb_tl
+          { \str_range:nnn {#1} { 1 } { \l_@@_tmpa_int } }
+        \tl_set:Nx \l_@@_forth_input_str
+          { \str_range:nnn {#1} { \l_@@_tmpa_int } { -1 } ^^J #2 }
+      }
+      {
+        \tl_set:Nx \l_@@_tmpb_tl { #1 ^^J }
+        \tl_set:Nx \l_@@_forth_input_str {#2}
+      }
+    \tl_replace_all:Nnn \l_@@_tmpb_tl { ~ } { {~} }
+    \tl_map_inline:Nn \l_@@_tmpb_tl
+      {
+        \@@_array_gset:Nnn \g_@@_forth_array
+          { \l_@@_forth_input_end_int } { `##1 }
+        \int_incr:N \l_@@_forth_input_end_int
+      }
+  }
+%    \end{macrocode}
+% \end{macro}
+% \end{macro}
+%
+% \begin{macro}[int, TF]{\@@_forth_input_char:N}
+% \begin{macro}[aux]{\@@_forth_input_char_aux:N}
+%   Store in the first argument (an integer) the character code of the
+%   next character in the input and return \texttt{true}.  If there is
+%   no next character in the input buffer, refill it.  If that is
+%   impossible, return \texttt{false}.
+%    \begin{macrocode}
+\prg_new_protected_conditional:Npnn \@@_forth_input_char:N #1 { TF }
+  {
+    \int_compare:nNnTF
+      \l_@@_forth_input_parsed_int < \l_@@_forth_input_end_int
+      { \@@_forth_input_char_aux:N #1 }
+      {
+        \@@_forth_input_line:TF
+          { \@@_forth_input_char_aux:N #1 }
+          { \prg_return_false: }
+      }
+  }
+\cs_new_protected:Npn \@@_forth_input_char_aux:N #1
+  {
+    \int_set:Nn #1
+      {
+        \@@_array_item:NN \g_@@_forth_array
+          \l_@@_forth_input_parsed_int
+      }
+    \prg_return_true:
+  }
+%    \end{macrocode}
+% \end{macro}
+% \end{macro}
+%
+% \begin{macro}[int]{\@@_forth_input_discard:n}
+% \begin{macro}[aux]{\@@_forth_input_discard_aux:Nn}
+%   If the argument is \(32\) (space charcode), we wish to discard
+%   control characters and spaces.  Otherwise, we wish to discard
+%   characters equal to the argument.  Repeatedly do the following: read
+%   a character \texttt{tmpc}; if it is a delimiter, go to the next
+%   character by incrementing \texttt{input_parsed}; otherwise stop
+%   looping; if there is no next character, simply stop the loop.  Note
+%   that incrementing \texttt{input_parsed} is only safe because we
+%   called \cs{@@_forth_input_char:NTF} before-hand.
+%    \begin{macrocode}
+\cs_new_protected:Npn \@@_forth_input_discard:n #1
+  {
+    \int_compare:nNnTF {#1} = { 32 }
+      { \@@_forth_input_discard_aux:Nn < { 33 } }
+      { \@@_forth_input_discard_aux:Nn = {#1} }
+  }
+\cs_new_protected:Npn \@@_forth_input_discard_aux:Nn #1#2
+  {
+    \bool_set_true:N \l_@@_tmpa_bool
+    \bool_while_do:Nn \l_@@_tmpa_bool
+      {
+        \@@_forth_input_char:NTF \l_@@_tmpc_int
+          {
+            \int_compare:nNnTF \l_@@_tmpc_int #1 {#2}
+              { \int_incr:N \l_@@_forth_input_parsed_int }
+              { \bool_set_false:N \l_@@_tmpa_bool }
+          }
+          { \bool_set_false:N \l_@@_tmpa_bool }
+      }
+  }
 %    \end{macrocode}
 % \end{macro}
 % \end{macro}
 %
 % \begin{macro}[int]{\@@_forth_input_until:nn, \@@_forth_input_until:nN}
-%   Assuming \cs{l_@@_forth_input_str} contains the trailing delimiter |#1|,
-%   we split it at the first |#1| using an auxiliary function defined on
-%   the fly.  This auxiliary stores the remainder back as the input
-%   string, and runs the second argument of
-%   \cs{@@_forth_input_until:nn}, which gets the text found as |##1|.
-%   If the input contained no occurrence of |#1|, we simply need to
-%   append it before-hand to get back to the case where the delimiter is
-%   present.
+% \begin{macro}[aux]{\@@_forth_input_until_aux:NnN}
+%   Go through the input buffer, looking either for the delimiter
+%   itself, or, if the delimiter is a space, looking for any character
+%   with character code at most \(32\) (\ie, space or control
+%   character).  As we go along, the \texttt{tmpb} token list is updated
+%   with the characters found, whose character code is obtained as
+%   \texttt{tmpc}.  If there is no input left, silently stop searching
+%   for the delimiter.
 %    \begin{macrocode}
 \cs_new_protected:Npn \@@_forth_input_until:nn #1#2
   {
-    \tl_if_in:NnF \l_@@_forth_input_str { #1 }
-      { \tl_put_right:Nn \l_@@_forth_input_str { #1 } }
-    \cs_set:Npn \@@_tmp:w ##1 #1 ##2 \q_stop
-      {
-        \str_set:Nn \l_@@_forth_input_str {##2}
-        #2
-      }
-    \exp_after:wN \@@_tmp:w \l_@@_forth_input_str \q_stop
+    \cs_set_protected:Npn \@@_tmp:w ##1 {#2}
+    \@@_forth_input_until:nN {#1} \@@_tmp:w
   }
-\cs_new_protected:Npn \@@_forth_input_until:nN #1#2
-  { \@@_forth_input_until:nn {#1} { #2 {##1} } }
+\cs_new_protected:Npn \@@_forth_input_until:nN #1
+  {
+    \int_compare:nNnTF {#1} = { 32 }
+      { \@@_forth_input_until_aux:NnN < { 33 } }
+      { \@@_forth_input_until_aux:NnN = {#1} }
+  }
+\cs_new_protected:Npn \@@_forth_input_until_aux:NnN #1#2#3
+  {
+    \tl_clear:N \l_@@_tmpb_tl
+    \bool_set_true:N \l_@@_tmpa_bool
+    \bool_while_do:Nn \l_@@_tmpa_bool
+      {
+        \@@_forth_input_char:NTF \l_@@_tmpc_int
+          {
+            \int_compare:nNnTF \l_@@_tmpc_int #1 {#2}
+              { \bool_set_false:N \l_@@_tmpa_bool }
+              {
+                \@@_forth_str_put_char:Nn \l_@@_tmpb_tl
+                  { \l_@@_tmpc_int }
+              }
+            \int_incr:N \l_@@_forth_input_parsed_int
+          }
+          { \bool_set_false:N \l_@@_tmpa_bool }
+      }
+    \exp_args:No #3 \l_@@_tmpb_tl
+  }
 %    \end{macrocode}
 % \end{macro}
-%
-% \begin{macro}[int]{\@@_forth_input_discard:N}
-%   This loop removes all occurrences of |#1| from the start of the
-%   input string.  If the first token in the input string has the same
-%   character code as |#1|, discard it and look for more.  Otherwise we
-%   are done.
-%    \begin{macrocode}
-\cs_new_protected:Npn \@@_forth_input_discard:N #1
-  {
-    \exp_args:No \tl_if_head_eq_charcode:nNT
-      \l_@@_forth_input_str #1
-      {
-        \str_set:Nx \l_@@_forth_input_str
-          { \str_tail:N \l_@@_forth_input_str }
-        \@@_forth_input_discard:N #1
-      }
-  }
-%    \end{macrocode}
 % \end{macro}
 %
 % \subsubsection{Numbers}
 %
+% ^^A todo: bug, negative numbers not accepted.
 % \begin{macro}[int, TF]{\@@_forth_get_number:nN}
 %    \begin{macrocode}
 \prg_new_protected_conditional:Npnn \@@_forth_get_number:nN #1#2 { TF }
@@ -926,15 +1078,6 @@
 % \end{macro}
 %
 % \subsubsection{Misc}
-%
-% \begin{variable}{\l_@@_forth_input_str}
-%   When running Forth, no distinction is made between the program and
-%   the input arguments to \cs{runner}, so those are combined into a
-%   single string.
-%    \begin{macrocode}
-\str_new:N \l_@@_forth_input_str
-%    \end{macrocode}
-% \end{variable}
 %
 % \begin{variable}{\l_@@_forth_stop_bool}
 %   This boolean is set to be true by the word |;| which ends
@@ -1022,8 +1165,8 @@
 \@@_forth_new_core:nn { CONSTANT }
   {
     \@@_forth_pop_int:N \l_@@_tmpa_int
-    \@@_forth_input_spaces:
-    \@@_forth_input_until:nn { ~ }
+    \@@_forth_input_discard:n { 32 }
+    \@@_forth_input_until:nn { 32 }
       {
         \@@_forth_new_word:nx {#1}
           { \@@_forth_push:n { \int_use:N \l_@@_tmpa_int } }
@@ -1036,8 +1179,8 @@
 %    \begin{macrocode}
 \@@_forth_new_core:nn { VARIABLE }
   {
-    \@@_forth_input_spaces:
-    \@@_forth_input_until:nn { ~ }
+    \@@_forth_input_discard:n { 32 }
+    \@@_forth_input_until:nn { 32 }
       {
         \int_compare:nNnTF
           \l_@@_forth_data_here_int < \l_@@_forth_data_text_int
@@ -1062,8 +1205,8 @@
 %    \begin{macrocode}
 \@@_forth_new_core:nn { : }
   {
-    \@@_forth_input_spaces:
-    \@@_forth_input_until:nN { ~ } \@@_forth_def:n
+    \@@_forth_input_discard:n { 32 }
+    \@@_forth_input_until:nN { 32 } \@@_forth_def:n
   }
 %    \end{macrocode}
 % \end{macro}
@@ -1086,8 +1229,8 @@
     \tl_clear:N \l_@@_forth_def_tl
     \bool_until_do:Nn \l_@@_forth_stop_bool
       {
-        \@@_forth_input_spaces:
-        \@@_forth_input_until:nN { ~ } \@@_forth_compile:n
+        \@@_forth_input_discard:n { 32 }
+        \@@_forth_input_until:nN { 32 } \@@_forth_compile:n
       }
     \bool_set_false:N \l_@@_forth_stop_bool
     \int_compare:nNnF \l_@@_forth_def_nesting_int = \c_zero
@@ -1191,8 +1334,8 @@
 %    \begin{macrocode}
 \@@_forth_new_compilation_core:nn { POSTPONE }
   {
-    \@@_forth_input_spaces:
-    \@@_forth_input_until:nn { ~ }
+    \@@_forth_input_discard:n { 32 }
+    \@@_forth_input_until:nn { 32 }
       {
         \prop_get:NnN \l_@@_forth_words_prop {#1} \l_@@_tmpa_tl
         \@@_forth_def_put_right:x
@@ -1248,8 +1391,8 @@
 %    \begin{macrocode}
 \@@_forth_new_core:nn { ' }
   {
-    \@@_forth_input_spaces:
-    \@@_forth_input_until:nn { ~ }
+    \@@_forth_input_discard:n { 32 }
+    \@@_forth_input_until:nn { 32 }
       {
         \prop_get:NnN \l_@@_forth_words_prop {#1} \l_@@_tmpa_tl
         \@@_forth_push:n
@@ -1267,8 +1410,8 @@
 %    \begin{macrocode}
 \@@_forth_new_compilation_core:nn { ['] }
   {
-    \@@_forth_input_spaces:
-    \@@_forth_input_until:nn { ~ }
+    \@@_forth_input_discard:n { 32 }
+    \@@_forth_input_until:nn { 32 }
       {
         \prop_get:NnN \l_@@_forth_words_prop {#1} \l_@@_tmpa_tl
         \@@_forth_def_put_right:x
@@ -1909,7 +2052,6 @@
 %
 % \subsubsection{Words for display, input, and strings}
 %
-% ^^A todo: this fails for unsigned double-cell integers: too large!
 % \begin{macro}[int]{.}
 %   Get a value from the data stack, convert it to the base, which can
 %   be altered through the Forth keyword |BASE|.  Trailing space.
@@ -1930,7 +2072,7 @@
 %    \begin{macrocode}
 \@@_forth_new_compilation_core:nn { ." }
   {
-    \@@_forth_input_until:nn "
+    \@@_forth_input_until:nn { `" }
       { \@@_forth_def_put_right:n { \@@_output:n {#1} } }
   }
 %    \end{macrocode}
@@ -1955,8 +2097,8 @@
 %    \begin{macrocode}
 \@@_forth_new_core:nn { CHAR }
   {
-    \@@_forth_input_spaces:
-    \@@_forth_input_until:nn { ~ }
+    \@@_forth_input_discard:n { 32 }
+    \@@_forth_input_until:nn { 32 }
       {
         \tl_set:Nx \l_@@_tmpa_tl { \str_head:n {#1} }
         \@@_forth_push:n { \exp_after:wN ` \l_@@_tmpa_tl }
@@ -1971,8 +2113,8 @@
 %    \begin{macrocode}
 \@@_forth_new_compilation_core:nn { [CHAR] }
   {
-    \@@_forth_input_spaces:
-    \@@_forth_input_until:nn { ~ }
+    \@@_forth_input_discard:n { 32 }
+    \@@_forth_input_until:nn { 32 }
       {
         \tl_set:Nx \l_@@_tmpa_tl { \str_head:n {#1} }
         \@@_forth_def_put_right:x
@@ -2036,7 +2178,7 @@
 %    \begin{macrocode}
 \@@_forth_new_compilation_core:nn { S" }
   {
-    \@@_forth_input_until:nn "
+    \@@_forth_input_until:nn { `" }
       { \tl_set:Nn \l_@@_tmpa_tl {#1} }
     \int_set:Nn \l_@@_tmpa_int { \str_count:N \l_@@_tmpa_tl }
     \int_sub:Nn \l_@@_forth_data_text_int { \l_@@_tmpa_int }
@@ -2116,40 +2258,30 @@
 %   \texttt{data_here} address.  The final increment takes care of
 %   placing \texttt{data_word} just after the end of the word.
 %    \begin{macrocode}
-\group_begin:
-  \char_set_catcode_other:n { 0 }
-  \@@_forth_new_core:nn { WORD }
-    {
-      \@@_forth_pop_int:N \l_@@_tmpa_int
-      \@@_forth_push:n { \l_@@_forth_data_here_int }
-      \group_begin:
-      \char_set_lccode:nn { 0 } { \l_@@_tmpa_int }
-      \tex_lowercase:D
-        {
-          \group_end:
-          \tl_set:Nn \l_@@_tmpa_tl { ^^@ }
-        }
-      \exp_args:No \@@_forth_input_discard:N \l_@@_tmpa_tl
-      \exp_args:No \@@_forth_input_until:nn \l_@@_tmpa_tl
-        { \tl_set:Nn \l_@@_tmpb_tl {#1} }
-      \int_set_eq:NN \l_@@_forth_data_word_int
-        \l_@@_forth_data_here_int
-      \tl_replace_all:Nnn \l_@@_tmpb_tl { ~ } { \  }
-      \tl_map_inline:Nn \l_@@_tmpb_tl
-        {
-          \int_incr:N \l_@@_forth_data_word_int
-          \@@_forth_data_gset:nn
-            { \l_@@_forth_data_word_int } { `#1 }
-        }
-      \@@_forth_data_gset:nn
-        { \l_@@_forth_data_here_int }
-        { \l_@@_forth_data_word_int - \l_@@_forth_data_here_int }
-      \int_incr:N \l_@@_forth_data_word_int
-      \int_compare:nNnT
-        \l_@@_forth_data_word_int > \l_@@_forth_data_text_int
-        { \msg_error:nn { runner/forth } { out-of-memory } }
-    }
-\group_end:
+\@@_forth_new_core:nn { WORD }
+  {
+    \@@_forth_pop_int:N \l_@@_tmpa_int
+    \@@_forth_push:n { \l_@@_forth_data_here_int }
+    \@@_forth_input_discard:n { \l_@@_tmpa_int }
+    \@@_forth_input_until:nn { \l_@@_tmpa_int }
+      { \tl_set:Nn \l_@@_tmpb_tl {#1} }
+    \int_set_eq:NN \l_@@_forth_data_word_int
+      \l_@@_forth_data_here_int
+    \tl_replace_all:Nnn \l_@@_tmpb_tl { ~ } { \  }
+    \tl_map_inline:Nn \l_@@_tmpb_tl
+      {
+        \int_incr:N \l_@@_forth_data_word_int
+        \@@_forth_data_gset:nn
+          { \l_@@_forth_data_word_int } { `#1 }
+      }
+    \@@_forth_data_gset:nn
+      { \l_@@_forth_data_here_int }
+      { \l_@@_forth_data_word_int - \l_@@_forth_data_here_int }
+    \int_incr:N \l_@@_forth_data_word_int
+    \int_compare:nNnT
+      \l_@@_forth_data_word_int > \l_@@_forth_data_text_int
+      { \msg_error:nn { runner/forth } { out-of-memory } }
+  }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -2428,7 +2560,7 @@
 %   an immediate word.
 %    \begin{macrocode}
 \@@_forth_new_immediate_core:nn (
-  { \@@_forth_input_until:nN ) \use_none:n }
+  { \@@_forth_input_until:nN { `) } \use_none:n }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -2446,20 +2578,19 @@
     \bool_set_false:N \l_@@_forth_stop_bool
     \bool_until_do:Nn \l_@@_forth_stop_bool
       {
-        \@@_forth_input_spaces:
-        \@@_forth_input_until:nN { ~ } \@@_forth_interpret:n
+        \@@_forth_input_discard:n { 32 }
+        \@@_forth_input_until:nN { 32 } \@@_forth_interpret:n
       }
   }
 %    \end{macrocode}
 % \end{macro}
 %
-% ^^A todo: use proper alloc routine for the base.
+% ^^A todo: normalize newlines?
 % \begin{macro}[int]{\@@_forth_init:}
-% \begin{macro}[aux, EXP]{\@@_forth_cleanup:n}
-%   Before starting the interpreter loop, we concatenate the program
-%   string and the input string, with a space in between, then replace
-%   all non-graphical characters by spaces (some care is needed to avoid
-%   losing spaces), then set some of the initial values.
+%   Initialize the data space.  Initialize the code space.  Initialize
+%   the name space.  Store a |BASE| of \(10\).  Concatenate the program
+%   string and the input string, with a newline in between and at the
+%   end.
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \@@_forth_init:
   {
@@ -2474,19 +2605,10 @@
     \int_set_eq:NN \l_@@_forth_base_address_int
       \l_@@_forth_data_here_int
     \@@_forth_put_here:n { 10 }
-    \tl_set:Nx \l_@@_tmpa_tl
-      { \l_@@_program_str \c_space_tl \l_@@_input_str }
-    \tl_replace_all:Nnn \l_@@_tmpa_tl { ~ } { { ~ } }
-    \str_set:Nx \l_@@_forth_input_str
-      {
-        \tl_map_function:NN \l_@@_tmpa_tl
-          \@@_forth_cleanup:n
-      }
+    \tl_set:Nx \l_@@_forth_input_str
+      { \l_@@_program_str ^^J \l_@@_input_str ^^J }
   }
-\cs_new:Npn \@@_forth_cleanup:n #1
-  { \int_compare:nTF { 31 < `#1 < 128 } {#1} { ~ } }
 %    \end{macrocode}
-% \end{macro}
 % \end{macro}
 %
 % \begin{macro}[int]{\@@_forth_interpret:n}
@@ -2511,6 +2633,7 @@
 %
 % \subsection{Messages}
 %
+% ^^A add details of the input buffer.
 % \begin{macro}[int, EXP]{\@@_forth_footprint:}
 %    \begin{macrocode}
 \cs_new_nopar:Npn \@@_forth_footprint:
