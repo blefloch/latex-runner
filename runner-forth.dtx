@@ -184,46 +184,82 @@
 % Am I allowed to always consider the data-space pointer to be aligned,
 % separating cells by \(1\) address unit?
 %
-% Stacks.
-% \begin{itemize}
-% \item Data stack only available if control stack is empty.
-% \item Control-flow stack contains only ``-sys'' types.
-% \item Return stack for definitions, do-loops, nesting info.  Also used
-%   by programs.
-% \end{itemize}
-%
-% Dictionary.
-% \begin{itemize}
-% \item name space,
-% \item code space,
-% \item data space accessible to programs
-%   \begin{itemize}
-%   \item contiguous regions,
-%   \item variables,
-%   \item text-literal regions,
-%   \item input buffers,
-%   \item other transient regions,
-%   \end{itemize}
-% \end{itemize}
-%
 % Two useful variants.
 %    \begin{macrocode}
 \cs_generate_variant:Nn \prop_gput:Nnn { Nx }
 \cs_generate_variant:Nn \prop_get:NnNTF { Nx }
 %    \end{macrocode}
 %
-% \begin{variable}{\c_@@_forth_mod_int}
-%   Cells can take up to \(2^{24}\) values.
-%    \begin{macrocode}
-\int_const:Nn \c_@@_forth_mod_int { 16777216 }
-%    \end{macrocode}
-% \end{variable}
+% \subsection{Data structures}
 %
-% \subsection{Memory, dictionary and stacks}
+% The data necessary to run Forth consists of
+% \begin{itemize}
+% \item the data stack, manipulated by the program, contains cells,
+% \item the control-flow stack, which contains ``-sys'' types, and can
+%   be implemented using the data stack,
+% \item the return stack, which can be used by the program, but is
+%   mostly used by the system, for definitions, do-loops, nesting info,
+% \end{itemize}
+% as well as
+% \begin{itemize}
+% \item the name space (mapping words to execution tokens),
+% \item the code space (code for the execution tokens),
+% \item the data space accessible to programs, which consists in
+%   \begin{itemize}
+%   \item contiguous regions,
+%   \item variables,
+%   \item text-literal regions,
+%   \item input buffers,
+%   \item and other transient regions.
+%   \end{itemize}
+% \end{itemize}
 %
-% The data space is stored in \TeX{}'s \tn{fontdimen} array.  In each
-% slot of this array, we store a \(24\) bit unsigned integer, \ie, a
-% number in the range \([0, 2^{24}-1]\) (note that we could go up
+% The name space is implemented as a property list, mapping words to a
+% flag in \(\{1,2,3\}\) and an execution token (integer in
+% \([0,65535]\)) associated to this word.
+%
+% The code space is implemented using \tn{toks} registers: execution
+% tokens are register numbers.
+%
+% Everything else is stored as one global array, \cs{g_@@_forth_array},
+% of \(24\)-bit unsigned integers.  See \texttt{runner.dtx} for the
+% array implementation.
+%
+% \subsubsection{Defining data space and stacks}
+%
+% The array \cs{g_@@_forth_array} is split into several regions, in the
+% following order (from low-numbered to high-numbered items).  For
+% conciseness we refer in this list to integer variables by shorthands;
+% \texttt{min} and \texttt{max} variables are global and can only change
+% between Forth runs; other integers are local and change during runs.
+% \begin{itemize}
+% \item The input buffer is from \texttt{input_min} (included) to
+%   \texttt{input_max} (excluded).
+% \item The pad is from \texttt{pad_min} (included) to \texttt{pad_max}
+%   (excluded).
+% \item The data space lies from \texttt{data_min} (included) to
+%   \texttt{data_max} (excluded), and is split further.
+%   \begin{itemize}
+%   \item Contiguous regions of the data space, intermixed with
+%     variables, lie between \texttt{data_min} (included) and
+%     \texttt{data_here} (excluded).
+%   \item The transient regions provided by |WORD| or |#>| start at
+%     \texttt{data_here} (included) and end at \texttt{data_word}
+%     (excluded).
+%   \item Text literals are allocated at the end of the data space, and
+%     lie between \texttt{data_text} (included) and \texttt{data_max}
+%     (excluded).
+%   \end{itemize}
+% \item The stack, combining the data and control-flow stacks, lies from
+%   \texttt{stack_min} to \texttt{stack_max}, and the position where a
+%   new value would be pushed is at \texttt{stack_here}.
+% \item The return stack lies from \texttt{return_min} to
+%   \texttt{return_max}, and the position where a new value would be
+%   pushed is at \texttt{return_here}.
+% \end{itemize}
+%
+% In each slot of the array, we store a \(24\) bit unsigned integer,
+% \ie, a number in the range \([0, 2^{24}-1]\) (note that we could go up
 % to \(26\) bits with no adverse effect).  Address units are \(24\) bits
 % wide.  Characters are one address unit wide (note that all Unicode
 % code points are less than \(2^{23}\)).  Cells are one character wide.
@@ -234,98 +270,203 @@
 % encoding for Unicode (this is still needed in \pdfTeX{}, but only at
 % the very last step of output).
 %
-% The end of the \tn{fontdimen} array is also used to store the data
-% stack, with the bottom of the stack at the end of the array.  The
-% control flow parameters are also put on top of the data stack.
-%
-% Execution tokens are cells restricted to the range \([0, 2^{16}-1]\)
-% or \([0, 2^{15}-1]\) (depending on the engine's capabilities), which
-% point to a \tn{toks} register containing the \TeX{} code to perform
-% the execution semantics.
-%
-% The return stack also uses \tn{toks} registers, with the bottom of the
-% stack at the highest register.
-%
-% To each word is associated a digit in \(\{1, 2, 3\}\) and an execution
-% token, with the following behaviour,
-% \begin{itemize}
-% \item \(1\) indicates normal words, whose interpretation semantics are
-%   given by the execution token, and whose compilation semantics is to
-%   append the execution token to the current definition;
-% \item \(2\) indicates immediate words, whose interpretation and
-%   compilation semantics are identical, and given by the execution
-%   token;
-% \item \(3\) indicates special words such as |ABORT"|, which may have
-%   arbitrary interpretation and compilation semantics: the execution
-%   token gives the intepretation semantics, and the compilation
-%   semantics follows in the next \tn{toks} register.
-% \end{itemize}
-%
-% \subsubsection{Data space and data stack}
-%
-% ^^A todo: make the array size dynamical
-% \begin{variable}{\g_@@_forth_data_array}
-% \begin{variable}
-%   {
-%     \g_@@_forth_data_size_int,
-%     \l_@@_forth_data_here_int,
-%     \l_@@_forth_data_top_int
-%   }
-%   The data array contains both the data space and the data stack.  The
-%   three integers give the size of the array, the first free address,
-%   and the top of the data stack: \(\text{\texttt{data_here}} \leq
-%   \text{\texttt{data_top}}\) must always hold.
+% \begin{variable}{\g_@@_forth_input_min_int, \g_@@_forth_input_max_int}
+%   The input buffer ranges from \cs{g_@@_forth_input_min_int}
+%   (included) to \cs{g_@@_forth_input_max_int} (excluded).
 %    \begin{macrocode}
-\int_new:N \g_@@_forth_data_size_int
-\int_gset:Nn \g_@@_forth_data_size_int { 65536 }
-\int_new:N \l_@@_forth_data_here_int
-\int_new:N \l_@@_forth_data_top_int
-\@@_array_new:Nn \g_@@_forth_data_array
-  \g_@@_forth_data_size_int
+\int_new:N \g_@@_forth_input_min_int
+\int_new:N \g_@@_forth_input_max_int
 %    \end{macrocode}
 % \end{variable}
+%
+% \begin{variable}{\g_@@_forth_pad_min_int, \g_@@_forth_pad_max_int}
+%   The pad returned by |PAD| is fixed and ranges from
+%   \cs{g_@@_forth_pad_min_int} (included) to
+%   \cs{g_@@_forth_pad_max_int} (excluded).
+%    \begin{macrocode}
+\int_new:N \g_@@_forth_pad_min_int
+\int_new:N \g_@@_forth_pad_max_int
+%    \end{macrocode}
 % \end{variable}
+%
+% \begin{variable}
+%   {
+%     \g_@@_forth_data_min_int,
+%     \l_@@_forth_data_here_int,
+%     \l_@@_forth_data_word_int,
+%     \l_@@_forth_data_text_int,
+%     \g_@@_forth_data_max_int,
+%   }
+%   Allotted data, and variables, range from
+%   \cs{g_@@_forth_data_min_int} (included) to
+%   \cs{l_@@_forth_data_here_int} (excluded).  The latter integer is
+%   what |HERE| returns.  Transient regions created by |WORD| or |#>|
+%   lie between this address (included) and
+%   \cs{l_@@_forth_data_word_int} (excluded).  Finally, text strings are
+%   stored from \cs{l_@@_forth_data_text_int} (included) to
+%   \cs{g_@@_forth_data_max_int} (excluded).
+%    \begin{macrocode}
+\int_new:N \g_@@_forth_data_min_int
+\int_new:N \l_@@_forth_data_here_int
+\int_new:N \l_@@_forth_data_word_int
+\int_new:N \l_@@_forth_data_text_int
+\int_new:N \g_@@_forth_data_max_int
+%    \end{macrocode}
+% \end{variable}
+%
+% \begin{variable}
+%   {
+%     \g_@@_forth_stack_min_int,
+%     \l_@@_forth_stack_here_int,
+%     \g_@@_forth_stack_max_int
+%   }
+%   The combination of the data stack and the control flow stack lies in
+%   this range, with the bottom item at \cs{g_@@_forth_stack_min_int}
+%   and the top item just below \cs{l_@@_forth_stack_here_int}.
+%    \begin{macrocode}
+\int_new:N \g_@@_forth_stack_min_int
+\int_new:N \l_@@_forth_stack_here_int
+\int_new:N \g_@@_forth_stack_max_int
+%    \end{macrocode}
+% \end{variable}
+%
+% \begin{variable}
+%   {
+%     \g_@@_forth_return_min_int,
+%     \l_@@_forth_return_here_int,
+%     \g_@@_forth_return_max_int
+%   }
+%   The return stack lies there, with the bottom item at
+%   \cs{g_@@_forth_return_min_int} and the top of the stack just below
+%   \cs{l_@@_forth_return_here_int}.
+%    \begin{macrocode}
+\int_new:N \g_@@_forth_return_min_int
+\int_new:N \l_@@_forth_return_here_int
+\int_new:N \g_@@_forth_return_max_int
+%    \end{macrocode}
+% \end{variable}
+%
+% \begin{macro}[int]{\@@_forth_init_data:}
+%   When starting a Forth run, one must reset the pointers that vary, to
+%   the appropriate boundary of their region.
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \@@_forth_init_data:
+  {
+    \int_set_eq:NN \l_@@_forth_data_here_int
+      \g_@@_forth_data_min_int
+    \int_set_eq:NN \l_@@_forth_data_word_int
+      \g_@@_forth_data_min_int
+    \int_set_eq:NN \l_@@_forth_data_text_int
+      \g_@@_forth_data_max_int
+    \int_set_eq:NN \l_@@_forth_stack_here_int
+      \g_@@_forth_stack_min_int
+    \int_set_eq:NN \l_@@_forth_return_here_int
+      \g_@@_forth_return_min_int
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% ^^A todo: make the array size dynamical
+%
+% \begin{variable}{\g_@@_forth_array}
+%   This array contains most of the data needed by Forth.  We also give
+%   here initial values for the array parameters, all at once to avoid
+%   mistakes.
+%    \begin{macrocode}
+\int_gset:Nn \g_@@_forth_input_min_int { 0 }
+\int_gset:Nn \g_@@_forth_input_max_int { 128 }
+\int_gset:Nn \g_@@_forth_pad_min_int { 128 }
+\int_gset:Nn \g_@@_forth_pad_max_int { 256 }
+\int_gset:Nn \g_@@_forth_data_min_int { 256 }
+\int_gset:Nn \g_@@_forth_data_max_int { 65280 }
+\int_gset:Nn \g_@@_forth_stack_min_int { 65280 }
+\int_gset:Nn \g_@@_forth_stack_max_int { 65408 }
+\int_gset:Nn \g_@@_forth_return_min_int { 65408 }
+\int_gset:Nn \g_@@_forth_return_max_int { 65536 }
+\@@_array_new:Nn \g_@@_forth_array { 65536 }
+%    \end{macrocode}
+% \end{variable}
+%
+% \begin{variable}{\c_@@_forth_mod_int}
+%   Cells can take up to \(2^{24}\) values.  Arithmetic is often
+%   performed modulo that number.
+%    \begin{macrocode}
+\int_const:Nn \c_@@_forth_mod_int { 16777216 }
+%    \end{macrocode}
+% \end{variable}
+%
+% \subsubsection{Manipulating data space}
+%
+% \begin{macro}[int, EXP]{\@@_forth_data_get:N, \@@_forth_data_get:n}
+%   Retrieving unsigned integers from data space.
+%    \begin{macrocode}
+\cs_new_nopar:Npn \@@_forth_data_get:N
+  { \@@_array_item:NN \g_@@_forth_array }
+\cs_new_nopar:Npn \@@_forth_data_get:n
+  { \@@_array_item:Nn \g_@@_forth_array }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int]{\@@_forth_data_gset:nn}
+%   Storing unsigned integers into data space.
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \@@_forth_data_gset:nn
+  { \@@_array_gset:Nnn \g_@@_forth_array }
+%    \end{macrocode}
+% \end{macro}
 %
 % \begin{macro}[int]{\@@_forth_put_here:n}
 %   Put a value at the position given by the \texttt{data_here} integer,
-%   then increment that integer.
+%   then increment that integer.  Check before-hand that we do not reach
+%   the region occupied by text literals.
 %    \begin{macrocode}
 \cs_new_protected:Npn \@@_forth_put_here:n #1
   {
-    \@@_array_gset:Nnn \g_@@_forth_data_array
-      { \l_@@_forth_data_here_int } {#1}
-    \int_incr:N \l_@@_forth_data_here_int
+    \int_compare:nNnTF
+      \l_@@_forth_data_here_int < \l_@@_forth_data_text_int
+      {
+        \@@_forth_data_gset:nn { \l_@@_forth_data_here_int } {#1}
+        \int_incr:N \l_@@_forth_data_here_int
+      }
+      { \msg_error:nn { runner/forth } { out-of-memory } }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \subsubsection{Manipulating stacks}
+%
+% \begin{macro}[int]{\@@_forth_pop_int:N}
+%   Get data from the stack.  The stack is empty if \texttt{stack_here}
+%   is \texttt{stack_min}.
+%    \begin{macrocode}
+\cs_new_protected:Npn \@@_forth_pop_int:N #1
+  {
+    \int_compare:nNnTF
+      \l_@@_forth_stack_here_int > \g_@@_forth_stack_min_int
+      {
+        \int_decr:N \l_@@_forth_stack_here_int
+        \int_set:Nn #1
+          {
+            \@@_array_item:NN \g_@@_forth_array
+              \l_@@_forth_stack_here_int
+          }
+      }
+      { \msg_error:nn { runner/forth } { empty-stack } }
   }
 %    \end{macrocode}
 % \end{macro}
 %
 % ^^A todo: Improve bound-checking.
 % ^^A todo: Are the multi-pop useful?  Yes, if single bound checking.
-% ^^A todo: Do we have to zero the memory we release?
 % \begin{macro}[int]
 %   {
-%     \@@_forth_pop_int:N,
 %     \@@_forth_pop_int:NN,
 %     \@@_forth_pop_int:NNN,
 %     \@@_forth_pop_int:NNNN
 %   }
-%   Get data from the data stack.  Note that things are popped
+%   Get multiple integers from stack.  Note that things are popped
 %   backwards, so that the last argument gets the top of the stack.
 %    \begin{macrocode}
-\cs_new_protected:Npn \@@_forth_pop_int:N #1
-  {
-    \int_compare:nNnTF
-      \l_@@_forth_data_top_int < \g_@@_forth_data_size_int
-      {
-        \int_set:Nn #1
-          {
-            \@@_array_item:NN \g_@@_forth_data_array
-              \l_@@_forth_data_top_int
-          }
-        \int_incr:N \l_@@_forth_data_top_int
-      }
-      { \msg_error:nn { runner/forth } { empty-stack } }
-  }
 \cs_new_protected:Npn \@@_forth_pop_int:NN #1#2
   {
     \@@_forth_pop_int:N #2
@@ -347,30 +488,34 @@
 %    \end{macrocode}
 % \end{macro}
 %
+% \begin{macro}[int]{\@@_forth_push:n}
+%   Push an unsigned integer onto the stack, at \texttt{stack_here},
+%   failing if the stack is full.
+%    \begin{macrocode}
+\cs_new_protected:Npn \@@_forth_push:n #1
+  {
+    \int_compare:nNnTF
+      \l_@@_forth_stack_here_int < \g_@@_forth_stack_max_int
+      {
+        \@@_array_gset:Nnn \g_@@_forth_array
+          \l_@@_forth_stack_here_int {#1}
+        \int_incr:N \l_@@_forth_stack_here_int
+      }
+      { \msg_error:nn { runner/forth } { out-of-memory } }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
 % \begin{macro}[int]
 %   {
-%     \@@_forth_push:n,
 %     \@@_forth_push:nn,
 %     \@@_forth_push:nnn,
 %     \@@_forth_push:nnnn,
 %     \@@_forth_push:nnnnn,
 %     \@@_forth_push:nnnnnn,
 %   }
-%   Push data on the top of the data stack, making sure that we do not
-%   step onto the data space.
+%   Push multiple unsigned integers.
 %    \begin{macrocode}
-\cs_new_protected:Npn \@@_forth_push:n #1
-  {
-    \int_compare:nNnTF
-      \l_@@_forth_data_top_int > \l_@@_forth_data_here_int
-      {
-        \int_decr:N \l_@@_forth_data_top_int
-        \@@_array_gset:Nnn \g_@@_forth_data_array
-          \l_@@_forth_data_top_int
-          {#1}
-      }
-      { \msg_error:nn { runner/forth } { out-of-memory } }
-  }
 \cs_new_protected:Npn \@@_forth_push:nn #1#2
   {
     \@@_forth_push:n {#1}
@@ -424,39 +569,79 @@
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{variable}{\l_@@_forth_base_address_int}
-% \begin{macro}[int, EXP]{\@@_forth_base:}
-%   The address at which the base of the number system is stored, and a
-%   function to retreive the base.
+% \begin{macro}[int]{\@@_forth_signed:N}
+%   Turn the unsigned |#1| into a signed number, by subtracting
+%   \(2^{24}\) if it is not less than \(2^{23}\).
 %    \begin{macrocode}
-\int_new:N \l_@@_forth_base_address_int
-\cs_new:Npn \@@_forth_base:
+\cs_new_protected:Npn \@@_forth_signed:N #1
   {
-    \int_min:nn { 36 }
+    \int_compare:nNnF #1 < { \c_@@_forth_mod_int / \c_two }
+      { \int_sub:Nn #1 \c_@@_forth_mod_int }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int]{\@@_forth_push_signed:n}
+% \begin{macro}[aux]{\@@_forth_push_signed_aux:n}
+%   Given a signed integer in the range \([-2^{24}, 2^{24}-1]\) (note
+%   the extra large range), push the corresponding unsigned
+%   representation onto the stack.  This simply requires adding
+%   \(2^{24}\) to negative numbers.
+%    \begin{macrocode}
+\cs_new_protected:Npn \@@_forth_push_signed:n #1
+  {
+    \exp_args:Nf \@@_forth_push_signed_aux:n
+      { \int_eval:n {#1} }
+  }
+\cs_new_protected:Npn \@@_forth_push_signed_aux:n #1
+  {
+    \@@_forth_push:n
       {
-        \int_max:nn { 2 }
-          {
-            \@@_array_item:NN \g_@@_forth_data_array
-              \l_@@_forth_base_address_int
-          }
+        \int_compare:nNnTF {#1} < \c_zero
+          { #1 + \c_@@_forth_mod_int } {#1}
       }
   }
 %    \end{macrocode}
 % \end{macro}
-% \end{variable}
+% \end{macro}
 %
-% \subsubsection{Other stacks}
-%
-% ^^A todo: implement them as claimed.
-% \begin{variable}{\l_@@_forth_flow_seq, \l_@@_forth_return_seq}
-%   The remaining stacks.
+% \begin{macro}[int]{\@@_forth_push_mod:n}
+%   Given a non-negative integer, push onto the stack its residue modulo
+%   \(2^{24}\).
 %    \begin{macrocode}
-\seq_new:N \l_@@_forth_flow_seq
-\seq_new:N \l_@@_forth_return_seq
+\cs_new_protected:Npn \@@_forth_push_mod:n #1
+  {
+    \@@_forth_push:n
+      { \int_mod:nn {#1} { \c_@@_forth_mod_int } }
+  }
 %    \end{macrocode}
-% \end{variable}
+% \end{macro}
 %
-% \subsubsection{Dictionary}
+% \subsubsection{Name space and code space variables}
+%
+% The \TeX{} code to execute Forth words is stored within \tn{toks}
+% registers, labelled by so-called ``execution tokens''.  An execution
+% token is a cell restricted to the range \([0, 2^{16}-1]\) or \([0,
+% 2^{15}-1]\) (depending on the engine's capabilities), and its
+% execution semantics are simply to run the \TeX{} code in that
+% \tn{toks} register.
+%
+% The mapping from words to their definitions is done by giving an
+% execution token pointing to the \tn{toks} with the appropriate \TeX{}
+% code.  In fact, one needs a little bit more: to each word is
+% associated a digit in \(\{1, 2, 3\}\) and an execution token.
+% \begin{itemize}
+% \item \(1\) indicates normal words, whose interpretation semantics are
+%   given by the execution token, and whose compilation semantics is to
+%   append the execution token to the current definition;
+% \item \(2\) indicates immediate words, whose interpretation and
+%   compilation semantics are identical, and given by the execution
+%   token;
+% \item \(3\) indicates special words such as |ABORT"|, which may have
+%   arbitrary interpretation and compilation semantics: the execution
+%   token gives the intepretation semantics, and the compilation
+%   semantics follows in the next \tn{toks} register.
+% \end{itemize}
 %
 % \begin{variable}{\l_@@_forth_words_prop, \g_@@_forth_core_words_prop}
 %   Keys of the \texttt{words} property list are words known to Forth at
@@ -469,12 +654,9 @@
 %   range \([0, 2^{15}-1]\) for \pdfTeX{} and \XeTeX{}, and in the range
 %   \([0, 2^{16}-1]\) for \LuaTeX{}.  The code to be run upon execution
 %   is always found in the \tn{toks} register given by this five-digit
-%   integer.  The interpretation semantics is identical to the execution
-%   semantics unless \(d = 3\), in which case the execution token
-%   \(\mathrm{xt} + 1\) is used.  The compilation semantics is to append
-%   \(\mathrm{xt}\) to the current definition if \(d = 1\), to perform
-%   \(\mathrm{xt}\) if \(d = 2\), and to perform \(\mathrm{xt} + 2\) if
-%   \(d = 3\).
+%   integer.  The compilation semantics is to append \(\mathrm{xt}\) to
+%   the current definition if \(d = 1\), to perform \(\mathrm{xt}\) if
+%   \(d = 2\), and to perform \(\mathrm{xt} + 1\) if \(d = 3\).
 %    \begin{macrocode}
 \prop_new:N \l_@@_forth_words_prop
 \prop_new:N \g_@@_forth_core_words_prop
@@ -490,13 +672,15 @@
 %    \end{macrocode}
 % \end{variable}
 %
-% \begin{variable}{\g_@@_forth_init_tl}
+% \begin{variable}{\g_@@_forth_init_toks_tl}
 %   Token list containing part of the initialization code, currently
 %   many assignments to \tn{toks} registers.
 %    \begin{macrocode}
-\tl_new:N \g_@@_forth_init_tl
+\tl_new:N \g_@@_forth_init_toks_tl
 %    \end{macrocode}
 % \end{variable}
+%
+% \subsubsection{Adding to the name space}
 %
 % \begin{macro}[int]
 %   {
@@ -508,7 +692,7 @@
 %    \begin{macrocode}
 \cs_new_protected:Npn \@@_forth_new_core:nn #1#2
   {
-    \tl_gput_right:Nx \g_@@_forth_init_tl
+    \tl_gput_right:Nx \g_@@_forth_init_toks_tl
       {
         \tex_toks:D \int_use:N \g_@@_forth_core_toks_int
           { \exp_not:n {#2} }
@@ -519,7 +703,7 @@
   }
 \cs_new_protected:Npn \@@_forth_new_immediate_core:nn #1#2
   {
-    \tl_gput_right:Nx \g_@@_forth_init_tl
+    \tl_gput_right:Nx \g_@@_forth_init_toks_tl
       {
         \tex_toks:D \int_use:N \g_@@_forth_core_toks_int
           { \exp_not:n {#2} }
@@ -530,7 +714,7 @@
   }
 \cs_new_protected:Npn \@@_forth_new_special_core:nnn #1#2#3
   {
-    \tl_gput_right:Nx \g_@@_forth_init_tl
+    \tl_gput_right:Nx \g_@@_forth_init_toks_tl
       {
         \tex_toks:D \int_use:N \g_@@_forth_core_toks_int
           { \exp_not:n {#2} }
@@ -641,60 +825,6 @@
 %
 % \subsubsection{Numbers}
 %
-% \begin{variable}{\l_@@_forth_push_int, \l_@@_forth_push_fp}
-%   When turning a signed number to an unsigned value for pushing onto
-%   the stack, one cannot use \cs{l_@@_tmpa_int}, as it may be used by
-%   the caller.  Similarly for outputting floating points modulo some
-%   number.
-%    \begin{macrocode}
-\int_new:N \l_@@_forth_push_int
-\fp_new:N \l_@@_forth_push_fp
-%    \end{macrocode}
-% \end{variable}
-%
-% \begin{macro}[int]{\@@_forth_signed:N}
-%   Turn the unsigned |#1| into a signed number, by subtracting
-%   \(2^{24}\) if it is not less than \(2^{23}\).
-%    \begin{macrocode}
-\cs_new_protected:Npn \@@_forth_signed:N #1
-  {
-    \int_compare:nNnF #1 < { \c_@@_forth_mod_int / \c_two }
-      { \int_sub:Nn #1 \c_@@_forth_mod_int }
-  }
-%    \end{macrocode}
-% \end{macro}
-%
-% \begin{macro}[int]{\@@_forth_push_signed:n}
-%   Given a signed integer in the range \([-2^{24}, 2^{24}-1]\) (note
-%   the extra large range), push the corresponding unsigned
-%   representation onto the stack.  This simply requires adding
-%   \(2^{24}\) to negative numbers.
-%    \begin{macrocode}
-\cs_new_protected:Npn \@@_forth_push_signed:n #1
-  {
-    \int_set:Nn \l_@@_forth_push_int {#1}
-    \@@_forth_push:n
-      {
-        \l_@@_forth_push_int
-        \int_compare:nNnF \l_@@_forth_push_int > \c_minus_one
-          { + \c_@@_forth_mod_int }
-      }
-  }
-%    \end{macrocode}
-% \end{macro}
-%
-% \begin{macro}[int]{\@@_forth_push_mod:n}
-%   Given a non-negative integer, push onto the stack its residue modulo
-%   \(2^{24}\).
-%    \begin{macrocode}
-\cs_new_protected:Npn \@@_forth_push_mod:n #1
-  {
-    \@@_forth_push:n
-      { \int_mod:nn {#1} { \c_@@_forth_mod_int } }
-  }
-%    \end{macrocode}
-% \end{macro}
-%
 % \begin{macro}[int, TF]{\@@_forth_get_number:nN}
 %    \begin{macrocode}
 \prg_new_protected_conditional:Npnn \@@_forth_get_number:nN #1#2 { TF }
@@ -725,6 +855,16 @@
   }
 %    \end{macrocode}
 % \end{macro}
+%
+% \begin{variable}{\l_@@_forth_push_fp}
+%   When turning a signed number to an unsigned value for pushing onto
+%   the stack, one cannot use \cs{l_@@_tmpa_int}, as it may be used by
+%   the caller.  Similarly for outputting floating points modulo some
+%   number.
+%    \begin{macrocode}
+\fp_new:N \l_@@_forth_push_fp
+%    \end{macrocode}
+% \end{variable}
 %
 % \begin{macro}[int]{\@@_forth_push_fp:n, \@@_forth_push_fp_mod:n}
 %    \begin{macrocode}
@@ -762,6 +902,38 @@
 %   program.
 %    \begin{macrocode}
 \bool_new:N \l_@@_forth_stop_bool
+%    \end{macrocode}
+% \end{variable}
+%
+% \subsubsection{Data space and data stack}
+%
+% ^^A todo: now
+% \begin{variable}{\l_@@_forth_base_address_int}
+% \begin{macro}[int, EXP]{\@@_forth_base:}
+%   The address at which the base of the number system is stored, and a
+%   function to retreive the base.
+%    \begin{macrocode}
+\int_new:N \l_@@_forth_base_address_int
+\cs_new:Npn \@@_forth_base:
+  {
+    \int_min:nn { 36 }
+      {
+        \int_max:nn { 2 }
+          { \@@_forth_data_get:N \l_@@_forth_base_address_int }
+      }
+  }
+%    \end{macrocode}
+% \end{macro}
+% \end{variable}
+%
+% \subsubsection{Other stacks}
+%
+% ^^A todo: implement them as claimed.
+% \begin{variable}{\l_@@_forth_flow_seq, \l_@@_forth_return_seq}
+%   The remaining stacks.
+%    \begin{macrocode}
+\seq_new:N \l_@@_forth_flow_seq
+\seq_new:N \l_@@_forth_return_seq
 %    \end{macrocode}
 % \end{variable}
 %
@@ -822,7 +994,6 @@
 %    \end{macrocode}
 % \end{macro}
 %
-% ^^A todo: am I allowed to place the variable near HERE?
 % \begin{macro}[int]{VARIABLE}
 %    \begin{macrocode}
 \@@_forth_new_core:nn { VARIABLE }
@@ -830,12 +1001,17 @@
     \@@_forth_input_spaces:
     \@@_forth_input_until:nn { ~ }
       {
-        \@@_forth_new_word:nx {#1}
+        \int_compare:nNnTF
+          \l_@@_forth_data_here_int < \l_@@_forth_data_text_int
           {
-            \@@_forth_push:n
-              { \int_use:N \l_@@_forth_data_here_int }
+            \@@_forth_new_word:nx {#1}
+              {
+                \@@_forth_push:n
+                  { \int_use:N \l_@@_forth_data_here_int }
+              }
+            \int_incr:N \l_@@_forth_data_here_int
           }
-        \int_incr:N \l_@@_forth_data_here_int
+          { \msg_error:nn { runner/forth } { out-of-memory } }
       }
   }
 %    \end{macrocode}
@@ -1082,17 +1258,11 @@
 % \subsubsection{Stack words}
 %
 % \begin{macro}[int]{DEPTH}
-%   The \texttt{data_top} integer is already updated to its new value
-%   before the argument of \cs{@@_forth_push:n} is evaluated, so we need
-%   to compensate for that, to give zero for an empty stack.
 %    \begin{macrocode}
 \@@_forth_new_core:nn { DEPTH }
   {
     \@@_forth_push:n
-      {
-        \g_@@_forth_data_size_int
-        - \l_@@_forth_data_top_int - \c_one
-      }
+      { \l_@@_forth_stack_here_int - \g_@@_forth_stack_min_int }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -1545,19 +1715,20 @@
   {
     \@@_forth_pop_int:N \l_@@_tmpa_int
     \int_add:Nn \l_@@_forth_data_here_int \l_@@_tmpa_int
-    \int_compare:nNnTF \l_@@_forth_data_here_int < \c_zero
+    \int_compare:nNnTF
+      \l_@@_forth_data_here_int < \g_@@_forth_data_min_int
       {
-        \msg_error:nnx { runner/forth } { out-of-bounds }
-          { \int_use:N \l_@@_forth_data_here_int }
-        \int_zero:N \l_@@_forth_data_here_int
+        \msg_error:nn { runner/forth } { out-of-bounds }
+        \int_set_eq:NN \l_@@_forth_data_here_int
+          \g_@@_forth_data_min_int
       }
       {
-        \int_compare:nNnTF
-          \l_@@_forth_data_here_int > \l_@@_forth_data_top_int
+        \int_compare:nNnT
+          \l_@@_forth_data_here_int > \l_@@_forth_data_text_int
           {
             \msg_error:nn { runner/forth } { out-of-memory }
             \int_set_eq:NN \l_@@_forth_data_here_int
-              \l_@@_forth_data_top_int
+              \l_@@_forth_data_text_int
           }
       }
   }
@@ -1575,10 +1746,7 @@
       { \l_@@_tmpa_int }
       { 1 }
       { \l_@@_tmpa_int + \l_@@_tmpb_int - 1 }
-      {
-        \@@_array_gset:Nnn \g_@@_forth_data_array {#1}
-          { \l_@@_tmpc_int }
-      }
+      { \@@_forth_data_gset:nn {#1} { \l_@@_tmpc_int } }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -1596,7 +1764,7 @@
 \@@_forth_new_core:nn { ! }
   {
     \@@_forth_pop_int:NN \l_@@_tmpa_int \l_@@_tmpb_int
-    \@@_array_gset:Nnn \g_@@_forth_data_array
+    \@@_forth_data_gset:nn
       { \l_@@_tmpb_int } { \l_@@_tmpa_int }
   }
 %    \end{macrocode}
@@ -1609,9 +1777,9 @@
   {
     \@@_forth_pop_int:NNN
       \l_@@_tmpa_int \l_@@_tmpb_int \l_@@_tmpc_int
-    \@@_array_gset:Nnn \g_@@_forth_data_array
+    \@@_forth_data_gset:nn
       { \l_@@_tmpc_int } { \l_@@_tmpb_int }
-    \@@_array_gset:Nnn \g_@@_forth_data_array
+    \@@_forth_data_gset:nn
       { \l_@@_tmpc_int + 1 } { \l_@@_tmpa_int }
   }
 %    \end{macrocode}
@@ -1625,13 +1793,10 @@
   {
     \@@_forth_pop_int:NN \l_@@_tmpa_int \l_@@_tmpb_int
     \int_add:Nn \l_@@_tmpa_int
-      {
-        \@@_array_item:Nn \g_@@_forth_data_array
-          \l_@@_tmpb_int
-      }
+      { \@@_forth_data_get:N \l_@@_tmpb_int }
     \int_compare:nNnF \l_@@_tmpa_int < \c_@@_forth_mod_int
       { \int_sub:Nn \l_@@_tmpa_int \c_@@_forth_mod_int }
-    \@@_array_gset:Nnn \g_@@_forth_data_array
+    \@@_forth_data_gset:nn
       { \l_@@_tmpb_int } { \l_@@_tmpa_int }
   }
 %    \end{macrocode}
@@ -1657,10 +1822,7 @@
   {
     \@@_forth_pop_int:N \l_@@_tmpa_int
     \@@_forth_push:n
-      {
-        \@@_array_item:Nn \g_@@_forth_data_array
-          { \l_@@_tmpa_int }
-      }
+      { \@@_forth_data_get:N \l_@@_tmpa_int }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -1674,14 +1836,8 @@
   {
     \@@_forth_pop_int:N \l_@@_tmpa_int
     \@@_forth_push:nn
-      {
-        \@@_array_item:Nn \g_@@_forth_data_array
-          { \l_@@_tmpa_int + 1 }
-      }
-      {
-        \@@_array_item:Nn \g_@@_forth_data_array
-          { \l_@@_tmpa_int }
-      }
+      { \@@_forth_data_get:n { \l_@@_tmpa_int + 1 } }
+      { \@@_forth_data_get:N \l_@@_tmpa_int }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -1796,10 +1952,7 @@
     \@@_forth_pop_int:N \l_@@_tmpa_int
     \@@_forth_push:nn
       { \l_@@_tmpa_int + 1 }
-      {
-        \@@_array_item:Nn \g_@@_forth_data_array
-          { \l_@@_tmpa_int }
-      }
+      { \@@_forth_data_get:N \l_@@_tmpa_int }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -1814,10 +1967,7 @@
 % \begin{macro}[int]{DECIMAL}
 %    \begin{macrocode}
 \@@_forth_new_core:nn { DECIMAL }
-  {
-    \@@_array_gset:Nnn \g_@@_forth_data_array
-      \l_@@_forth_base_address_int \c_ten
-  }
+  { \@@_forth_data_gset:nn { \l_@@_forth_base_address_int } { 10 } }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -1833,28 +1983,44 @@
 %    \end{macrocode}
 % \end{macro}
 %
-% ^^A todo: am I allowed to save the string at the HERE pointer?
-% \begin{macro}[int]+S"+
-%   Read a double-quoted string, then go through its characters one by
-%   one, storing them into the data array (starting at the data-space
-%   pointer).  Then append to the current definition some code which
-%   pushes the address and length of the string to the stack.
+% ^^A todo: is S" allowed to overlap with the region of WORD or #> ?
+% \begin{macro}[int]+S"+ Read a double-quoted string and measure its
+%   length \texttt{tmpa}.  Try to allocate that much space for a text
+%   literal, decreasing the \texttt{data_text} integer.  If this enters
+%   the allotted region, complain, and forget the string.  Otherwise,
+%   the string will start at the address \texttt{data_text} (new) and
+%   have length \texttt{tmpa}, so we add to the current definition code
+%   that pushes those onto the stack.  Finally, store the string, by
+%   looping over it (spaces are first protected to avoid losing them),
+%   keeping track of the address of each character using \texttt{tmpb}.
 %    \begin{macrocode}
 \@@_forth_new_compilation_core:nn { S" }
   {
     \@@_forth_input_until:nn "
       { \tl_set:Nn \l_@@_tmpa_tl {#1} }
-    \int_set_eq:NN \l_@@_tmpa_int \l_@@_forth_data_here_int
-    \tl_replace_all:Nnn \l_@@_tmpa_tl { ~ } { { ~ } }
-    \tl_map_inline:Nn \l_@@_tmpa_tl
-      { \@@_forth_put_here:n { `#1 } }
-    \@@_forth_def_put_right:x
+    \int_set:Nn \l_@@_tmpa_int { \str_count:N \l_@@_tmpa_tl }
+    \int_sub:Nn \l_@@_forth_data_text_int { \l_@@_tmpa_int }
+    \int_compare:nNnTF
+      \l_@@_forth_data_text_int < \l_@@_forth_data_here_int
       {
-        \@@_forth_push:n { \int_use:N \l_@@_tmpa_int }
-        \@@_forth_push:n
+        \msg_error:nn { runner/forth } { out-of-memory }
+        \int_set_eq:NN \l_@@_forth_data_text_int
+          \l_@@_forth_data_here_int
+      }
+      {
+        \@@_forth_def_put_right:x
           {
-            \int_eval:n
-              { \l_@@_forth_data_here_int - \l_@@_tmpa_int }
+            \@@_forth_push:n
+              { \int_use:N \l_@@_forth_data_text_int }
+            \@@_forth_push:n
+              { \int_use:N \l_@@_tmpa_int }
+          }
+        \tl_replace_all:Nnn \l_@@_tmpa_tl { ~ } { \ }
+        \int_set_eq:NN \l_@@_tmpb_int \l_@@_forth_data_text_int
+        \tl_map_inline:Nn \l_@@_tmpa_tl
+          {
+            \@@_forth_data_gset:nn { \l_@@_tmpb_int } { `#1 }
+            \int_incr:N \l_@@_tmpb_int
           }
       }
   }
@@ -1889,14 +2055,26 @@
       { \l_@@_tmpa_int + \l_@@_tmpb_int - 1 }
       {
         \@@_output_char:n
-          { \@@_array_item:Nn \g_@@_forth_data_array {#1} }
+          { \@@_forth_data_get:n {#1} }
       }
   }
 %    \end{macrocode}
 % \end{macro}
 %
-% ^^A todo: am I allowed to place the string near HERE?
 % \begin{macro}[int]{WORD}
+%   Pop a character from the stack.  The word will be stored as a
+%   counted string in the region from \texttt{data_here} (included) to
+%   \texttt{data_word}, so we immediately push \texttt{data_here}.  Then
+%   build \cs{l_@@_tmpa_tl} containing the delimiter, and call the
+%   appropriate input functions to discard leading delimiters and grab
+%   until the next occurrence of the delimiter.  The word found is
+%   stored as \cs{l_@@_tmpb_tl}.  Then, after setting
+%   \texttt{data_word}, which will index the word as we store it, to
+%   \texttt{data_here}, we go through the string, storing its character
+%   codes at positions starting from \(1 + \text{\texttt{data_here}}\).
+%   Eventually, put the length, obtained by simple subtraction, in the
+%   \texttt{data_here} address.  The final increment takes care of
+%   placing \texttt{data_word} just after the end of the word.
 %    \begin{macrocode}
 \group_begin:
   \char_set_catcode_other:n { 0 }
@@ -1913,11 +2091,23 @@
         }
       \exp_args:No \@@_forth_input_discard:N \l_@@_tmpa_tl
       \exp_args:No \@@_forth_input_until:nn \l_@@_tmpa_tl
-        { \tl_set:Nn \l_@@_tmpa_tl {#1} }
-      \@@_forth_put_here:n { \str_count:N \l_@@_tmpa_tl }
-      \tl_replace_all:Nnn \l_@@_tmpa_tl { ~ } { { ~ } }
-      \tl_map_inline:Nn \l_@@_tmpa_tl
-        { \@@_forth_put_here:n { `#1 } }
+        { \tl_set:Nn \l_@@_tmpb_tl {#1} }
+      \int_set_eq:NN \l_@@_forth_data_word_int
+        \l_@@_forth_data_here_int
+      \tl_replace_all:Nnn \l_@@_tmpb_tl { ~ } { \  }
+      \tl_map_inline:Nn \l_@@_tmpb_tl
+        {
+          \int_incr:N \l_@@_forth_data_word_int
+          \@@_forth_data_gset:nn
+            { \l_@@_forth_data_word_int } { `#1 }
+        }
+      \@@_forth_data_gset:nn
+        { \l_@@_forth_data_here_int }
+        { \l_@@_forth_data_word_int - \l_@@_forth_data_here_int }
+      \int_incr:N \l_@@_forth_data_word_int
+      \int_compare:nNnT
+        \l_@@_forth_data_word_int > \l_@@_forth_data_text_int
+        { \msg_error:nn { runner/forth } { out-of-memory } }
     }
 \group_end:
 %    \end{macrocode}
@@ -2114,7 +2304,7 @@
       }
   }
 \cs_new:Npn \@@_forth_environment_aux:n #1
-  { \@@_array_item:Nn \g_@@_forth_data_array {#1} , }
+  { \@@_forth_data_get:n {#1} , }
 %    \end{macrocode}
 % \end{macro}
 % \end{macro}
@@ -2214,19 +2404,17 @@
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \@@_forth_init:
   {
-    \tl_use:N \g_@@_forth_init_tl
+    \@@_forth_init_data:
+    \tl_use:N \g_@@_forth_init_toks_tl
     \int_set_eq:NN
       \l_@@_forth_toks_int
       \g_@@_forth_core_toks_int
-    \int_set_eq:NN
-      \l_@@_forth_data_top_int
-      \g_@@_forth_data_size_int
     \prop_set_eq:NN
       \l_@@_forth_words_prop
       \g_@@_forth_core_words_prop
-    \int_set:Nn \l_@@_forth_base_address_int { 1 }
-    \@@_forth_interpret:n { DECIMAL }
-    \int_set:Nn \l_@@_forth_data_here_int { 2 }
+    \int_set_eq:NN \l_@@_forth_base_address_int
+      \l_@@_forth_data_here_int
+    \@@_forth_put_here:n { 10 }
     \tl_set:Nx \l_@@_tmpa_tl
       { \l_@@_program_str \c_space_tl \l_@@_input_str }
     \tl_replace_all:Nnn \l_@@_tmpa_tl { ~ } { { ~ } }
@@ -2264,6 +2452,81 @@
 %
 % \subsection{Messages}
 %
+% \begin{macro}[int, EXP]{\@@_forth_footprint:}
+%    \begin{macrocode}
+\cs_new_nopar:Npn \@@_forth_footprint:
+  {
+    Summary~of~memory~use.\\\\
+    Input~buffer: \
+      \int_use:N \g_@@_forth_input_min_int \ to \
+      \int_use:N \g_@@_forth_input_max_int . \\
+    Pad: \
+      \int_use:N \g_@@_forth_pad_min_int \ to \
+      \int_use:N \g_@@_forth_pad_max_int .\\
+    Data:
+      \int_use:N \g_@@_forth_data_min_int \ to \
+      \int_use:N \g_@@_forth_data_max_int , \ split\ as \\
+    \iow_indent:n
+      {
+        \int_eval:n
+          { \l_@@_forth_data_here_int - \g_@@_forth_data_min_int }
+        \ cells\ of\ variables\ and\ allotted\ data, \\
+        \int_compare:nTF
+          {
+            \l_@@_forth_data_here_int
+            <= \l_@@_forth_data_word_int
+            <= \l_@@_forth_data_text_int
+          }
+          {
+            \int_eval:n
+              {
+                \l_@@_forth_data_word_int
+                - \l_@@_forth_data_text_int
+              }
+            \ cells\ for\ WORD\ or\ \#>\ .\\
+            \int_eval:n
+              {
+                \l_@@_forth_data_text_int
+                - \l_@@_forth_data_word_int
+              }
+            \ unassigned\ cells. \\
+          }
+          {
+            \int_eval:n
+              {
+                \l_@@_forth_data_text_int
+                - \l_@@_forth_data_here_int
+              }
+            \ unassigned\ cells. \\
+          }
+        \int_eval:n
+          { \g_@@_forth_data_max_int - \l_@@_forth_data_text_int }
+        \ cells\ for\ literal\ text. \\
+      }
+    Stack: \
+      \int_use:N \g_@@_forth_stack_min_int \ to \
+      \int_use:N \g_@@_forth_stack_max_int , \
+      \int_eval:n
+        { \l_@@_forth_stack_here_int - \g_@@_forth_stack_min_int }
+      \ out\ of\
+      \int_eval:n
+        { \g_@@_forth_stack_max_int - \g_@@_forth_stack_min_int }
+      \ occupied.
+    \\
+    Return stack: \
+      \int_use:N \g_@@_forth_return_min_int \ to \
+      \int_use:N \g_@@_forth_return_max_int , \
+      \int_eval:n
+        { \l_@@_forth_return_here_int - \g_@@_forth_return_min_int }
+      \ out\ of\
+      \int_eval:n
+        { \g_@@_forth_return_max_int - \g_@@_forth_return_min_int }
+      \ occupied.
+    \\
+  }
+%    \end{macrocode}
+% \end{macro}
+%
 %    \begin{macrocode}
 \msg_new:nnn { runner/forth } { unknown-word }
   { The~word~'#1'~is~not~defined. }
@@ -2271,25 +2534,7 @@
   { The~data~stack~is~empty,~and~there~is~nothing~to~retrieve~there. }
 \msg_new:nnnn { runner/forth } { out-of-memory }
   { The~Forth~interpreter~ran~out~of~memory. }
-  {
-    Summary~of~memory~use:\\
-    \iow_indent:n
-      {
-        Data~usage:~
-          \int_use:N \l_@@_forth_data_here_int
-          \ cells\\
-        Stack~size:~
-          \int_eval:n
-            {
-              \g_@@_forth_data_size_int
-              - \l_@@_forth_data_top_int
-            }
-          \ cells\\
-        Total:~
-          \int_use:N \g_@@_forth_data_size_int
-          \ cells.
-      }
-  }
+  { \@@_forth_footprint: }
 \msg_new:nnn { runner/forth } { out-of-bounds }
   { ALLOT~was~called~with~a~negative~argument~that~made~HERE~=~#1. }
 \msg_new:nnn { runner/forth } { no-interpretation }
