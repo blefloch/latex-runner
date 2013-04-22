@@ -42,16 +42,15 @@
 % yet the case.  The following words are not implemented:
 % \begin{itemize}
 % \item definitions |CREATE|, |DOES>|, |>BODY|,
-% \item control-flow |BEGIN|, |UNTIL|, |WHILE|, |REPEAT|
+% \item control-flow |BEGIN|, |UNTIL|, |WHILE|, |REPEAT|,
 % \item do-loop |+LOOP|,
-% \item parse/input |>IN|, |ACCEPT|, |SOURCE|
-% \item ending |ABORT|, |ABORT"|, |QUIT|.
+% \item parse/input |>IN|, |ACCEPT|, |EVALUATE|
+% \item ending |ABORT|, |ABORT"|, |QUIT|,
 % \item number conversion |<#|, |#|, |#>|, |#S|, |>NUMBER|, |HOLD|,
-%   |SIGN|
-% \item int |FM/MOD|, |M*|, |S>D|, |SM/REM|, |U.|, |U<|, |UM*|, |UM/MOD|
-% \item bitwise |AND|, |INVERT|, |LSHIFT|, |OR|, |RSHIFT|, |XOR|
-% \item misc |EVALUATE|, |EXIT|, |FIND|, |KEY|, |MOVE|, |STATE|, |[|,
-%   |]|
+%   |SIGN|,
+% \item int |FM/MOD|, |M*|, |S>D|, |SM/REM|, |U.|, |U<|, |UM*|, |UM/MOD|,
+% \item bitwise |AND|, |INVERT|, |LSHIFT|, |OR|, |RSHIFT|, |XOR|,
+% \item misc, |EXIT|, |FIND|, |KEY|, |MOVE|, |STATE|, |[|, |]|.
 % \end{itemize}
 %
 % The following environment variables are not implemented:
@@ -2204,6 +2203,20 @@
             \int_incr:N \l_@@_tmpb_int
           }
       }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% ^^A todo: avoid back-and-forth between TeX strings and Forth counted strings
+% \begin{macro}[int]{SOURCE}
+%   Put on the stack the address of the input buffer, and its length
+%   currently used.
+%    \begin{macrocode}
+\@@_forth_new_core:nn { SOURCE }
+  {
+    \@@_forth_push:n { \g_@@_forth_input_min_int }
+    \@@_forth_push:n
+      { \l_@@_forth_input_end_int - \g_@@_forth_input_min_int }
   }
 %    \end{macrocode}
 % \end{macro}
