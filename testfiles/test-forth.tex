@@ -1,0 +1,159 @@
+\RequirePackage[check-declarations]{expl3}
+\RequirePackage{runner}
+%%% Tests.
+\newcommand{\result}{}
+
+\runner{forth}[output = \result]|5 6 + 7 8 + * .|||
+\typeout{\result}
+
+\runner{forth}[output = \result]|||: hi ." ho"; hi|
+\typeout{\result}
+
+\runner{forth}[output = \result]|: HELLO  ( -- )  CR ." Hello, world!" ;||HELLO|
+\typeout{\result}
+
+\runner{forth}[output = \result]|: EMIT-Q   81 ( the ASCII value for the character 'Q' ) EMIT ;||EMIT-Q|
+\typeout{\result}
+
+\runner{forth}[output = \result]|: BIGGEST OVER OVER < IF SWAP THEN DROP ;|%
+|9 5 BIGGEST . 5 9 BIGGEST .|
+\typeout{\result}
+
+\runner{forth}[output = \result]|
+  : BIGGEST OVER . DUP .
+    OVER OVER < IF
+      ." a<b " SWAP
+    ELSE
+      ." a>b "
+    THEN
+    DROP ;
+||9 5 BIGGEST . CR 5 9 BIGGEST .|
+\typeout{\result}
+
+\runner{forth}[output = \result]|
+  : x 7 2 DO ." *" LOOP ;||x|
+\typeout{\result}
+
+\runner{forth}[output = \result]|
+  : x 7 2 DO I 64 + EMIT LOOP ;||x|
+\typeout{\result}
+
+\runner{forth}[output = \result]|
+  : x 10 2 DO I 6 > IF UNLOOP THEN I 64 + EMIT LOOP ;||x|
+\typeout{\result}
+
+\runner{forth}[output = \result]|
+  : FACTORIAL ( +n1 -- +n2)
+  DUP 2 < IF DROP 1 ELSE
+  DUP 1- RECURSE * THEN
+  ;
+||
+0 FACTORIAL . 1 . CR
+3 FACTORIAL . 6 . CR
+24 FACTORIAL . 12582912 .|
+\typeout{\result}
+
+\runner{forth}[output = \result]|
+  CHAR foobar EMIT|||
+\typeout{\result}
+
+\runner{forth}[output = \result]|
+  : x POSTPONE * ; IMMEDIATE :
+  four 2 2 x ;
+||four . |
+\typeout{\result}
+
+\runner{forth}[output = \result]|
+  4 CONSTANT four
+  5 CONSTANT five
+||four five + .|
+\typeout{\result}
+
+\runner{forth}[output = \result]|
+  DEPTH DEPTH DEPTH . . .|||
+\typeout{\result}
+
+\runner{forth}[output = \result]|
+  : show-max-ud HERE 77 , 65 , 88 , 45 , 85 , 68 ,
+    6 ENVIRONMENT? IF . . THEN ;||show-max-ud|
+\typeout{\result}
+
+\runner{forth}[output = \result]|
+  : x 12 ; ' x
+  : x 23 ; ' x
+  MIN EXECUTE .|||
+\typeout{\result}
+
+\runner{forth}[output = \result]|
+  3 : x LITERAL ; DEPTH . x .|||
+\typeout{\result}
+
+\runner{forth}[output = \result]|
+  : show-max-n S" MAX-N" ENVIRONMENT? IF . THEN ;||show-max-n|
+\typeout{\result}
+
+\runner{forth}[output = \result]|
+  HERE 5 ALLOT
+  DUP 2 65 FILL
+  DUP 2 + 3 66 FILL
+  6 TYPE|||
+\typeout{\result}
+
+\runner{forth}[output = \result]|
+  65 WORD AAAAbcaA DUP 1+ SWAP @ TYPE
+|||
+\typeout{\result}
+
+\runner{forth}[output = \result]|
+  : x 3 ['] + 2 SWAP EXECUTE ; x . DEPTH .
+|||
+\typeout{\result}
+
+\runner{forth}[output = \result]|36 . : x|||
+\typeout{\result}
+
+\runner{forth}[output = \result]|
+  : x HERE 5 ALLOT DUP 3 [CHAR] XYZ FILL 3 TYPE ; x |||
+\typeout{\result}
+
+\stop
+
+\runner{forth}[output = \result]|
+  0 value ii        0 value jj
+  0 value KeyAddr   0 value KeyLen
+  create SArray   256 allot   \ state array of 256 bytes
+  : KeyArray      KeyLen mod   KeyAddr ;
+
+  : get_byte      + c@ ;
+  : set_byte      + c! ;
+  : as_byte       255 and ;
+  : reset_ij      0 TO ii   0 TO jj ;
+  : i_update      1 +   as_byte TO ii ;
+  : j_update      ii SArray get_byte +   as_byte TO jj ;
+  : swap_s_ij
+      jj SArray get_byte
+         ii SArray get_byte  jj SArray set_byte
+      ii SArray set_byte
+  ;
+
+  : rc4_init ( KeyAddr KeyLen -- )
+      256 min TO KeyLen   TO KeyAddr
+      256 0 DO   i i SArray set_byte   LOOP
+      reset_ij
+      BEGIN
+          ii KeyArray get_byte   jj +  j_update
+          swap_s_ij
+          ii 255 < WHILE
+          ii i_update
+      REPEAT
+      reset_ij
+  ;
+  : rc4_byte
+      ii i_update   jj j_update
+      swap_s_ij
+      ii SArray get_byte   jj SArray get_byte +   as_byte SArray get_byte  xor
+  ;
+|||
+\typeout{\result}
+
+\stop

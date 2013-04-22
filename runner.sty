@@ -1,0 +1,188 @@
+%%
+%% This is file `runner.sty',
+%% generated with the docstrip utility.
+%%
+%% The original source files were:
+%%
+%% runner.dtx  (with options: `package')
+%% 
+%% Do not distribute a modified version of this file.
+%% 
+%% Communicate any suggestions for changing this package
+%% to Bruno Le Floch (blflatex@gmail.com).
+%% 
+%% File: runner.dtx Copyright (C) 2013 Bruno Le Floch
+%%
+%% It may be distributed and/or modified under the conditions of the
+%% LaTeX Project Public License (LPPL), either version 1.3c of this
+%% license or (at your option) any later version.  The latest version
+%% of this license is in the file
+%%
+%%    http://www.latex-project.org/lppl.txt
+%%
+%% -----------------------------------------------------------------------
+\RequirePackage{expl3}[2012/12/07]
+\RequirePackage{l3str}[2012/12/07]
+\RequirePackage{xparse}[2012/12/07]
+\ProvidesExplPackage
+  {runner} {2013/04/20} {0.0a} {Interpreters for various languages}
+\clist_new:N \g_runner_languages_clist
+\clist_gset:Nn \g_runner_languages_clist
+  {
+    brainfuck,
+    forth,
+  }
+\tl_new:N \l__runner_input_str
+\tl_new:N \l__runner_output_str
+\tl_new:N \l__runner_program_str
+\tl_new:N \l__runner_tmpa_tl
+\tl_new:N \l__runner_tmpb_tl
+\tl_new:N \l__runner_tmpc_tl
+\tl_new:N \l__runner_tmpd_tl
+\fp_new:N \l__runner_tmpa_fp
+\int_new:N \l__runner_tmpa_int
+\int_new:N \l__runner_tmpb_int
+\int_new:N \l__runner_tmpc_int
+\int_new:N \l__runner_tmpd_int
+\bool_new:N \l__runner_tmpa_bool
+\cs_new_eq:NN \__runner_tmp:w ?
+\tl_new:N \l__runner_output_key_tl
+\int_new:N \g__runner_array_font_size_int
+\cs_new_protected:Npn \__runner_array_new:Nn #1#2
+  {
+    \cs_new_eq:NN #1 \tex_nullfont:D
+    \int_compare:nNnTF {#2} > \c_zero
+      {
+        \int_gincr:N \g__runner_array_font_size_int
+        \tex_global:D \tex_font:D #1 = cmr10~at~
+          \g__runner_array_font_size_int sp \scan_stop:
+        \int_step_inline:nnnn { 1 } { 1 } { 7 }
+          { \tex_fontdimen:D ##1 #1 = \c_zero_dim }
+        \tex_fontdimen:D \int_eval:n {#2} #1 = \c_zero_dim
+      }
+      {
+        \msg_error:nnxx { runner } { negative-array-size }
+          { \token_to_str:N #1 } { \int_eval:n {#2} }
+      }
+  }
+\cs_new:Npn \__runner_array_item:Nn #1#2
+  { \tex_number:D \tex_fontdimen:D \int_eval:n {#2} #1 }
+\cs_new:Npn \__runner_array_item:NN #1#2
+  { \tex_number:D \tex_fontdimen:D #2 #1 }
+\cs_new_protected:Npn \__runner_array_gset:Nnn #1#2#3
+  {
+    \tex_fontdimen:D \int_eval:n {#2} #1
+      = \int_eval:n {#3} sp \scan_stop:
+  }
+\cs_new_protected:Npn \__runner_output:n #1
+  { \str_put_right:Nn \l__runner_output_str {#1} }
+\cs_generate_variant:Nn \__runner_output:n { x }
+\group_begin:
+  \char_set_catcode_other:N \^^@
+  \cs_new_protected:Npn \__runner_output_char:n #1
+    {
+      \group_begin:
+      \char_set_lccode:nn {0} {#1}
+      \tl_to_lowercase:n
+        { \group_end: \str_put_right:Nn \l__runner_output_str { ^^@ } }
+    }
+\group_end:
+\cs_new:Npn \__runner_break:n #1 #2 \__runner_break_point:n #3 { #3 #1 }
+\cs_new_eq:NN \__runner_break_point:n \use:n
+\cs_new_protected:Npn \__runner:nnnn #1#2#3#4
+  {
+    \__runner_load_language:nT {#1}
+      {
+        \group_begin:
+          \keys_set:nn { runner } {#2}
+          \str_set:Nn \l__runner_program_str {#3}
+          \str_set:Nn \l__runner_input_str {#4}
+          \tl_clear:N \l__runner_output_str
+          \use:c { __runner_#1_run: }
+          \__runner_finish:w
+        \group_end:
+      }
+  }
+\prg_new_conditional:Npnn \__runner_load_language:n #1 { T }
+  {
+    \cs_if_exist:cTF { __runner_#1_run: }
+      { \prg_return_true: }
+      {
+        \file_if_exist:nTF { runner - #1 .ldf }
+          {
+            \group_begin:
+              \ExplSyntaxOn
+              \file_input:n { runner - #1 .ldf }
+            \group_end:
+            \cs_if_exist:cTF { __runner_#1_run: }
+              { \prg_return_true: }
+              {
+                \msg_error:nnn { runner } { defective-ldf } {#1}
+                \prg_return_false:
+              }
+          }
+          {
+            \clist_if_in:NnTF \g_runner_languages_clist {#1}
+              { \msg_error:nnn { runner } { missing-ldf } {#1} }
+              { \msg_error:nnn { runner } { unknown-language } {#1} }
+            \prg_return_false:
+          }
+      }
+  }
+\cs_new_protected_nopar:Npn \__runner_finish:w \group_end:
+  {
+    \use:x
+      {
+        \group_end:
+        \tl_if_empty:NTF \l__runner_output_key_tl
+          { \l__runner_output_str }
+          {
+            \tl_set:Nn \exp_not:o \l__runner_output_key_tl
+              { \l__runner_output_str }
+          }
+      }
+  }
+\keys_define:nn { runner }
+  {
+    output .tl_set:N = \l__runner_output_key_tl
+  }
+\cs_new_protected:Npn \__runner_process_lang_name:n #1
+  {
+    \str_set:Nn \l__runner_tmpa_tl {#1}
+    \tl_remove_all:Nn \l__runner_tmpa_tl { ~ }
+    \tl_set:Nx \ProcessedArgument
+      { \exp_args:NV \tl_expandable_lowercase:n \l__runner_tmpa_tl }
+  }
+\NewDocumentCommand {\runner}
+  { > { \__runner_process_lang_name:n } m O{} +v +v }
+  { \__runner:nnnn {#1} {#2} {#3} {#4} }
+\msg_new:nnnn { runner } { unknown-language }
+  { The~programming~language~'#1'~is~not~known~to~'runner'. }
+  {
+    The~code\\\\
+    \iow_indent:n {#2}\\\\
+    could~not~be~run,~because~there~is~not~support~for~'#1',~yet.
+  }
+\msg_new:nnnn { runner } { defective-ldf }
+  { The~file~'runner-#1.ldf'~does~not~define~a~programming~language. }
+  {
+    The~language~definition~file~'runner-#1.ldf'~must~define~
+    '\iow_char:N \\__runner_#1_run:'~to~enable~the~runner~package~
+    to~run~programs~written~in~'#1'.
+  }
+\msg_new:nnnn { runner } { missing-ldf }
+  { The~file~'runner-#1.ldf'~cannot~be~found. }
+  {
+    The~'#1'~programming~language~should~be~supported~by~the~
+    'runner'~package,~but~this~requires~the~language~definition~
+    file~'runner-#1.ldf',~which~is~nowhere~to~be~found.
+  }
+\msg_new:nnnn { runner } { negative-array-size }
+  { The~array~'#1'~cannot~be~initialized~at~size~'#2'. }
+  {
+    This~is~probably~an~internal~error~in~the~runner~package.~
+    Please~report~it.
+  }
+%% 
+%%
+%% End of file `runner.sty'.

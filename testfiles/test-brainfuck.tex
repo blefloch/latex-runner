@@ -1,0 +1,57 @@
+\RequirePackage[check-declarations]{expl3}
+\RequirePackage{runner}
+%%% Tests.
+\newcommand{\result}{}
+
+\runner{brainfuck}[output = \result]@,+[-.>,+]@@some input@
+\typeout{\result}
+
+\runner{brainfuck}[output = \result]@``Hello World!'' program
+  +++++ +++++
+    [ >+++++++ >++++++++++ >+++ >+ < < < < -]
+  >++.
+  >+.
+  +++++++.
+  .
+  +++.
+  >++.
+  < < +++++++++++++++.
+  >.
+  +++.
+  ------.
+  --------.
+  >+.
+@@@
+\typeout{\result}
+
+\runner{brainfuck}[output = \result]@
+  -,+[
+    -[
+      >>++++[>++++++++<-]
+      <+<-[
+        >+>+>-[>>>]
+        <[[>+<-]>>+>]
+        <<<<<-
+      ]
+    ]>>>[-]+
+    >--[-[<->+++[-]]]<[
+      ++++++++++++<[
+        >-[>+>>]
+        >[+[<+>-]>+>>]
+        <<<<<-
+      ]
+      >>[<+>-]
+      >[
+        -[
+          -<<[-]>>
+        ]<<[<<->>-]>>
+      ]<<[<<+>>-]
+    ]
+    <[-]
+    <.[-]
+    <-,+
+  ]
+@@ABCDEF@
+\typeout{\result}
+
+\stop
