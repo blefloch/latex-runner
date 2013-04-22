@@ -39,7 +39,7 @@
 \typeout{\result}
 
 \runner{forth}[output = \result]|
-  : x 10 2 DO I 6 > IF UNLOOP THEN I 64 + EMIT LOOP ;||x|
+  : x 10 2 DO I 6 > IF LEAVE THEN I 64 + EMIT LOOP ;||x|
 \typeout{\result}
 
 \runner{forth}[output = \result]|
