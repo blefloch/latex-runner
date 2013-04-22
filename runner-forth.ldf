@@ -23,6 +23,7 @@
 %% -----------------------------------------------------------------------
 \cs_generate_variant:Nn \prop_gput:Nnn { Nx }
 \cs_generate_variant:Nn \prop_get:NnNTF { Nx }
+\int_const:Nn \c__runner_forth_mod_int { 16777216 }
 \int_new:N \g__runner_forth_data_size_int
 \int_gset:Nn \g__runner_forth_data_size_int { 65536 }
 \int_new:N \l__runner_forth_data_here_int
@@ -113,6 +114,13 @@
     \__runner_forth_push:n {#4}
     \__runner_forth_push:n {#5}
     \__runner_forth_push:n {#6}
+  }
+\cs_new_protected_nopar:Npn \__runner_forth_push_false:
+  { \__runner_forth_push:n { 0 } }
+\cs_new_protected_nopar:Npx \__runner_forth_push_true:
+  {
+    \__runner_forth_push:n
+      { \int_eval:n { \c__runner_forth_mod_int - 1 } }
   }
 \int_new:N \l__runner_forth_base_address_int
 \cs_new:Npn \__runner_forth_base:
@@ -218,7 +226,6 @@
         \__runner_forth_input_discard:N #1
       }
   }
-\int_const:Nn \c__runner_forth_mod_int { 16777216 }
 \int_new:N \l__runner_forth_push_int
 \fp_new:N \l__runner_forth_push_fp
 \cs_new_protected:Npn \__runner_forth_signed:N #1
@@ -544,36 +551,36 @@
   {
     \__runner_forth_pop_int:N \l__runner_tmpa_int
     \int_compare:nNnTF \l__runner_tmpa_int < \c_zero
-      { \__runner_forth_push:n \c_minus_one }
-      { \__runner_forth_push:n \c_zero }
+      { \__runner_forth_push_true: }
+      { \__runner_forth_push_false: }
   }
 \__runner_forth_new_core:nn { 0= }
   {
     \__runner_forth_pop_int:N \l__runner_tmpa_int
     \int_compare:nNnTF \l__runner_tmpa_int = \c_zero
-      { \__runner_forth_push:n \c_minus_one }
-      { \__runner_forth_push:n \c_zero }
+      { \__runner_forth_push_true: }
+      { \__runner_forth_push_false: }
   }
 \__runner_forth_new_core:nn { < }
   {
     \__runner_forth_pop_int:NN \l__runner_tmpa_int \l__runner_tmpb_int
     \int_compare:nNnTF \l__runner_tmpa_int < \l__runner_tmpb_int
-      { \__runner_forth_push:n \c_minus_one }
-      { \__runner_forth_push:n \c_zero }
+      { \__runner_forth_push_true: }
+      { \__runner_forth_push_false: }
   }
 \__runner_forth_new_core:nn { = }
   {
     \__runner_forth_pop_int:NN \l__runner_tmpa_int \l__runner_tmpb_int
     \int_compare:nNnTF \l__runner_tmpa_int = \l__runner_tmpb_int
-      { \__runner_forth_push:n \c_minus_one }
-      { \__runner_forth_push:n \c_zero }
+      { \__runner_forth_push_true: }
+      { \__runner_forth_push_false: }
   }
 \__runner_forth_new_core:nn { > }
   {
     \__runner_forth_pop_int:NN \l__runner_tmpa_int \l__runner_tmpb_int
     \int_compare:nNnTF \l__runner_tmpa_int > \l__runner_tmpb_int
-      { \__runner_forth_push:n \c_minus_one }
-      { \__runner_forth_push:n \c_zero }
+      { \__runner_forth_push_true: }
+      { \__runner_forth_push_false: }
   }
 \__runner_forth_new_core:nn { 1+ }
   {
@@ -1033,10 +1040,10 @@
       \l__runner_tmpa_tl
       {
         \l__runner_tmpa_tl
-        \__runner_forth_push:n { -1 }
+        \__runner_forth_push_true:
       }
       {
-        \__runner_forth_push:n { 0 }
+        \__runner_forth_push_false:
       }
   }
 \cs_new:Npn \__runner_forth_environment_aux:n #1
@@ -1053,11 +1060,11 @@
   \__runner_forth_environment_def:nn { ADDRESS-UNIT-BITS }
     { \__runner_forth_push:n { 24 } }
   \__runner_forth_environment_def:nn { CORE }
-    { \__runner_forth_push:n { 0 } }
+    { \__runner_forth_push_false: }
   \__runner_forth_environment_def:nn { CORE-EXT }
-    { \__runner_forth_push:n { 0 } }
+    { \__runner_forth_push_false: }
   \__runner_forth_environment_def:nn { FLOORED }
-    { \__runner_forth_push:n { 0 } }
+    { \__runner_forth_push_false: }
   \__runner_forth_environment_def:nn { MAX-D }
     { % ^^A todo: check endianness
       \__runner_forth_push:n { 8388607 }

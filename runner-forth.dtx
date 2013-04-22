@@ -128,6 +128,7 @@
 %     ud        & double-cell unsigned number     & 48 \\
 %     xd        & unspecified cell pair           & 48 \\
 %     \midrule
+%     ^^A todo: clarify what those '-sys' types are in this implementation.
 %     colon-sys & definition compilation          & dep \\
 %     do-sys    & do-loop structures              & dep \\
 %     case-sys  & CASE structures                 & dep \\
@@ -200,6 +201,13 @@
 \cs_generate_variant:Nn \prop_gput:Nnn { Nx }
 \cs_generate_variant:Nn \prop_get:NnNTF { Nx }
 %    \end{macrocode}
+%
+% \begin{variable}{\c_@@_forth_mod_int}
+%   Cells can take up to \(2^{24}\) values.
+%    \begin{macrocode}
+\int_const:Nn \c_@@_forth_mod_int { 16777216 }
+%    \end{macrocode}
+% \end{variable}
 %
 % \subsection{Memory, dictionary and stacks}
 %
@@ -387,6 +395,21 @@
     \@@_forth_push:n {#4}
     \@@_forth_push:n {#5}
     \@@_forth_push:n {#6}
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int]{\@@_forth_push_false:, \@@_forth_push_true:}
+%   The \texttt{false} value is \(0\), the true value is \(-1\), which
+%   we store as a positive integer by shifting by
+%   \cs{c_@@_forth_mod_int}.
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \@@_forth_push_false:
+  { \@@_forth_push:n { 0 } }
+\cs_new_protected_nopar:Npx \@@_forth_push_true:
+  {
+    \@@_forth_push:n
+      { \int_eval:n { \c_@@_forth_mod_int - 1 } }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -607,13 +630,6 @@
 % \end{macro}
 %
 % \subsubsection{Numbers}
-%
-% \begin{variable}{\c_@@_forth_mod_int}
-%   Cells can take up to \(2^{24}\) values.
-%    \begin{macrocode}
-\int_const:Nn \c_@@_forth_mod_int { 16777216 }
-%    \end{macrocode}
-% \end{variable}
 %
 % \begin{variable}{\l_@@_forth_push_int, \l_@@_forth_push_fp}
 %   When turning a signed number to an unsigned value for pushing onto
@@ -1208,54 +1224,54 @@
 % \subsubsection{Comparison words}
 %
 % \begin{macro}[int]{0<}
-%   If \(a<0\) push \(-1\) (true), otherwise \(0\) (false).
+%   If \(a<0\) push true, otherwise false.
 %    \begin{macrocode}
 \@@_forth_new_core:nn { 0< }
   {
     \@@_forth_pop_int:N \l_@@_tmpa_int
     \int_compare:nNnTF \l_@@_tmpa_int < \c_zero
-      { \@@_forth_push:n \c_minus_one }
-      { \@@_forth_push:n \c_zero }
+      { \@@_forth_push_true: }
+      { \@@_forth_push_false: }
   }
 %    \end{macrocode}
 % \end{macro}
 %
 % \begin{macro}[int]{0=}
-%   If \(a\) is \(0\), push \(-1\), otherwise~\(0\).
+%   If \(a\) is \(0\), push true, otherwise false.
 %    \begin{macrocode}
 \@@_forth_new_core:nn { 0= }
   {
     \@@_forth_pop_int:N \l_@@_tmpa_int
     \int_compare:nNnTF \l_@@_tmpa_int = \c_zero
-      { \@@_forth_push:n \c_minus_one }
-      { \@@_forth_push:n \c_zero }
+      { \@@_forth_push_true: }
+      { \@@_forth_push_false: }
   }
 %    \end{macrocode}
 % \end{macro}
 %
 % \begin{macro}[int]{<, =, >}
-%   Comparisons.  Push \(-1\) if true, \(0\) if false.
+%   Comparisons.  Push true or false.
 %    \begin{macrocode}
 \@@_forth_new_core:nn { < }
   {
     \@@_forth_pop_int:NN \l_@@_tmpa_int \l_@@_tmpb_int
     \int_compare:nNnTF \l_@@_tmpa_int < \l_@@_tmpb_int
-      { \@@_forth_push:n \c_minus_one }
-      { \@@_forth_push:n \c_zero }
+      { \@@_forth_push_true: }
+      { \@@_forth_push_false: }
   }
 \@@_forth_new_core:nn { = }
   {
     \@@_forth_pop_int:NN \l_@@_tmpa_int \l_@@_tmpb_int
     \int_compare:nNnTF \l_@@_tmpa_int = \l_@@_tmpb_int
-      { \@@_forth_push:n \c_minus_one }
-      { \@@_forth_push:n \c_zero }
+      { \@@_forth_push_true: }
+      { \@@_forth_push_false: }
   }
 \@@_forth_new_core:nn { > }
   {
     \@@_forth_pop_int:NN \l_@@_tmpa_int \l_@@_tmpb_int
     \int_compare:nNnTF \l_@@_tmpa_int > \l_@@_tmpb_int
-      { \@@_forth_push:n \c_minus_one }
-      { \@@_forth_push:n \c_zero }
+      { \@@_forth_push_true: }
+      { \@@_forth_push_false: }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -2080,10 +2096,10 @@
       \l_@@_tmpa_tl
       {
         \l_@@_tmpa_tl
-        \@@_forth_push:n { -1 }
+        \@@_forth_push_true:
       }
       {
-        \@@_forth_push:n { 0 }
+        \@@_forth_push_false:
       }
   }
 \cs_new:Npn \@@_forth_environment_aux:n #1
@@ -2120,11 +2136,11 @@
   \@@_forth_environment_def:nn { ADDRESS-UNIT-BITS }
     { \@@_forth_push:n { 24 } }
   \@@_forth_environment_def:nn { CORE }
-    { \@@_forth_push:n { 0 } }
+    { \@@_forth_push_false: }
   \@@_forth_environment_def:nn { CORE-EXT }
-    { \@@_forth_push:n { 0 } }
+    { \@@_forth_push_false: }
   \@@_forth_environment_def:nn { FLOORED }
-    { \@@_forth_push:n { 0 } }
+    { \@@_forth_push_false: }
   \@@_forth_environment_def:nn { MAX-D }
     { % ^^A todo: check endianness
       \@@_forth_push:n { 8388607 }
