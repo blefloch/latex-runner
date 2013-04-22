@@ -55,8 +55,7 @@
 % \end{itemize}
 %
 % The following environment variables are not implemented:
-% |/COUNTED-STRING|, |/HOLD|, |/PAD|, |RETURN-STACK-CELLS|,
-% |STACK-CELLS|.
+% |/COUNTED-STRING|, |/HOLD|.
 %
 % Implementation specificities are as follows.
 % \begin{itemize}
@@ -91,13 +90,15 @@
 %   2^{23} - 1]\), unsigned integers \([0, 2^{24} - 1]\), double
 %   integers \([-2^{47}, 2^{47} - 1]\), non-negative double integers
 %   \([0, 2^{47} - 1]\), unsigned double integers \([0, 2^{48} - 1]\).
-% \item Read-only data-space regions.
-% \item Size of buffer at |WORD|.
+% \item Read-only data-space regions: ?
+% \item Size of buffer at |WORD|: ?
 % \item One cell is one address unit.
 % \item One character is one address unit.
-% \item Size of the keyboard terminal input buffer: ?
+% \item Size of the keyboard terminal input buffer: fixed upon starting
+%   the Forth interpreter, at least \(128\).
 % \item Size of the pictured numeric output string buffer: ?
-% \item Size of the scratch area whose address is returned by |PAD|: ?
+% \item Size of the scratch area whose address is returned by |PAD|:
+%   fixed upon starting the Forth interpreter, at least \(128\).
 % \item Case-sensitivity: ?
 % \item Prompt (see |QUIT|): ?
 % \item Division rounding: symmetric (the quotient is rounded towards
@@ -107,6 +108,7 @@
 %   \(2^{24}\).
 % \item Whether the current definition can be found after |DOES>|: ?
 % \end{itemize}
+% ^^A todo: ensure that input buffer and pad are both at least 128 cells wide.
 %
 % Here is a list of data types and their sizes in this implementation.
 % \begin{center}
@@ -2397,6 +2399,21 @@
     {
       \@@_forth_push:n { 16777215 }
       \@@_forth_push:n { 16777215 }
+    }
+  \@@_forth_environment_def:nn { /PAD }
+    {
+      \@@_forth_push:n
+        { \g_@@_forth_pad_max_int - \g_@@_forth_pad_min_int }
+    }
+  \@@_forth_environment_def:nn { RETURN-STACK-CELLS }
+    {
+      \@@_forth_push:n
+        { \g_@@_forth_return_max_int - \g_@@_forth_return_min_int }
+    }
+  \@@_forth_environment_def:nn { STACK-CELLS }
+    {
+      \@@_forth_push:n
+        { \g_@@_forth_stack_max_int - \g_@@_forth_stack_min_int }
     }
 \group_end:
 %    \end{macrocode}

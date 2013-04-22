@@ -1154,6 +1154,21 @@
       \__runner_forth_push:n { 16777215 }
       \__runner_forth_push:n { 16777215 }
     }
+  \__runner_forth_environment_def:nn { /PAD }
+    {
+      \__runner_forth_push:n
+        { \g__runner_forth_pad_max_int - \g__runner_forth_pad_min_int }
+    }
+  \__runner_forth_environment_def:nn { RETURN-STACK-CELLS }
+    {
+      \__runner_forth_push:n
+        { \g__runner_forth_return_max_int - \g__runner_forth_return_min_int }
+    }
+  \__runner_forth_environment_def:nn { STACK-CELLS }
+    {
+      \__runner_forth_push:n
+        { \g__runner_forth_stack_max_int - \g__runner_forth_stack_min_int }
+    }
 \group_end:
 \__runner_forth_new_immediate_core:nn (
   { \__runner_forth_input_until:nN ) \use_none:n }
