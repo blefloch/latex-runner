@@ -117,8 +117,14 @@
 \int_new:N \l__runner_forth_base_address_int
 \cs_new:Npn \__runner_forth_base:
   {
-    \__runner_array_item:NN \g__runner_forth_data_array
-      \l__runner_forth_base_address_int
+    \int_min:nn { 36 }
+      {
+        \int_max:nn { 2 }
+          {
+            \__runner_array_item:NN \g__runner_forth_data_array
+              \l__runner_forth_base_address_int
+          }
+      }
   }
 \seq_new:N \l__runner_forth_flow_seq
 \seq_new:N \l__runner_forth_return_seq

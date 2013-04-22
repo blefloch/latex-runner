@@ -70,7 +70,9 @@
 % \item Format of the control-flow stack: ?
 % \item Conditions under which control characters match a space delimiter: ?
 % \item Format of the control-flow stack: ?
-% \item Conversion of digits larger than thirty-five: ?
+% \item Conversion of digits larger than thirty-five: this never arises,
+%   as the base used in conversion is automatically truncated to the
+%   interval \([2, 36]\).
 % \item Display after input terminates in |ACCEPT|: ?
 % \item Exception abort sequence (as in |ABORT"|): ?
 % \item Input line terminator: ?  User input device: ?
@@ -397,8 +399,14 @@
 \int_new:N \l_@@_forth_base_address_int
 \cs_new:Npn \@@_forth_base:
   {
-    \@@_array_item:NN \g_@@_forth_data_array
-      \l_@@_forth_base_address_int
+    \int_min:nn { 36 }
+      {
+        \int_max:nn { 2 }
+          {
+            \@@_array_item:NN \g_@@_forth_data_array
+              \l_@@_forth_base_address_int
+          }
+      }
   }
 %    \end{macrocode}
 % \end{macro}
