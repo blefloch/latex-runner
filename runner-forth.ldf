@@ -187,6 +187,31 @@
     \__runner_forth_push:n
       { \int_mod:nn {#1} { \c__runner_forth_mod_int } }
   }
+\cs_new_protected:Npn \__runner_forth_return_pop_int:N #1
+  {
+    \int_compare:nNnTF
+      \l__runner_forth_return_here_int > \g__runner_forth_return_min_int
+      {
+        \int_decr:N \l__runner_forth_return_here_int
+        \int_set:Nn #1
+          {
+            \__runner_array_item:NN \g__runner_forth_array
+              \l__runner_forth_return_here_int
+          }
+      }
+      { \msg_error:nn { runner/forth } { empty-return-stack } }
+  }
+\cs_new_protected:Npn \__runner_forth_return_push:n #1
+  {
+    \int_compare:nNnTF
+      \l__runner_forth_return_here_int < \g__runner_forth_return_max_int
+      {
+        \__runner_array_gset:Nnn \g__runner_forth_array
+          \l__runner_forth_return_here_int {#1}
+        \int_incr:N \l__runner_forth_return_here_int
+      }
+      { \msg_error:nn { runner/forth } { out-of-memory } }
+  }
 \prop_new:N \l__runner_forth_words_prop
 \prop_new:N \g__runner_forth_core_words_prop
 \int_new:N \l__runner_forth_toks_int
@@ -327,7 +352,6 @@
       }
   }
 \seq_new:N \l__runner_forth_flow_seq
-\seq_new:N \l__runner_forth_return_seq
 \tl_new:N \l__runner_forth_def_tl
 \cs_new_protected:Npn \__runner_forth_def_put_right:n #1
   { \tl_put_right:Nn \l__runner_forth_def_tl { \exp_not:n {#1} } }
@@ -515,17 +539,18 @@
 \__runner_forth_new_compilation_core:nn { >R }
   {
     \__runner_forth_pop_int:N \l__runner_tmpa_int
-    \seq_push:NV \l__runner_forth_return_seq \l__runner_tmpa_int
+    \__runner_forth_return_push:n \l__runner_tmpa_int
   }
 \__runner_forth_new_core:nn { R> }
   {
-    \seq_pop:NN \l__runner_forth_return_seq \l__runner_tmpa_tl
-    \__runner_forth_push:n { \l__runner_tmpa_tl }
+    \__runner_forth_return_pop_int:N \l__runner_tmpa_int
+    \__runner_forth_push:n { \l__runner_tmpa_int }
   }
 \__runner_forth_new_core:nn { R@ }
   {
-    \seq_get:NN \l__runner_forth_return_seq \l__runner_tmpa_tl
-    \__runner_forth_push:n { \l__runner_tmpa_tl }
+    \__runner_forth_return_pop_int:N \l__runner_tmpa_int
+    \__runner_forth_return_push:n { \l__runner_tmpa_int }
+    \__runner_forth_push:n { \l__runner_tmpa_int }
   }
 \__runner_forth_new_core:nn { ?DUP }
   {
@@ -1028,24 +1053,21 @@
 \cs_new_protected:Npn \__runner_forth_compiled_do:n #1
   {
     \__runner_forth_pop_int:NN \l__runner_tmpa_int \l__runner_tmpb_int
-    \seq_push:Nx \l__runner_forth_return_seq
-      { \int_use:N \l__runner_tmpa_int } % ^^A limit
-    \seq_push:Nx \l__runner_forth_return_seq
-      { \int_use:N \l__runner_tmpb_int } % ^^A index
+    \__runner_forth_return_push:n { \l__runner_tmpa_int } % ^^A limit
+    \__runner_forth_return_push:n { \l__runner_tmpb_int } % ^^A index
     \int_do_until:nNnn \l__runner_tmpb_int = \l__runner_tmpa_int
       {
         #1
-        \seq_pop:NN \l__runner_forth_return_seq \l__runner_tmpb_tl
-        \int_set:Nn \l__runner_tmpb_int { \l__runner_tmpb_tl + 1 }
-        \seq_get:NN \l__runner_forth_return_seq \l__runner_tmpa_tl
-        \int_set:Nn \l__runner_tmpa_int { \l__runner_tmpa_tl }
-        \seq_push:Nx \l__runner_forth_return_seq
-          { \int_use:N \l__runner_tmpb_int }
+        \__runner_forth_return_pop_int:N \l__runner_tmpb_int
+        \int_incr:N \l__runner_tmpb_int
+        \__runner_forth_return_pop_int:N \l__runner_tmpa_int
+        \__runner_forth_return_push:n { \l__runner_tmpa_int }
+        \__runner_forth_return_push:n { \l__runner_tmpb_int }
       }
     \__runner_break_point:n
       {
-        \seq_pop:NN \l__runner_forth_return_seq \l__runner_tmpb_tl
-        \seq_pop:NN \l__runner_forth_return_seq \l__runner_tmpa_tl
+        \__runner_forth_return_pop_int:N \l__runner_tmpb_int
+        \__runner_forth_return_pop_int:N \l__runner_tmpa_int
       }
   }
 \__runner_forth_new_compilation_core:nn { I }
@@ -1053,7 +1075,10 @@
     \__runner_forth_def_put_right:n
       {
         \__runner_forth_push:n
-          { \seq_item:Nn \l__runner_forth_return_seq { 1 } }
+          {
+            \__runner_array_item:Nn \g__runner_forth_array
+              { \l__runner_forth_return_here_int - 1 }
+          }
       }
   }
 \__runner_forth_new_compilation_core:nn { J }
@@ -1061,15 +1086,18 @@
     \__runner_forth_def_put_right_x:n
       {
         \__runner_forth_push:n
-          { \seq_item:Nn \l__runner_forth_return_seq { 3 } }
+          {
+            \__runner_array_item:Nn \g__runner_forth_array
+              { \l__runner_forth_return_here_int - 3 }
+          }
       }
   }
 \__runner_forth_new_compilation_core:nn { LEAVE }
   { \__runner_forth_def_put_right:n { \__runner_break:n { } } }
 \__runner_forth_new_compilation_core:nn { UNLOOP }
   {
-    \seq_pop:NN \l__runner_forth_return_seq \l__runner_tmpa_tl
-    \seq_pop:NN \l__runner_forth_return_seq \l__runner_tmpb_tl
+    \__runner_forth_return_pop_int:N \l__runner_tmpa_int
+    \__runner_forth_return_pop_int:N \l__runner_tmpb_int
   }
 \__runner_forth_new_immediate_core:nn { }
   { \bool_set_true:N \l__runner_forth_stop_bool }
@@ -1250,6 +1278,8 @@
   { The~word~'#1'~is~not~defined. }
 \msg_new:nnn { runner/forth } { empty-stack }
   { The~data~stack~is~empty,~and~there~is~nothing~to~retrieve~there. }
+\msg_new:nnn { runner/forth } { empty-return-stack }
+  { The~return~stack~is~empty,~and~there~is~nothing~to~retrieve~there. }
 \msg_new:nnnn { runner/forth } { out-of-memory }
   { The~Forth~interpreter~ran~out~of~memory. }
   { \__runner_forth_footprint: }

@@ -433,7 +433,7 @@
 %    \end{macrocode}
 % \end{macro}
 %
-% \subsubsection{Manipulating stacks}
+% \subsubsection{Manipulating the data stack}
 %
 % \begin{macro}[int]{\@@_forth_pop_int:N}
 %   Get data from the stack.  The stack is empty if \texttt{stack_here}
@@ -613,6 +613,47 @@
   {
     \@@_forth_push:n
       { \int_mod:nn {#1} { \c_@@_forth_mod_int } }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \subsubsection{Manipulating the return stack}
+%
+% \begin{macro}[int]{\@@_forth_return_pop_int:N}
+%   Get data from the return stack.  The return stack is empty if
+%   \texttt{return_here} is \texttt{return_min}.
+%    \begin{macrocode}
+\cs_new_protected:Npn \@@_forth_return_pop_int:N #1
+  {
+    \int_compare:nNnTF
+      \l_@@_forth_return_here_int > \g_@@_forth_return_min_int
+      {
+        \int_decr:N \l_@@_forth_return_here_int
+        \int_set:Nn #1
+          {
+            \@@_array_item:NN \g_@@_forth_array
+              \l_@@_forth_return_here_int
+          }
+      }
+      { \msg_error:nn { runner/forth } { empty-return-stack } }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int]{\@@_forth_return_push:n}
+%   Push an unsigned integer onto the return stack, at
+%   \texttt{return_here}, failing if the return stack is full.
+%    \begin{macrocode}
+\cs_new_protected:Npn \@@_forth_return_push:n #1
+  {
+    \int_compare:nNnTF
+      \l_@@_forth_return_here_int < \g_@@_forth_return_max_int
+      {
+        \@@_array_gset:Nnn \g_@@_forth_array
+          \l_@@_forth_return_here_int {#1}
+        \int_incr:N \l_@@_forth_return_here_int
+      }
+      { \msg_error:nn { runner/forth } { out-of-memory } }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -905,13 +946,11 @@
 %    \end{macrocode}
 % \end{variable}
 %
-% \subsubsection{Data space and data stack}
-%
-% ^^A todo: now
 % \begin{variable}{\l_@@_forth_base_address_int}
 % \begin{macro}[int, EXP]{\@@_forth_base:}
 %   The address at which the base of the number system is stored, and a
-%   function to retreive the base.
+%   function to retreive the base, reducing it to the interval \([2,
+%   36]\).
 %    \begin{macrocode}
 \int_new:N \l_@@_forth_base_address_int
 \cs_new:Npn \@@_forth_base:
@@ -926,14 +965,11 @@
 % \end{macro}
 % \end{variable}
 %
-% \subsubsection{Other stacks}
-%
-% ^^A todo: implement them as claimed.
-% \begin{variable}{\l_@@_forth_flow_seq, \l_@@_forth_return_seq}
-%   The remaining stacks.
+% ^^A todo: implement control-flow as in the standard.
+% \begin{variable}{\l_@@_forth_flow_seq}
+%   Control flow stack.
 %    \begin{macrocode}
 \seq_new:N \l_@@_forth_flow_seq
-\seq_new:N \l_@@_forth_return_seq
 %    \end{macrocode}
 % \end{variable}
 %
@@ -1273,7 +1309,7 @@
 \@@_forth_new_compilation_core:nn { >R }
   {
     \@@_forth_pop_int:N \l_@@_tmpa_int
-    \seq_push:NV \l_@@_forth_return_seq \l_@@_tmpa_int
+    \@@_forth_return_push:n \l_@@_tmpa_int
   }
 %    \end{macrocode}
 % \end{macro}
@@ -1284,19 +1320,21 @@
 %    \begin{macrocode}
 \@@_forth_new_core:nn { R> }
   {
-    \seq_pop:NN \l_@@_forth_return_seq \l_@@_tmpa_tl
-    \@@_forth_push:n { \l_@@_tmpa_tl }
+    \@@_forth_return_pop_int:N \l_@@_tmpa_int
+    \@@_forth_push:n { \l_@@_tmpa_int }
   }
 %    \end{macrocode}
 % \end{macro}
 %
+% ^^A todo: optimize.
 % \begin{macro}[int]{R@}
 %   Copy from the return stack onto the data stack.
 %    \begin{macrocode}
 \@@_forth_new_core:nn { R@ }
   {
-    \seq_get:NN \l_@@_forth_return_seq \l_@@_tmpa_tl
-    \@@_forth_push:n { \l_@@_tmpa_tl }
+    \@@_forth_return_pop_int:N \l_@@_tmpa_int
+    \@@_forth_return_push:n { \l_@@_tmpa_int }
+    \@@_forth_push:n { \l_@@_tmpa_int }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -2195,29 +2233,27 @@
 %    \end{macrocode}
 % \end{macro}
 %
+% ^^A todo: optimize
 % \begin{macro}[int]{\@@_forth_compiled_do:n}
 %    \begin{macrocode}
 \cs_new_protected:Npn \@@_forth_compiled_do:n #1
   {
     \@@_forth_pop_int:NN \l_@@_tmpa_int \l_@@_tmpb_int
-    \seq_push:Nx \l_@@_forth_return_seq
-      { \int_use:N \l_@@_tmpa_int } % ^^A limit
-    \seq_push:Nx \l_@@_forth_return_seq
-      { \int_use:N \l_@@_tmpb_int } % ^^A index
+    \@@_forth_return_push:n { \l_@@_tmpa_int } % ^^A limit
+    \@@_forth_return_push:n { \l_@@_tmpb_int } % ^^A index
     \int_do_until:nNnn \l_@@_tmpb_int = \l_@@_tmpa_int
       {
         #1
-        \seq_pop:NN \l_@@_forth_return_seq \l_@@_tmpb_tl
-        \int_set:Nn \l_@@_tmpb_int { \l_@@_tmpb_tl + 1 }
-        \seq_get:NN \l_@@_forth_return_seq \l_@@_tmpa_tl
-        \int_set:Nn \l_@@_tmpa_int { \l_@@_tmpa_tl }
-        \seq_push:Nx \l_@@_forth_return_seq
-          { \int_use:N \l_@@_tmpb_int }
+        \@@_forth_return_pop_int:N \l_@@_tmpb_int
+        \int_incr:N \l_@@_tmpb_int
+        \@@_forth_return_pop_int:N \l_@@_tmpa_int
+        \@@_forth_return_push:n { \l_@@_tmpa_int }
+        \@@_forth_return_push:n { \l_@@_tmpb_int }
       }
     \@@_break_point:n
       {
-        \seq_pop:NN \l_@@_forth_return_seq \l_@@_tmpb_tl
-        \seq_pop:NN \l_@@_forth_return_seq \l_@@_tmpa_tl
+        \@@_forth_return_pop_int:N \l_@@_tmpb_int
+        \@@_forth_return_pop_int:N \l_@@_tmpa_int
       }
   }
 %    \end{macrocode}
@@ -2230,7 +2266,10 @@
     \@@_forth_def_put_right:n
       {
         \@@_forth_push:n
-          { \seq_item:Nn \l_@@_forth_return_seq { 1 } }
+          {
+            \@@_array_item:Nn \g_@@_forth_array
+              { \l_@@_forth_return_here_int - 1 }
+          }
       }
   }
 \@@_forth_new_compilation_core:nn { J }
@@ -2238,7 +2277,10 @@
     \@@_forth_def_put_right_x:n
       {
         \@@_forth_push:n
-          { \seq_item:Nn \l_@@_forth_return_seq { 3 } }
+          {
+            \@@_array_item:Nn \g_@@_forth_array
+              { \l_@@_forth_return_here_int - 3 }
+          }
       }
   }
 %    \end{macrocode}
@@ -2258,8 +2300,8 @@
 %    \begin{macrocode}
 \@@_forth_new_compilation_core:nn { UNLOOP }
   {
-    \seq_pop:NN \l_@@_forth_return_seq \l_@@_tmpa_tl
-    \seq_pop:NN \l_@@_forth_return_seq \l_@@_tmpb_tl
+    \@@_forth_return_pop_int:N \l_@@_tmpa_int
+    \@@_forth_return_pop_int:N \l_@@_tmpb_int
   }
 %    \end{macrocode}
 % \end{macro}
@@ -2532,6 +2574,8 @@
   { The~word~'#1'~is~not~defined. }
 \msg_new:nnn { runner/forth } { empty-stack }
   { The~data~stack~is~empty,~and~there~is~nothing~to~retrieve~there. }
+\msg_new:nnn { runner/forth } { empty-return-stack }
+  { The~return~stack~is~empty,~and~there~is~nothing~to~retrieve~there. }
 \msg_new:nnnn { runner/forth } { out-of-memory }
   { The~Forth~interpreter~ran~out~of~memory. }
   { \@@_forth_footprint: }
