@@ -1017,6 +1017,18 @@
 % \end{macro}
 % \end{macro}
 %
+% \begin{macro}[int]{\@@_forth_input_word:n}
+%   Many functions read a word from the input.  This is a short-hand for
+%   the task.
+%    \begin{macrocode}
+\cs_new_protected:Npn \@@_forth_input_word:n #1
+  {
+    \@@_forth_input_discard:n { 32 }
+    \@@_forth_input_until:nn { 32 } {#1}
+  }
+%    \end{macrocode}
+% \end{macro}
+%
 % \subsubsection{Numbers}
 %
 % ^^A todo: bug, negative numbers not accepted.
@@ -1165,8 +1177,7 @@
 \@@_forth_new_core:nn { CONSTANT }
   {
     \@@_forth_pop_int:N \l_@@_tmpa_int
-    \@@_forth_input_discard:n { 32 }
-    \@@_forth_input_until:nn { 32 }
+    \@@_forth_input_word:n
       {
         \@@_forth_new_word:nx {#1}
           { \@@_forth_push:n { \int_use:N \l_@@_tmpa_int } }
@@ -1179,8 +1190,7 @@
 %    \begin{macrocode}
 \@@_forth_new_core:nn { VARIABLE }
   {
-    \@@_forth_input_discard:n { 32 }
-    \@@_forth_input_until:nn { 32 }
+    \@@_forth_input_word:n
       {
         \int_compare:nNnTF
           \l_@@_forth_data_here_int < \l_@@_forth_data_text_int
@@ -1204,10 +1214,7 @@
 %   the work.
 %    \begin{macrocode}
 \@@_forth_new_core:nn { : }
-  {
-    \@@_forth_input_discard:n { 32 }
-    \@@_forth_input_until:nN { 32 } \@@_forth_def:n
-  }
+  { \@@_forth_input_word:n { \@@_forth_def:n {#1} } }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -1228,10 +1235,7 @@
     \seq_push:NV \l_@@_forth_flow_seq \l_@@_forth_def_tl
     \tl_clear:N \l_@@_forth_def_tl
     \bool_until_do:Nn \l_@@_forth_stop_bool
-      {
-        \@@_forth_input_discard:n { 32 }
-        \@@_forth_input_until:nN { 32 } \@@_forth_compile:n
-      }
+      { \@@_forth_input_word:n { \@@_forth_compile:n {##1} } }
     \bool_set_false:N \l_@@_forth_stop_bool
     \int_compare:nNnF \l_@@_forth_def_nesting_int = \c_zero
       {
@@ -1334,8 +1338,7 @@
 %    \begin{macrocode}
 \@@_forth_new_compilation_core:nn { POSTPONE }
   {
-    \@@_forth_input_discard:n { 32 }
-    \@@_forth_input_until:nn { 32 }
+    \@@_forth_input_word:n
       {
         \prop_get:NnN \l_@@_forth_words_prop {#1} \l_@@_tmpa_tl
         \@@_forth_def_put_right:x
@@ -1391,8 +1394,7 @@
 %    \begin{macrocode}
 \@@_forth_new_core:nn { ' }
   {
-    \@@_forth_input_discard:n { 32 }
-    \@@_forth_input_until:nn { 32 }
+    \@@_forth_input_word:n
       {
         \prop_get:NnN \l_@@_forth_words_prop {#1} \l_@@_tmpa_tl
         \@@_forth_push:n
@@ -1410,8 +1412,7 @@
 %    \begin{macrocode}
 \@@_forth_new_compilation_core:nn { ['] }
   {
-    \@@_forth_input_discard:n { 32 }
-    \@@_forth_input_until:nn { 32 }
+    \@@_forth_input_word:n
       {
         \prop_get:NnN \l_@@_forth_words_prop {#1} \l_@@_tmpa_tl
         \@@_forth_def_put_right:x
@@ -2097,8 +2098,7 @@
 %    \begin{macrocode}
 \@@_forth_new_core:nn { CHAR }
   {
-    \@@_forth_input_discard:n { 32 }
-    \@@_forth_input_until:nn { 32 }
+    \@@_forth_input_word:n
       {
         \tl_set:Nx \l_@@_tmpa_tl { \str_head:n {#1} }
         \@@_forth_push:n { \exp_after:wN ` \l_@@_tmpa_tl }
@@ -2113,8 +2113,7 @@
 %    \begin{macrocode}
 \@@_forth_new_compilation_core:nn { [CHAR] }
   {
-    \@@_forth_input_discard:n { 32 }
-    \@@_forth_input_until:nn { 32 }
+    \@@_forth_input_word:n
       {
         \tl_set:Nx \l_@@_tmpa_tl { \str_head:n {#1} }
         \@@_forth_def_put_right:x
@@ -2577,10 +2576,7 @@
     \@@_forth_init:
     \bool_set_false:N \l_@@_forth_stop_bool
     \bool_until_do:Nn \l_@@_forth_stop_bool
-      {
-        \@@_forth_input_discard:n { 32 }
-        \@@_forth_input_until:nN { 32 } \@@_forth_interpret:n
-      }
+      { \@@_forth_input_word:n { \@@_forth_interpret:n {##1} } }
   }
 %    \end{macrocode}
 % \end{macro}
