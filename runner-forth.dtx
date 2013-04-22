@@ -2142,9 +2142,9 @@
   \@@_forth_environment_def:nn { FLOORED }
     { \@@_forth_push_false: }
   \@@_forth_environment_def:nn { MAX-D }
-    { % ^^A todo: check endianness
-      \@@_forth_push:n { 8388607 }
+    {
       \@@_forth_push:n { 16777215 }
+      \@@_forth_push:n { 8388607 }
     }
   \@@_forth_environment_def:nn { MAX-N }
     { \@@_forth_push:n { 8388607 } }
