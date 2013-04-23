@@ -48,7 +48,7 @@
 % \item ending |ABORT|, |ABORT"|, |QUIT|,
 % \item number conversion |<#|, |#|, |#>|, |#S|, |>NUMBER|, |HOLD|,
 %   |SIGN|,
-% \item int |FM/MOD|, |SM/REM|, |U.|, |U<|, |UM/MOD|,
+% \item int |FM/MOD|, |SM/REM|, |U.|, |UM/MOD|,
 % \item misc, |EXIT|, |FIND|, |KEY|, |MOVE|, |STATE|, |[|, |]|.
 % \end{itemize}
 %
@@ -1647,7 +1647,7 @@
 % \end{macro}
 %
 % \begin{macro}[int]{<, =, >}
-%   Comparisons.  Push true or false.
+%   Signed comparisons.  Push true or false.
 %    \begin{macrocode}
 \@@_forth_new_core:nn { < }
   {
@@ -1673,6 +1673,19 @@
     \int_compare:nNnTF
       { \@@_forth_signed:N \l_@@_tmpa_int }
       > { \@@_forth_signed:N \l_@@_tmpb_int }
+      { \@@_forth_push_true: }
+      { \@@_forth_push_false: }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int]{U<}
+%   Compare unsigned numbers.  Push true or false.
+%    \begin{macrocode}
+\@@_forth_new_core:nn { U< }
+  {
+    \@@_forth_pop_int:NN \l_@@_tmpa_int \l_@@_tmpb_int
+    \int_compare:nNnTF \l_@@_tmpa_int < \l_@@_tmpb_int
       { \@@_forth_push_true: }
       { \@@_forth_push_false: }
   }
@@ -2222,8 +2235,8 @@
 % \subsubsection{Words for display, input, and strings}
 %
 % \begin{macro}[int]{.}
-%   Get a value from the data stack, convert it to the base, which can
-%   be altered through the Forth keyword |BASE|.  Trailing space.
+%   Get a signed value from the data stack, convert it to the base.
+%   Trailing space.
 %    \begin{macrocode}
 \@@_forth_new_core:nn { . }
   {
@@ -2234,6 +2247,19 @@
           { \@@_forth_signed:N \l_@@_tmpa_int }
           { \@@_forth_base: } ~
       }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int]{U.}
+%   Get an unsigned value from the data stack, convert it to the base.
+%   Trailing space.
+%    \begin{macrocode}
+\@@_forth_new_core:nn { U. }
+  {
+    \@@_forth_pop_int:N \l_@@_tmpa_int
+    \@@_output:x
+      { \int_to_base:nn { \l_@@_tmpa_int } { \@@_forth_base: } ~ }
   }
 %    \end{macrocode}
 % \end{macro}

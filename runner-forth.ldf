@@ -762,6 +762,13 @@
       { \__runner_forth_push_true: }
       { \__runner_forth_push_false: }
   }
+\__runner_forth_new_core:nn { U< }
+  {
+    \__runner_forth_pop_int:NN \l__runner_tmpa_int \l__runner_tmpb_int
+    \int_compare:nNnTF \l__runner_tmpa_int < \l__runner_tmpb_int
+      { \__runner_forth_push_true: }
+      { \__runner_forth_push_false: }
+  }
 \__runner_forth_new_core:nn { 1+ }
   {
     \__runner_forth_pop_int:N \l__runner_tmpa_int
@@ -1074,6 +1081,12 @@
           { \__runner_forth_signed:N \l__runner_tmpa_int }
           { \__runner_forth_base: } ~
       }
+  }
+\__runner_forth_new_core:nn { U. }
+  {
+    \__runner_forth_pop_int:N \l__runner_tmpa_int
+    \__runner_output:x
+      { \int_to_base:nn { \l__runner_tmpa_int } { \__runner_forth_base: } ~ }
   }
 \__runner_forth_new_compilation_core:nn { ." }
   {
