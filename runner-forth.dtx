@@ -44,11 +44,9 @@
 % \item definitions |CREATE|, |DOES>|, |>BODY|,
 % \item control-flow |BEGIN|, |UNTIL|, |WHILE|, |REPEAT|,
 % \item do-loop |+LOOP|,
-% \item parse/input |>IN|, |ACCEPT|, |EVALUATE|
+% \item parse/input |>IN|, |ACCEPT|, |EVALUATE|,
 % \item ending |ABORT|, |ABORT"|, |QUIT|,
-% \item number conversion |<#|, |#|, |#>|, |#S|, |>NUMBER|, |HOLD|,
-%   |SIGN|,
-% \item misc, |EXIT|, |FIND|, |KEY|, |MOVE|, |STATE|, |[|, |]|.
+% \item misc, |EXIT|, |FIND|, |KEY|, |MOVE|, |STATE|, |[|, |]|, |>NUMBER|.
 % \end{itemize}
 %
 % The following environment variables are not implemented:
@@ -232,6 +230,10 @@
 % \texttt{min} and \texttt{max} variables are global and can only change
 % between Forth runs; other integers are local and change during runs.
 % \begin{itemize}
+% \item The pictured numeric output is from \texttt{picnum_min}
+%   (included) to \texttt{picnum_max} (excluded): this contains material
+%   from \texttt{picnum_here} (included) to \texttt{picnum_max}
+%   (excluded).
 % \item The input buffer is from \texttt{input_min} (included) to
 %   \texttt{input_max} (excluded): this contains already parsed text
 %   from \texttt{input_min} (included) to \texttt{input_parsed}
@@ -272,6 +274,21 @@
 % \(24\) bit value in \TeX{} is not fast; and we would need to chose an
 % encoding for Unicode (this is still needed in \pdfTeX{}, but only at
 % the very last step of output).
+%
+% \begin{variable}
+%   {
+%     \g_@@_forth_picnum_min_int,
+%     \l_@@_forth_picnum_here_int,
+%     \g_@@_forth_picnum_max_int,
+%   }
+%   The pictured numeric output, ranging from
+%   \cs{l_@@_forth_picnum_here_int} to \cs{g_@@_forth_picnum_max_int}.
+%    \begin{macrocode}
+\int_new:N \g_@@_forth_picnum_min_int
+\int_new:N \l_@@_forth_picnum_here_int
+\int_new:N \g_@@_forth_picnum_max_int
+%    \end{macrocode}
+% \end{variable}
 %
 % \begin{variable}
 %   {
@@ -365,6 +382,8 @@
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \@@_forth_init_data:
   {
+    \int_set_eq:NN \l_@@_forth_picnum_here_int
+      \g_@@_forth_picnum_max_int
     \int_set_eq:NN \l_@@_forth_input_parsed_int
       \g_@@_forth_input_min_int
     \int_set_eq:NN \l_@@_forth_input_end_int
@@ -390,11 +409,13 @@
 %   here initial values for the array parameters, all at once to avoid
 %   mistakes.
 %    \begin{macrocode}
-\int_gset:Nn \g_@@_forth_input_min_int { 1 }
-\int_gset:Nn \g_@@_forth_input_max_int { 129 }
-\int_gset:Nn \g_@@_forth_pad_min_int { 129 }
-\int_gset:Nn \g_@@_forth_pad_max_int { 257 }
-\int_gset:Nn \g_@@_forth_data_min_int { 257 }
+\int_gset:Nn \g_@@_forth_picnum_min_int { 1 }
+\int_gset:Nn \g_@@_forth_picnum_max_int { 128 }
+\int_gset:Nn \g_@@_forth_input_min_int { 128 }
+\int_gset:Nn \g_@@_forth_input_max_int { 256 }
+\int_gset:Nn \g_@@_forth_pad_min_int { 256 }
+\int_gset:Nn \g_@@_forth_pad_max_int { 384 }
+\int_gset:Nn \g_@@_forth_data_min_int { 384 }
 \int_gset:Nn \g_@@_forth_data_max_int { 65280 }
 \int_gset:Nn \g_@@_forth_stack_min_int { 65280 }
 \int_gset:Nn \g_@@_forth_stack_max_int { 65408 }
@@ -848,6 +869,13 @@
 %
 % \subsubsection{Input}
 %
+% \begin{variable}{\l_@@_forth_input_until_tl}
+%   Token list containing the word being built.
+%    \begin{macrocode}
+\tl_new:N \l_@@_forth_input_until_tl
+%    \end{macrocode}
+% \end{variable}
+%
 % \begin{variable}{\l_@@_forth_input_str}
 %   When running Forth, no distinction is made between the program and
 %   the input arguments to \cs{runner}, so those are combined into a
@@ -914,7 +942,7 @@
         \tl_set:Nx \l_@@_tmpb_tl
           { \str_range:nnn {#1} { 1 } { \l_@@_tmpa_int } }
         \tl_set:Nx \l_@@_forth_input_str
-          { \str_range:nnn {#1} { \l_@@_tmpa_int } { -1 } ^^J #2 }
+          { \str_range:nnn {#1} { \l_@@_tmpa_int + 1 } { -1 } ^^J #2 }
       }
       {
         \tl_set:Nx \l_@@_tmpb_tl { #1 ^^J }
@@ -1021,7 +1049,7 @@
   }
 \cs_new_protected:Npn \@@_forth_input_until_aux:NnN #1#2#3
   {
-    \tl_clear:N \l_@@_tmpb_tl
+    \tl_clear:N \l_@@_forth_input_until_tl
     \bool_set_true:N \l_@@_tmpa_bool
     \bool_while_do:Nn \l_@@_tmpa_bool
       {
@@ -1030,14 +1058,14 @@
             \int_compare:nNnTF \l_@@_tmpc_int #1 {#2}
               { \bool_set_false:N \l_@@_tmpa_bool }
               {
-                \@@_forth_str_put_char:Nn \l_@@_tmpb_tl
+                \@@_forth_str_put_char:Nn \l_@@_forth_input_until_tl
                   { \l_@@_tmpc_int }
               }
             \int_incr:N \l_@@_forth_input_parsed_int
           }
           { \bool_set_false:N \l_@@_tmpa_bool }
       }
-    \exp_args:No #3 \l_@@_tmpb_tl
+    \exp_args:No #3 \l_@@_forth_input_until_tl
   }
 %    \end{macrocode}
 % \end{macro}
@@ -2547,6 +2575,119 @@
     \int_compare:nNnT
       \l_@@_forth_data_word_int > \l_@@_forth_data_text_int
       { \msg_error:nn { runner/forth } { out-of-memory } }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \subsubsection{Number conversion}
+%
+% ^^A todo: improve error catching.
+% \begin{macro}[int]+<#+
+%   A little bit of care is needed on the \TeX{} side, since |#| is
+%   special there.  Initiate the pictured numeric output by emptying it
+%   (simply move the \texttt{here} pointer).
+%    \begin{macrocode}
+\exp_args:Nx \@@_forth_new_core:nn { < \iow_char:N \# }
+  {
+    \int_set_eq:NN \l_@@_forth_picnum_here_int
+      \g_@@_forth_picnum_max_int
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int]+#>+
+%   End the pictured numeric output by storing the sequence as a string
+%   in the text literal
+%    \begin{macrocode}
+\exp_args:Nx \@@_forth_new_core:nn { \iow_char:N \# > }
+  {
+    \@@_forth_pop_int:NN \l_@@_tmpa_int \l_@@_tmpb_int
+    \@@_forth_push:n { \l_@@_forth_picnum_here_int }
+    \@@_forth_push:n
+      {
+        \g_@@_forth_picnum_max_int
+        - \l_@@_forth_picnum_here_int
+      }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int]+#+
+% \begin{macro}[int]+#S+
+% \begin{macro}[aux]{\@@_forth_picnum_aux:}
+%   First we describe how |#| operates.  Pop a double-cell unsigned
+%   integer \((c,d)\).  Store the base as \(b\).  Split \(d = b q_d +
+%   r_d\).  Set \(c' = c + r_d\), and split it: \(c' = r_d + c = b q_c +
+%   r_c\).  Store \(|`0| + r_c\) to the beginning of the pictured
+%   numeric buffer.  Set \((c,d)\) equal to \((q_c, q_d)\).  Push that
+%   to the stack.  The |#S| word is similar, repeating the conversion
+%   until both \(c\) and \(d\) are zero.
+%    \begin{macrocode}
+\exp_args:Nx \@@_forth_new_core:nn { \iow_char:N \# }
+  {
+    \@@_forth_pop_int:NN \l_@@_tmpc_int \l_@@_tmpd_int
+    \int_set:Nn \l_@@_tmpb_int { \@@_forth_base: }
+    \@@_forth_picnum_aux:
+    \@@_forth_push:nn { \l_@@_tmpc_int } { \l_@@_tmpd_int }
+  }
+\exp_args:Nx \@@_forth_new_core:nn { \iow_char:N \# S }
+  {
+    \@@_forth_pop_int:NN \l_@@_tmpc_int \l_@@_tmpd_int
+    \int_set:Nn \l_@@_tmpb_int { \@@_forth_base: }
+    \int_while_do:nNnn
+      { \l_@@_tmpc_int + \l_@@_tmpd_int } > \c_zero
+      { \@@_forth_picnum_aux: }
+    \@@_forth_push:nn { \l_@@_tmpc_int } { \l_@@_tmpd_int }
+  }
+\cs_new_protected_nopar:Npn \@@_forth_picnum_aux:
+  {
+    \int_add:Nn \l_@@_tmpc_int
+      {
+        \int_mod:nn { \l_@@_tmpd_int } { \l_@@_tmpb_int }
+        * \c_@@_forth_mod_int
+      }
+    \int_decr:N \l_@@_forth_picnum_here_int
+    \@@_array_gset:Nnn \g_@@_forth_array
+      { \l_@@_forth_picnum_here_int }
+      { `0 + \int_mod:nn { \l_@@_tmpc_int } { \l_@@_tmpb_int } }
+    \int_set:Nn \l_@@_tmpc_int
+      { \int_div_truncate:nn { \l_@@_tmpc_int } { \l_@@_tmpb_int } }
+    \int_set:Nn \l_@@_tmpd_int
+      { \int_div_truncate:nn { \l_@@_tmpd_int } { \l_@@_tmpb_int } }
+  }
+%    \end{macrocode}
+% \end{macro}
+% \end{macro}
+% \end{macro}
+%
+% \begin{macro}[int]{HOLD}
+%   Pop \(a\) from the stack, and put it at the start of the pictured
+%   numeric buffer.
+%    \begin{macrocode}
+\@@_forth_new_core:nn { HOLD }
+  {
+    \@@_forth_pop_int:N \l_@@_tmpa_int
+    \int_decr:N \l_@@_forth_picnum_here_int
+    \@@_array_gset:Nnn \g_@@_forth_array
+      { \l_@@_forth_picnum_here_int } { \l_@@_tmpa_int }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int]{SIGN}
+%   Pop a signed \(a\) from the stack.  If it is negative, prepend |-|
+%   to the pictured numeric output.
+%    \begin{macrocode}
+\@@_forth_new_core:nn { SIGN }
+  {
+    \@@_forth_pop_int:N \l_@@_tmpa_int
+    \int_compare:nNnT
+      { \@@_forth_signed:N \l_@@_tmpa_int } < \c_zero
+      {
+        \int_decr:N \l_@@_forth_picnum_here_int
+        \@@_array_gset:Nnn \g_@@_forth_array
+          { \l_@@_forth_picnum_here_int } { `- }
+      }
   }
 %    \end{macrocode}
 % \end{macro}

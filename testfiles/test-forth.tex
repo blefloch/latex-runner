@@ -54,6 +54,22 @@
 \typeout{\result}
 
 \runner{forth}[output = \result]|
+  : FACTORIAL ( +n1 -- +d2)
+  DUP 2 < IF DROP 1 0 ELSE
+  DUP 1- RECURSE ( n f2 f1)
+  ROT SWAP OVER ( f2 n f1 n)
+  * ROT ROT ( f1' f2 n)
+  UM* ROT +
+  THEN
+  ;
+||
+0 FACTORIAL <# #S #> TYPE CR
+8 FACTORIAL <# #S #> TYPE CR
+13 FACTORIAL <# #S #> TYPE CR
+|
+\typeout{\result}
+
+\runner{forth}[output = \result]|
   CHAR foobar EMIT|||
 \typeout{\result}
 
@@ -129,6 +145,10 @@
   18 3 LSHIFT .
   18 3 RSHIFT .
   18 INVERT .|||
+\typeout{\result}
+
+\runner{forth}[output = \result]|
+  1234567 3456789 M* <# #S #> TYPE|||
 \typeout{\result}
 
 \stop
