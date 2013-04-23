@@ -46,7 +46,7 @@
 % \item do-loop |+LOOP|,
 % \item parse/input |>IN|, |ACCEPT|, |EVALUATE|,
 % \item ending |ABORT|, |ABORT"|, |QUIT|,
-% \item misc, |EXIT|, |FIND|, |KEY|, |MOVE|, |STATE|, |[|, |]|, |>NUMBER|.
+% \item misc, |EXIT|, |FIND|, |KEY|, |MOVE|, |>NUMBER|.
 % \end{itemize}
 %
 % The following environment variables are not implemented:
@@ -98,9 +98,9 @@
 % \item Prompt (see |QUIT|): ?
 % \item Division rounding: symmetric (the quotient is rounded towards
 %   zero, the remainder has the sign of the numerator).
-% \item Values of |STATE| when true: ?
-% \item Values returned after arithmetic overflow: value modulo
-%   \(2^{24}\).
+% \item Value of |STATE| when true: all bits set.
+% \item Values returned after arithmetic overflow: correct result,
+%   modulo \(2^{24}\).
 % \item Whether the current definition can be found after |DOES>|: ?
 % \end{itemize}
 % ^^A todo: ensure that input buffer and pad are both at least 128 cells wide.
@@ -1222,12 +1222,8 @@
 % \subsubsection{Misc}
 %
 % \begin{variable}{\l_@@_forth_stop_bool}
-%   This boolean is set to be true by the word |;| which ends
-%   definitions: the loop that compiles words into the definition then
-%   stops, and we return to interpreting the input.  This boolean is
-%   also set true by the empty word received by the interpreter when
-%   there is no input left.  This occurrence marks the end of the
-%   program.
+%   This boolean is set to be true by an empty word, which ends the
+%   input.  This occurrence marks the end of the Forth code.
 %    \begin{macrocode}
 \bool_new:N \l_@@_forth_stop_bool
 %    \end{macrocode}
@@ -1250,6 +1246,14 @@
   }
 %    \end{macrocode}
 % \end{macro}
+% \end{variable}
+%
+% \begin{variable}{\l_@@_forth_state_address_int}
+%   Address of the |STATE| flag, \(0\) during interpretation,
+%   \(2^{24}-1\) during compilation.
+%    \begin{macrocode}
+\int_new:N \l_@@_forth_state_address_int
+%    \end{macrocode}
 % \end{variable}
 %
 % \subsection{Core words}
@@ -1344,8 +1348,10 @@
     \tl_clear:N \l_@@_forth_def_code_tl
     \@@_forth_input_word:
     \seq_push:NV \l_@@_forth_def_seq \l_@@_forth_input_word_str
-    \int_set:Nn \l_@@_forth_state_int
+    \@@_forth_data_gset:nn
+      { \l_@@_forth_state_address_int }
       { \c_@@_forth_mod_int - \c_one }
+    \cs_set_eq:NN \@@_forth_perform:n \@@_forth_compile:n
     \@@_forth_control_open:n { 0 }
   }
 %    \end{macrocode}
@@ -1365,7 +1371,9 @@
         \seq_pop:NN \l_@@_forth_def_seq \l_@@_tmpa_tl
         \@@_forth_set_word:ox \l_@@_tmpa_tl { \l_@@_forth_def_code_tl }
         \seq_pop:NN \l_@@_forth_def_seq \l_@@_forth_def_code_tl
-        \int_zero:N \l_@@_forth_state_int
+        \@@_forth_data_gset:nn
+          { \l_@@_forth_state_address_int } { 0 }
+        \cs_set_eq:NN \@@_forth_perform:n \@@_forth_interpret:n
       }
       { \msg_error:nnn { runner/forth } { misplaced } { ; } }
   }
@@ -1510,6 +1518,26 @@
   {
     \@@_forth_pop_int:N \l_@@_tmpa_int
     \tex_the:D \tex_toks:D \l_@@_tmpa_int
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int]{[, ]}
+%   Change the value at |STATE|, and redefine \cs{@@_forth_perform:n},
+%   to interpret or to compile the words found in the input.
+%    \begin{macrocode}
+\@@_forth_new_compilation_core:nn { [ }
+  {
+    \@@_forth_data_gset:nn
+      { \l_@@_forth_state_address_int } { 0 }
+    \cs_set_eq:NN \@@_forth_perform:n \@@_forth_interpret:n
+  }
+\@@_forth_new_immediate_core:nn { ] }
+  {
+    \@@_forth_data_gset:nn
+      { \l_@@_forth_state_address_int }
+      { \c_@@_forth_mod_int - \c_one }
+    \cs_set_eq:NN \@@_forth_perform:n \@@_forth_compile:n
   }
 %    \end{macrocode}
 % \end{macro}
@@ -2377,13 +2405,6 @@
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[int]{BASE}
-%    \begin{macrocode}
-\@@_forth_new_core:nn { BASE }
-  { \@@_forth_push:n { \l_@@_forth_base_address_int } }
-%    \end{macrocode}
-% \end{macro}
-%
 % \begin{macro}[int]{BL}
 %    \begin{macrocode}
 \@@_forth_new_core:nn { BL }
@@ -2871,7 +2892,21 @@
   { \bool_set_true:N \l_@@_forth_stop_bool }
 %    \end{macrocode}
 %
-% \subsubsection{Environmental queries}
+% \subsubsection{Environmental variables}
+%
+% \begin{macro}[int]{BASE}
+%    \begin{macrocode}
+\@@_forth_new_core:nn { BASE }
+  { \@@_forth_push:n { \l_@@_forth_base_address_int } }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int]{STATE}
+%    \begin{macrocode}
+\@@_forth_new_core:nn { STATE }
+  { \@@_forth_push:n { \l_@@_forth_state_address_int } }
+%    \end{macrocode}
+% \end{macro}
 %
 % \begin{macro}[int]{ENVIRONMENT?}
 % \begin{macro}[aux]{\@@_forth_environment_aux:n}
@@ -3014,9 +3049,10 @@
 % ^^A todo: normalize newlines?
 % \begin{macro}[int]{\@@_forth_init:}
 %   Initialize the data space.  Initialize the code space.  Initialize
-%   the name space.  Store a |BASE| of \(10\).  Concatenate the program
-%   string and the input string, with a newline in between and at the
-%   end.
+%   the name space.  Store a |BASE| of \(10\) and a |STATE| flag of
+%   \texttt{false} (0), starting interpretation.  Concatenate the
+%   program string and the input string, with a newline in between and
+%   at the end.
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \@@_forth_init:
   {
@@ -3031,29 +3067,13 @@
     \int_set_eq:NN \l_@@_forth_base_address_int
       \l_@@_forth_data_here_int
     \@@_forth_put_here:n { 10 }
-    \tl_set:Nx \l_@@_forth_input_str
+    \int_set_eq:NN \l_@@_forth_state_address_int
+      \l_@@_forth_data_here_int
+    \@@_forth_put_here:n { 0 }
+    \cs_set_eq:NN \@@_forth_perform:n \@@_forth_interpret:n
+    \str_set:Nx \l_@@_forth_input_str
       { \l_@@_program_str ^^J \l_@@_input_str ^^J }
-    \int_zero:N \l_@@_forth_state_int
   }
-%    \end{macrocode}
-% \end{macro}
-%
-% \begin{variable}{\l_@@_forth_state_int}
-%   State (interpretation: \(0\), compilation: \(2^{24}-1\)).
-%    \begin{macrocode}
-\int_new:N \l_@@_forth_state_int
-%    \end{macrocode}
-% \end{variable}
-%
-% \begin{macro}[int]{\@@_forth_perform:n, \@@_forth_perform:V}
-%    \begin{macrocode}
-\cs_new_protected_nopar:Npn \@@_forth_perform:n
-  {
-    \int_compare:nNnTF { \l_@@_forth_state_int } = \c_zero
-      { \@@_forth_interpret:n }
-      { \@@_forth_compile:n }
-  }
-\cs_generate_variant:Nn \@@_forth_perform:n { V }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -3115,6 +3135,13 @@
   }
 %    \end{macrocode}
 % \end{macro}
+% \end{macro}
+%
+% \begin{macro}[int]{\@@_forth_perform:n, \@@_forth_perform:V}
+%    \begin{macrocode}
+\cs_new_eq:NN \@@_forth_perform:n ?
+\cs_generate_variant:Nn \@@_forth_perform:n { V }
+%    \end{macrocode}
 % \end{macro}
 %
 % \subsection{Messages}
