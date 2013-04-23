@@ -588,14 +588,17 @@
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[int]{\@@_forth_signed:N}
+% \begin{macro}[int, EXP]{\@@_forth_signed:N}
 %   Turn the unsigned |#1| into a signed number, by subtracting
-%   \(2^{24}\) if it is not less than \(2^{23}\).
+%   \(2^{24}\) if it is not less than \(2^{23}\).  We make use of
+%   \eTeX{}'s rounding behaviour: dividing |#1| by \(2^{24}\) yields
+%   \(0\) for numbers less than \(2^{23}\) and \(1\) for numbers in
+%   \([2^{23}, 2^{24}-1]\).
 %    \begin{macrocode}
-\cs_new_protected:Npn \@@_forth_signed:N #1
+\cs_new:Npn \@@_forth_signed:N #1
   {
-    \int_compare:nNnF #1 < { \c_@@_forth_mod_int / \c_two }
-      { \int_sub:Nn #1 \c_@@_forth_mod_int }
+    \int_eval:n
+      { #1 - #1 / \c_@@_forth_mod_int * \c_@@_forth_mod_int }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -632,6 +635,32 @@
   {
     \@@_forth_push:n
       { \int_mod:nn {#1} { \c_@@_forth_mod_int } }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{variable}{\l_@@_forth_push_fp}
+%   When turning a signed number to an unsigned value for pushing onto
+%   the stack, one cannot use \cs{l_@@_tmpa_int}, as it may be used by
+%   the caller.  Similarly for outputting floating points modulo some
+%   number.
+%    \begin{macrocode}
+\fp_new:N \l_@@_forth_push_fp
+%    \end{macrocode}
+% \end{variable}
+%
+% \begin{macro}[int]{\@@_forth_push_fp:n, \@@_forth_push_fp_mod:n}
+%    \begin{macrocode}
+\cs_new_protected:Npn \@@_forth_push_fp:n #1
+  { \@@_forth_push:n { \fp_to_int:n {#1} } }
+\cs_new_protected:Npn \@@_forth_push_fp_mod:n #1
+  {
+    \fp_set:Nn \l_@@_forth_push_fp { round0(#1) }
+    \@@_forth_push_fp:n
+      {
+        \l_@@_forth_push_fp - \c_@@_forth_mod_int
+             * round- ( \l_@@_forth_push_fp / \c_@@_forth_mod_int )
+      }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -1058,32 +1087,6 @@
         \prg_return_true:
       }
       { \prg_return_false: }
-  }
-%    \end{macrocode}
-% \end{macro}
-%
-% \begin{variable}{\l_@@_forth_push_fp}
-%   When turning a signed number to an unsigned value for pushing onto
-%   the stack, one cannot use \cs{l_@@_tmpa_int}, as it may be used by
-%   the caller.  Similarly for outputting floating points modulo some
-%   number.
-%    \begin{macrocode}
-\fp_new:N \l_@@_forth_push_fp
-%    \end{macrocode}
-% \end{variable}
-%
-% \begin{macro}[int]{\@@_forth_push_fp:n, \@@_forth_push_fp_mod:n}
-%    \begin{macrocode}
-\cs_new_protected:Npn \@@_forth_push_fp:n #1
-  { \@@_forth_push:n { \fp_to_int:n {#1} } }
-\cs_new_protected:Npn \@@_forth_push_fp_mod:n #1
-  {
-    \fp_set:Nn \l_@@_forth_push_fp { round0(#1) }
-    \@@_forth_push_fp:n
-      {
-        \l_@@_forth_push_fp - \c_@@_forth_mod_int
-             * round- ( \l_@@_forth_push_fp / \c_@@_forth_mod_int )
-      }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -1643,38 +1646,48 @@
 % \subsubsection{Arithmetic words}
 %
 % \begin{macro}[int]{1+, 1-}
-%   Increment or decrement the top of the stack.
+%   Increment or decrement the top of the stack.  Catch overflow by
+%   making sure that the result is in \([-2^{24}, 2^{24}-1]\) and
+%   calling the \texttt{push_signed} function.
 %    \begin{macrocode}
 \@@_forth_new_core:nn { 1+ }
   {
     \@@_forth_pop_int:N \l_@@_tmpa_int
-    \@@_forth_push:n { \l_@@_tmpa_int + 1 }
+    \@@_forth_push_signed:n
+      { \l_@@_tmpa_int + 1 - \c_@@_forth_mod_int }
   }
 \@@_forth_new_core:nn { 1- }
   {
     \@@_forth_pop_int:N \l_@@_tmpa_int
-    \@@_forth_push:n { \l_@@_tmpa_int - 1 }
+    \@@_forth_push_signed:n { \l_@@_tmpa_int - 1 }
   }
 %    \end{macrocode}
 % \end{macro}
 %
 % \begin{macro}[int]{2*, 2/}
-%   Multiply or divide the top of the stack by~\(2\).  Neither \TeX{}'s
-%   rounding division nor \LaTeX3's truncating division do the right
-%   thing there, as we want floored division (\((-1)/2=-1\)), so we
-%   distinguish the even and odd cases.
+%   Multiply or divide the top of the stack by~\(2\).  For
+%   multiplication, subtract \(2^{24}\) to get the result in the range
+%   \([-2^{24}, 2^{24}-2]\), then call the \texttt{push_signed}
+%   function.  For division, use floored division (\((-1)/2=-1\)).
 %    \begin{macrocode}
 \@@_forth_new_core:nn { 2* }
   {
     \@@_forth_pop_int:N \l_@@_tmpa_int
-    \@@_forth_push:n { \l_@@_tmpa_int * 2 }
+    \@@_forth_push_signed:n
+      { \l_@@_tmpa_int * 2 - \c_@@_forth_mod_int }
   }
 \@@_forth_new_core:nn { 2/ }
   {
     \@@_forth_pop_int:N \l_@@_tmpa_int
     \int_if_even:nTF { \l_@@_tmpa_int }
-      { \@@_forth_push:n { \l_@@_tmpa_int / 2 } }
-      { \@@_forth_push:n { (\l_@@_tmpa_int - 1) / 2 } }
+      {
+        \@@_forth_push_signed:n
+          { \@@_forth_signed:N \l_@@_tmpa_int / 2 }
+      }
+      {
+        \@@_forth_push_signed:n
+          { ( \@@_forth_signed:N \l_@@_tmpa_int - 1 ) / 2 }
+      }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -1686,8 +1699,8 @@
 \@@_forth_new_core:nn { ABS }
   {
     \@@_forth_pop_int:N \l_@@_tmpa_int
-    \@@_forth_signed:N \l_@@_tmpa_int
-    \@@_forth_push:n { \int_abs:n { \l_@@_tmpa_int } }
+    \@@_forth_push:n
+      { \int_abs:n { \@@_forth_signed:N \l_@@_tmpa_int } }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -1699,18 +1712,22 @@
 \@@_forth_new_core:nn { MAX }
   {
     \@@_forth_pop_int:NN \l_@@_tmpa_int \l_@@_tmpb_int
-    \@@_forth_signed:N \l_@@_tmpa_int
-    \@@_forth_signed:N \l_@@_tmpb_int
     \@@_forth_push_signed:n
-      { \int_max:nn { \l_@@_tmpa_int } { \l_@@_tmpb_int } }
+      {
+        \int_max:nn
+          { \@@_forth_signed:N \l_@@_tmpa_int }
+          { \@@_forth_signed:N \l_@@_tmpb_int }
+      }
   }
 \@@_forth_new_core:nn { MIN }
   {
     \@@_forth_pop_int:NN \l_@@_tmpa_int \l_@@_tmpb_int
-    \@@_forth_signed:N \l_@@_tmpa_int
-    \@@_forth_signed:N \l_@@_tmpb_int
     \@@_forth_push_signed:n
-      { \int_min:nn { \l_@@_tmpa_int } { \l_@@_tmpb_int } }
+      {
+        \int_min:nn
+          { \@@_forth_signed:N \l_@@_tmpa_int }
+          { \@@_forth_signed:N \l_@@_tmpb_int }
+      }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -1719,11 +1736,11 @@
 %   Get a signed integer from the top of the stack, and change it to its
 %   opposite.
 %    \begin{macrocode}
-\@@_forth_new_core:nn { ABS }
+\@@_forth_new_core:nn { NEGATE }
   {
     \@@_forth_pop_int:N \l_@@_tmpa_int
-    \@@_forth_signed:N \l_@@_tmpa_int
-    \@@_forth_push_signed:n { - \l_@@_tmpa_int }
+    \@@_forth_push_signed:n
+      { - \@@_forth_signed:N \l_@@_tmpa_int }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -1774,20 +1791,18 @@
 %
 % ^^A todo: division by zero?
 % \begin{macro}[int]{/}
-%   Pop two integers from the stack.  The input is assumed signed, so we
-%   subtract \(2^{24}\) if the integers are \(2^{23}\) or more.  Then
-%   perform the division, and push the result (converted back to being
-%   unsigned) onto the stack.
+%   Pop two integers from the stack.  Perform symmetric division (using
+%   the values as signed numbers), and push the (signed) result onto the
+%   stack.
 %    \begin{macrocode}
 \@@_forth_new_core:nn { / }
   {
     \@@_forth_pop_int:NN \l_@@_tmpa_int \l_@@_tmpb_int
-    \@@_forth_signed:N \l_@@_tmpa_int
-    \@@_forth_signed:N \l_@@_tmpb_int
     \@@_forth_push_signed:n
       {
         \int_div_truncate:nn
-          { \l_@@_tmpa_int } { \l_@@_tmpb_int }
+          { \@@_forth_signed:N \l_@@_tmpa_int }
+          { \@@_forth_signed:N \l_@@_tmpb_int }
       }
   }
 %    \end{macrocode}
@@ -1801,10 +1816,12 @@
 \@@_forth_new_core:nn { MOD }
   {
     \@@_forth_pop_int:NN \l_@@_tmpa_int \l_@@_tmpb_int
-    \@@_forth_signed:N \l_@@_tmpa_int
-    \@@_forth_signed:N \l_@@_tmpb_int
     \@@_forth_push_signed:n
-      { \int_mod:nn { \l_@@_tmpa_int } { \l_@@_tmpb_int } }
+      {
+        \int_mod:nn
+          { \@@_forth_signed:N \l_@@_tmpa_int }
+          { \@@_forth_signed:N \l_@@_tmpb_int }
+      }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -1820,8 +1837,10 @@
 \@@_forth_new_core:nn { /MOD }
   {
     \@@_forth_pop_int:NN \l_@@_tmpa_int \l_@@_tmpb_int
-    \@@_forth_signed:N \l_@@_tmpa_int
-    \@@_forth_signed:N \l_@@_tmpb_int
+    \int_set:Nn \l_@@_tmpa_int
+      { \@@_forth_signed:N \l_@@_tmpa_int }
+    \int_set:Nn \l_@@_tmpb_int
+      { \@@_forth_signed:N \l_@@_tmpb_int }
     \@@_forth_push_signed:n
       { \int_mod:nn { \l_@@_tmpa_int } { \l_@@_tmpb_int } }
     \@@_forth_push_signed:n
@@ -1847,19 +1866,23 @@
   {
     \@@_forth_pop_int:NNN
       \l_@@_tmpa_int \l_@@_tmpb_int \l_@@_tmpc_int
-    \@@_forth_signed:N \l_@@_tmpa_int
-    \@@_forth_signed:N \l_@@_tmpb_int
-    \@@_forth_signed:N \l_@@_tmpc_int
     \@@_forth_push_fp_mod:n
-      { \l_@@_tmpa_int * \l_@@_tmpb_int / \l_@@_tmpc_int }
+      {
+        \@@_forth_signed:N \l_@@_tmpa_int
+        * \@@_forth_signed:N \l_@@_tmpb_int
+        / \@@_forth_signed:N \l_@@_tmpc_int
+      }
   }
 \@@_forth_new_core:nn { */MOD }
   {
     \@@_forth_pop_int:NNN
       \l_@@_tmpa_int \l_@@_tmpb_int \l_@@_tmpc_int
-    \@@_forth_signed:N \l_@@_tmpa_int
-    \@@_forth_signed:N \l_@@_tmpb_int
-    \@@_forth_signed:N \l_@@_tmpc_int
+    \int_set:Nn \l_@@_tmpa_int
+      { \@@_forth_signed:N \l_@@_tmpa_int }
+    \int_set:Nn \l_@@_tmpb_int
+      { \@@_forth_signed:N \l_@@_tmpb_int }
+    \int_set:Nn \l_@@_tmpc_int
+      { \@@_forth_signed:N \l_@@_tmpc_int }
     \fp_set:Nn \l_@@_tmpa_fp
       {
         round0 ( \l_@@_tmpa_int * \l_@@_tmpb_int
@@ -2081,7 +2104,7 @@
 % \begin{macro}[int]{BASE}
 %    \begin{macrocode}
 \@@_forth_new_core:nn { BASE }
-  { \@@_forth_push:n \l_@@_forth_base_address_int }
+  { \@@_forth_push:n { \l_@@_forth_base_address_int } }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -2116,7 +2139,7 @@
       {
         \tl_set:Nx \l_@@_tmpa_tl { \str_head:n {#1} }
         \@@_forth_def_put_right:x
-          { \@@_forth_push:n { \exp_after:wN ` \l_@@_tmpa_tl } }
+          { \@@_forth_push:n { ` \l_@@_tmpa_tl } }
       }
   }
 %    \end{macrocode}

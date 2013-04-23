@@ -170,10 +170,10 @@
     \__runner_forth_push:n
       { \int_eval:n { \c__runner_forth_mod_int - 1 } }
   }
-\cs_new_protected:Npn \__runner_forth_signed:N #1
+\cs_new:Npn \__runner_forth_signed:N #1
   {
-    \int_compare:nNnF #1 < { \c__runner_forth_mod_int / \c_two }
-      { \int_sub:Nn #1 \c__runner_forth_mod_int }
+    \int_eval:n
+      { #1 - #1 / \c__runner_forth_mod_int * \c__runner_forth_mod_int }
   }
 \cs_new_protected:Npn \__runner_forth_push_signed:n #1
   {
@@ -192,6 +192,18 @@
   {
     \__runner_forth_push:n
       { \int_mod:nn {#1} { \c__runner_forth_mod_int } }
+  }
+\fp_new:N \l__runner_forth_push_fp
+\cs_new_protected:Npn \__runner_forth_push_fp:n #1
+  { \__runner_forth_push:n { \fp_to_int:n {#1} } }
+\cs_new_protected:Npn \__runner_forth_push_fp_mod:n #1
+  {
+    \fp_set:Nn \l__runner_forth_push_fp { round0(#1) }
+    \__runner_forth_push_fp:n
+      {
+        \l__runner_forth_push_fp - \c__runner_forth_mod_int
+             * round- ( \l__runner_forth_push_fp / \c__runner_forth_mod_int )
+      }
   }
 \cs_new_protected:Npn \__runner_forth_return_pop_int:N #1
   {
@@ -430,18 +442,6 @@
         \prg_return_true:
       }
       { \prg_return_false: }
-  }
-\fp_new:N \l__runner_forth_push_fp
-\cs_new_protected:Npn \__runner_forth_push_fp:n #1
-  { \__runner_forth_push:n { \fp_to_int:n {#1} } }
-\cs_new_protected:Npn \__runner_forth_push_fp_mod:n #1
-  {
-    \fp_set:Nn \l__runner_forth_push_fp { round0(#1) }
-    \__runner_forth_push_fp:n
-      {
-        \l__runner_forth_push_fp - \c__runner_forth_mod_int
-             * round- ( \l__runner_forth_push_fp / \c__runner_forth_mod_int )
-      }
   }
 \bool_new:N \l__runner_forth_stop_bool
 \int_new:N \l__runner_forth_base_address_int
@@ -744,52 +744,64 @@
 \__runner_forth_new_core:nn { 1+ }
   {
     \__runner_forth_pop_int:N \l__runner_tmpa_int
-    \__runner_forth_push:n { \l__runner_tmpa_int + 1 }
+    \__runner_forth_push_signed:n
+      { \l__runner_tmpa_int + 1 - \c__runner_forth_mod_int }
   }
 \__runner_forth_new_core:nn { 1- }
   {
     \__runner_forth_pop_int:N \l__runner_tmpa_int
-    \__runner_forth_push:n { \l__runner_tmpa_int - 1 }
+    \__runner_forth_push_signed:n { \l__runner_tmpa_int - 1 }
   }
 \__runner_forth_new_core:nn { 2* }
   {
     \__runner_forth_pop_int:N \l__runner_tmpa_int
-    \__runner_forth_push:n { \l__runner_tmpa_int * 2 }
+    \__runner_forth_push_signed:n
+      { \l__runner_tmpa_int * 2 - \c__runner_forth_mod_int }
   }
 \__runner_forth_new_core:nn { 2/ }
   {
     \__runner_forth_pop_int:N \l__runner_tmpa_int
     \int_if_even:nTF { \l__runner_tmpa_int }
-      { \__runner_forth_push:n { \l__runner_tmpa_int / 2 } }
-      { \__runner_forth_push:n { (\l__runner_tmpa_int - 1) / 2 } }
+      {
+        \__runner_forth_push_signed:n
+          { \__runner_forth_signed:N \l__runner_tmpa_int / 2 }
+      }
+      {
+        \__runner_forth_push_signed:n
+          { ( \__runner_forth_signed:N \l__runner_tmpa_int - 1 ) / 2 }
+      }
   }
 \__runner_forth_new_core:nn { ABS }
   {
     \__runner_forth_pop_int:N \l__runner_tmpa_int
-    \__runner_forth_signed:N \l__runner_tmpa_int
-    \__runner_forth_push:n { \int_abs:n { \l__runner_tmpa_int } }
+    \__runner_forth_push:n
+      { \int_abs:n { \__runner_forth_signed:N \l__runner_tmpa_int } }
   }
 \__runner_forth_new_core:nn { MAX }
   {
     \__runner_forth_pop_int:NN \l__runner_tmpa_int \l__runner_tmpb_int
-    \__runner_forth_signed:N \l__runner_tmpa_int
-    \__runner_forth_signed:N \l__runner_tmpb_int
     \__runner_forth_push_signed:n
-      { \int_max:nn { \l__runner_tmpa_int } { \l__runner_tmpb_int } }
+      {
+        \int_max:nn
+          { \__runner_forth_signed:N \l__runner_tmpa_int }
+          { \__runner_forth_signed:N \l__runner_tmpb_int }
+      }
   }
 \__runner_forth_new_core:nn { MIN }
   {
     \__runner_forth_pop_int:NN \l__runner_tmpa_int \l__runner_tmpb_int
-    \__runner_forth_signed:N \l__runner_tmpa_int
-    \__runner_forth_signed:N \l__runner_tmpb_int
     \__runner_forth_push_signed:n
-      { \int_min:nn { \l__runner_tmpa_int } { \l__runner_tmpb_int } }
+      {
+        \int_min:nn
+          { \__runner_forth_signed:N \l__runner_tmpa_int }
+          { \__runner_forth_signed:N \l__runner_tmpb_int }
+      }
   }
-\__runner_forth_new_core:nn { ABS }
+\__runner_forth_new_core:nn { NEGATE }
   {
     \__runner_forth_pop_int:N \l__runner_tmpa_int
-    \__runner_forth_signed:N \l__runner_tmpa_int
-    \__runner_forth_push_signed:n { - \l__runner_tmpa_int }
+    \__runner_forth_push_signed:n
+      { - \__runner_forth_signed:N \l__runner_tmpa_int }
   }
 \__runner_forth_new_core:nn { - }
   {
@@ -815,27 +827,30 @@
 \__runner_forth_new_core:nn { / }
   {
     \__runner_forth_pop_int:NN \l__runner_tmpa_int \l__runner_tmpb_int
-    \__runner_forth_signed:N \l__runner_tmpa_int
-    \__runner_forth_signed:N \l__runner_tmpb_int
     \__runner_forth_push_signed:n
       {
         \int_div_truncate:nn
-          { \l__runner_tmpa_int } { \l__runner_tmpb_int }
+          { \__runner_forth_signed:N \l__runner_tmpa_int }
+          { \__runner_forth_signed:N \l__runner_tmpb_int }
       }
   }
 \__runner_forth_new_core:nn { MOD }
   {
     \__runner_forth_pop_int:NN \l__runner_tmpa_int \l__runner_tmpb_int
-    \__runner_forth_signed:N \l__runner_tmpa_int
-    \__runner_forth_signed:N \l__runner_tmpb_int
     \__runner_forth_push_signed:n
-      { \int_mod:nn { \l__runner_tmpa_int } { \l__runner_tmpb_int } }
+      {
+        \int_mod:nn
+          { \__runner_forth_signed:N \l__runner_tmpa_int }
+          { \__runner_forth_signed:N \l__runner_tmpb_int }
+      }
   }
 \__runner_forth_new_core:nn { /MOD }
   {
     \__runner_forth_pop_int:NN \l__runner_tmpa_int \l__runner_tmpb_int
-    \__runner_forth_signed:N \l__runner_tmpa_int
-    \__runner_forth_signed:N \l__runner_tmpb_int
+    \int_set:Nn \l__runner_tmpa_int
+      { \__runner_forth_signed:N \l__runner_tmpa_int }
+    \int_set:Nn \l__runner_tmpb_int
+      { \__runner_forth_signed:N \l__runner_tmpb_int }
     \__runner_forth_push_signed:n
       { \int_mod:nn { \l__runner_tmpa_int } { \l__runner_tmpb_int } }
     \__runner_forth_push_signed:n
@@ -848,19 +863,23 @@
   {
     \__runner_forth_pop_int:NNN
       \l__runner_tmpa_int \l__runner_tmpb_int \l__runner_tmpc_int
-    \__runner_forth_signed:N \l__runner_tmpa_int
-    \__runner_forth_signed:N \l__runner_tmpb_int
-    \__runner_forth_signed:N \l__runner_tmpc_int
     \__runner_forth_push_fp_mod:n
-      { \l__runner_tmpa_int * \l__runner_tmpb_int / \l__runner_tmpc_int }
+      {
+        \__runner_forth_signed:N \l__runner_tmpa_int
+        * \__runner_forth_signed:N \l__runner_tmpb_int
+        / \__runner_forth_signed:N \l__runner_tmpc_int
+      }
   }
 \__runner_forth_new_core:nn { */MOD }
   {
     \__runner_forth_pop_int:NNN
       \l__runner_tmpa_int \l__runner_tmpb_int \l__runner_tmpc_int
-    \__runner_forth_signed:N \l__runner_tmpa_int
-    \__runner_forth_signed:N \l__runner_tmpb_int
-    \__runner_forth_signed:N \l__runner_tmpc_int
+    \int_set:Nn \l__runner_tmpa_int
+      { \__runner_forth_signed:N \l__runner_tmpa_int }
+    \int_set:Nn \l__runner_tmpb_int
+      { \__runner_forth_signed:N \l__runner_tmpb_int }
+    \int_set:Nn \l__runner_tmpc_int
+      { \__runner_forth_signed:N \l__runner_tmpc_int }
     \fp_set:Nn \l__runner_tmpa_fp
       {
         round0 ( \l__runner_tmpa_int * \l__runner_tmpb_int
@@ -974,7 +993,7 @@
       { \__runner_forth_def_put_right:n { \__runner_output:n {#1} } }
   }
 \__runner_forth_new_core:nn { BASE }
-  { \__runner_forth_push:n \l__runner_forth_base_address_int }
+  { \__runner_forth_push:n { \l__runner_forth_base_address_int } }
 \__runner_forth_new_core:nn { BL }
   { \__runner_forth_push:n { `\  } }
 \__runner_forth_new_core:nn { CHAR }
@@ -991,7 +1010,7 @@
       {
         \tl_set:Nx \l__runner_tmpa_tl { \str_head:n {#1} }
         \__runner_forth_def_put_right:x
-          { \__runner_forth_push:n { \exp_after:wN ` \l__runner_tmpa_tl } }
+          { \__runner_forth_push:n { ` \l__runner_tmpa_tl } }
       }
   }
 \__runner_forth_new_core:nn { COUNT }
