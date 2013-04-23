@@ -26,6 +26,9 @@
 \cs_new_protected:Npn \__runner_forth_exit:
   #1 \__runner_forth_exit_point: { }
 \cs_new_eq:NN \__runner_forth_exit_point: \scan_stop:
+\cs_new_protected:Npn \__runner_forth_quit:
+  #1 \__runner_forth_quit_point: { }
+\cs_new_eq:NN \__runner_forth_quit_point: \scan_stop:
 \int_new:N \g__runner_forth_picnum_min_int
 \int_new:N \l__runner_forth_picnum_here_int
 \int_new:N \g__runner_forth_picnum_max_int
@@ -1516,6 +1519,39 @@
 \__runner_forth_new_immediate_core:nn { }
   { \bool_set_true:N \l__runner_forth_stop_bool }
 \__runner_forth_new_core:nn { EXIT } { \use_i:nn \__runner_forth_exit: }
+\__runner_forth_new_core:nn { QUIT } { \__runner_forth_do_quit: }
+\__runner_forth_new_core:nn { ABORT }
+  {
+    \int_set_eq:NN \l__runner_forth_stack_here_int
+      \g__runner_forth_stack_min_int
+    \__runner_forth_do_quit:
+  }
+\cs_new_protected_nopar:Npn \__runner_forth_do_quit:
+  {
+    \int_set_eq:NN \l__runner_forth_return_here_int
+      \g__runner_forth_return_min_int
+    \__runner_forth_data_gset:nn
+      { \l__runner_forth_state_address_int } { 0 }
+    \cs_set_eq:NN \__runner_forth_perform:n \__runner_forth_interpret:n
+    \__runner_forth_quit:
+  }
+\__runner_forth_new_compilation_core:nn { ABORT" }
+  {
+    \__runner_forth_input_until:n { `" }
+    \__runner_forth_def_code:x
+      { \__runner_forth_abort_quote:n { \l__runner_forth_input_word_str } }
+  }
+\cs_new_protected:Npn \__runner_forth_abort_quote:n #1
+  {
+    \__runner_forth_pop_int:N \l__runner_tmpa_int
+    \int_compare:nNnF \l__runner_tmpa_int = \c_zero
+      {
+        \msg_term:n { ABORT~( \int_use:N \l__runner_tmpa_int ): ~ #1 }
+        \int_set_eq:NN \l__runner_forth_stack_here_int
+        \g__runner_forth_stack_min_int
+        \__runner_forth_do_quit:
+      }
+  }
 \__runner_forth_new_core:nn { BASE }
   { \__runner_forth_push:n { \l__runner_forth_base_address_int } }
 \__runner_forth_new_core:nn { STATE }
@@ -1604,6 +1640,7 @@
       {
         \__runner_forth_input_word:
         \__runner_forth_perform:V \l__runner_forth_input_word_str
+        \__runner_forth_quit_point:
       }
   }
 \cs_new_protected_nopar:Npn \__runner_forth_init:

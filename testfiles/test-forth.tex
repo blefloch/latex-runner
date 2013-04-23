@@ -160,6 +160,10 @@
 \runner{forth}[output = \result]|CHAR \ WORD '\ FIND . DUP EXECUTE ' . .|||
 \typeout{\result}
 
+\runner{forth}[output = \result]|
+  : Boom -21 ABORT" boom!";
+||Boom 3 4 + .|
+\typeout{\result}
 
 \stop
 

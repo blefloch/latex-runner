@@ -44,7 +44,6 @@
 % \item definitions |CREATE|, |DOES>|, |>BODY|,
 % \item do-loop |+LOOP|,
 % \item parse/input |>IN|, |ACCEPT|, |EVALUATE|,
-% \item ending |ABORT|, |ABORT"|, |QUIT|,
 % \item misc, |KEY|, |>NUMBER|.
 % \end{itemize}
 %
@@ -197,6 +196,17 @@
 \cs_new_protected:Npn \@@_forth_exit:
   #1 \@@_forth_exit_point: { }
 \cs_new_eq:NN \@@_forth_exit_point: \scan_stop:
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int]{\@@_forth_quit:, \@@_forth_quit_point:}
+%   A \texttt{quit_point} marker is placed at every iteration of the
+%   interpreter/compiler loop, so that |QUIT| can safely cleanup all
+%   remaining code and go to the next iteration.
+%    \begin{macrocode}
+\cs_new_protected:Npn \@@_forth_quit:
+  #1 \@@_forth_quit_point: { }
+\cs_new_eq:NN \@@_forth_quit_point: \scan_stop:
 %    \end{macrocode}
 % \end{macro}
 %
@@ -3129,6 +3139,54 @@
 %    \end{macrocode}
 % \end{macro}
 %
+% \begin{macro}[int]{QUIT, ABORT}
+% \begin{macro}[aux]{\@@_forth_do_quit:}
+%   Empty the return stack and enter interpretation state, then flush
+%   all code being run, by jumping to the \texttt{quit_point}.  |ABORT|
+%   additionally empties the data stack.
+%    \begin{macrocode}
+\@@_forth_new_core:nn { QUIT } { \@@_forth_do_quit: }
+\@@_forth_new_core:nn { ABORT }
+  {
+    \int_set_eq:NN \l_@@_forth_stack_here_int
+      \g_@@_forth_stack_min_int
+    \@@_forth_do_quit:
+  }
+\cs_new_protected_nopar:Npn \@@_forth_do_quit:
+  {
+    \int_set_eq:NN \l_@@_forth_return_here_int
+      \g_@@_forth_return_min_int
+    \@@_forth_data_gset:nn
+      { \l_@@_forth_state_address_int } { 0 }
+    \cs_set_eq:NN \@@_forth_perform:n \@@_forth_interpret:n
+    \@@_forth_quit:
+  }
+%    \end{macrocode}
+% \end{macro}
+% \end{macro}
+%
+% \begin{macro}[int]{ABORT"}
+%    \begin{macrocode}
+\@@_forth_new_compilation_core:nn { ABORT" }
+  {
+    \@@_forth_input_until:n { `" }
+    \@@_forth_def_code:x
+      { \@@_forth_abort_quote:n { \l_@@_forth_input_word_str } }
+  }
+\cs_new_protected:Npn \@@_forth_abort_quote:n #1
+  {
+    \@@_forth_pop_int:N \l_@@_tmpa_int
+    \int_compare:nNnF \l_@@_tmpa_int = \c_zero
+      {
+        \msg_term:n { ABORT~( \int_use:N \l_@@_tmpa_int ): ~ #1 }
+        \int_set_eq:NN \l_@@_forth_stack_here_int
+        \g_@@_forth_stack_min_int
+        \@@_forth_do_quit:
+      }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
 % \subsubsection{Environmental variables}
 %
 % \begin{macro}[int]{BASE}
@@ -3278,6 +3336,7 @@
       {
         \@@_forth_input_word:
         \@@_forth_perform:V \l_@@_forth_input_word_str
+        \@@_forth_quit_point:
       }
   }
 %    \end{macrocode}
