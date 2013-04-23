@@ -850,7 +850,8 @@
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[int]{\@@_forth_set_word:nn, \@@_forth_set_word:nx}
+% \begin{macro}[int]
+%   {\@@_forth_set_word:nn, \@@_forth_set_word:nx, \@@_forth_set_word:ox}
 %    \begin{macrocode}
 \cs_new_protected:Npn \@@_forth_set_word:nn #1#2
   {
@@ -859,7 +860,7 @@
       { \int_eval:n { 100000 + \l_@@_forth_toks_int } }
     \int_incr:N \l_@@_forth_toks_int
   }
-\cs_generate_variant:Nn \@@_forth_set_word:nn { nx }
+\cs_generate_variant:Nn \@@_forth_set_word:nn { nx , ox }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -867,10 +868,10 @@
 %
 % \subsubsection{Input}
 %
-% \begin{variable}{\l_@@_forth_input_until_tl}
+% \begin{variable}{\l_@@_forth_input_word_str}
 %   Token list containing the word being built.
 %    \begin{macrocode}
-\tl_new:N \l_@@_forth_input_until_tl
+\str_new:N \l_@@_forth_input_word_str
 %    \end{macrocode}
 % \end{variable}
 %
@@ -1024,8 +1025,8 @@
 % \end{macro}
 % \end{macro}
 %
-% \begin{macro}[int]{\@@_forth_input_until:nn, \@@_forth_input_until:nN}
-% \begin{macro}[aux]{\@@_forth_input_until_aux:NnN}
+% \begin{macro}[int]{\@@_forth_input_until:n}
+% \begin{macro}[aux]{\@@_forth_input_until_aux:Nn}
 %   Go through the input buffer, looking either for the delimiter
 %   itself, or, if the delimiter is a space, looking for any character
 %   with character code at most \(32\) (\ie, space or control
@@ -1034,20 +1035,15 @@
 %   \texttt{tmpc}.  If there is no input left, silently stop searching
 %   for the delimiter.
 %    \begin{macrocode}
-\cs_new_protected:Npn \@@_forth_input_until:nn #1#2
-  {
-    \cs_set_protected:Npn \@@_tmp:w ##1 {#2}
-    \@@_forth_input_until:nN {#1} \@@_tmp:w
-  }
-\cs_new_protected:Npn \@@_forth_input_until:nN #1
+\cs_new_protected:Npn \@@_forth_input_until:n #1
   {
     \int_compare:nNnTF {#1} = { 32 }
-      { \@@_forth_input_until_aux:NnN < { 33 } }
-      { \@@_forth_input_until_aux:NnN = {#1} }
+      { \@@_forth_input_until_aux:Nn < { 33 } }
+      { \@@_forth_input_until_aux:Nn = {#1} }
   }
-\cs_new_protected:Npn \@@_forth_input_until_aux:NnN #1#2#3
+\cs_new_protected:Npn \@@_forth_input_until_aux:Nn #1#2
   {
-    \tl_clear:N \l_@@_forth_input_until_tl
+    \tl_clear:N \l_@@_forth_input_word_str
     \bool_set_true:N \l_@@_tmpa_bool
     \bool_while_do:Nn \l_@@_tmpa_bool
       {
@@ -1056,27 +1052,26 @@
             \int_compare:nNnTF \l_@@_tmpc_int #1 {#2}
               { \bool_set_false:N \l_@@_tmpa_bool }
               {
-                \@@_forth_str_put_char:Nn \l_@@_forth_input_until_tl
+                \@@_forth_str_put_char:Nn \l_@@_forth_input_word_str
                   { \l_@@_tmpc_int }
               }
             \int_incr:N \l_@@_forth_input_parsed_int
           }
           { \bool_set_false:N \l_@@_tmpa_bool }
       }
-    \exp_args:No #3 \l_@@_forth_input_until_tl
   }
 %    \end{macrocode}
 % \end{macro}
 % \end{macro}
 %
-% \begin{macro}[int]{\@@_forth_input_word:n}
+% \begin{macro}[int]{\@@_forth_input_word:}
 %   Many functions read a word from the input.  This is a short-hand for
 %   the task.
 %    \begin{macrocode}
-\cs_new_protected:Npn \@@_forth_input_word:n #1
+\cs_new_protected_nopar:Npn \@@_forth_input_word:
   {
     \@@_forth_input_discard:n { 32 }
-    \@@_forth_input_until:nn { 32 } {#1}
+    \@@_forth_input_until:n { 32 }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -1236,11 +1231,9 @@
 \@@_forth_new_core:nn { CONSTANT }
   {
     \@@_forth_pop_int:N \l_@@_tmpa_int
-    \@@_forth_input_word:n
-      {
-        \@@_forth_set_word:nx {#1}
-          { \@@_forth_push:n { \int_use:N \l_@@_tmpa_int } }
-      }
+    \@@_forth_input_word:
+    \@@_forth_set_word:ox \l_@@_forth_input_word_str
+      { \@@_forth_push:n { \int_use:N \l_@@_tmpa_int } }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -1249,20 +1242,18 @@
 %    \begin{macrocode}
 \@@_forth_new_core:nn { VARIABLE }
   {
-    \@@_forth_input_word:n
+    \@@_forth_input_word:
+    \int_compare:nNnTF
+      \l_@@_forth_data_here_int < \l_@@_forth_data_text_int
       {
-        \int_compare:nNnTF
-          \l_@@_forth_data_here_int < \l_@@_forth_data_text_int
+        \@@_forth_set_word:ox \l_@@_forth_input_word_str
           {
-            \@@_forth_set_word:nx {#1}
-              {
-                \@@_forth_push:n
-                  { \int_use:N \l_@@_forth_data_here_int }
-              }
-            \int_incr:N \l_@@_forth_data_here_int
+            \@@_forth_push:n
+              { \int_use:N \l_@@_forth_data_here_int }
           }
-          { \msg_error:nn { runner/forth } { out-of-memory } }
+        \int_incr:N \l_@@_forth_data_here_int
       }
+      { \msg_error:nn { runner/forth } { out-of-memory } }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -1273,13 +1264,16 @@
 %   the work.
 %    \begin{macrocode}
 \@@_forth_new_core:nn { : }
-  { \@@_forth_input_word:n { \@@_forth_def:n {#1} } }
+  {
+    \@@_forth_input_word:
+    \@@_forth_def:V \l_@@_forth_input_word_str
+  }
 %    \end{macrocode}
 % \end{macro}
 %
 % ^^A todo: robustify the flow_seq against bad input (nesting).
 % ^^A todo: improve error recovery with missing THEN.
-% \begin{macro}[int]{\@@_forth_def:n}
+% \begin{macro}[int]{\@@_forth_def:n, \@@_forth_def:V}
 %   Store in the control-flow stack the definition being built, if any,
 %   and empty \cs{l_@@_forth_def_tl}.  Then switch to compiling state,
 %   looping until something (typically, the word |;|) makes the ``stop''
@@ -1294,7 +1288,10 @@
     \seq_push:NV \l_@@_forth_flow_seq \l_@@_forth_def_tl
     \tl_clear:N \l_@@_forth_def_tl
     \bool_until_do:Nn \l_@@_forth_stop_bool
-      { \@@_forth_input_word:n { \@@_forth_compile:n {##1} } }
+      {
+        \@@_forth_input_word:
+        \@@_forth_compile:V \l_@@_forth_input_word_str
+      }
     \bool_set_false:N \l_@@_forth_stop_bool
     \int_compare:nNnF \l_@@_forth_def_nesting_int = \c_zero
       {
@@ -1306,10 +1303,12 @@
     \str_set:Nn \l_@@_forth_def_name_str {#1}
     \seq_pop:NN \l_@@_forth_flow_seq \l_@@_forth_def_tl
   }
+\cs_generate_variant:Nn \@@_forth_def:n { V }
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[int]{\@@_forth_compile:n}
+% \begin{macro}[int]{\@@_forth_compile:n, \@@_forth_compile:V}
+% \begin{macro}[aux]{\@@_forth_compile:Nw}
 %   This is very similar to \cs{@@_forth_interpret:n}.  Try to find the
 %   word in the dictionary.  If it is present, split its value into \(1
 %   + 5\) digits: if the first is \(1\), simply add to the current
@@ -1344,7 +1343,9 @@
       }
       { \tex_the:D \tex_toks:D \int_eval:n { #2 + 1 } \scan_stop: }
   }
+\cs_generate_variant:Nn \@@_forth_compile:n { V }
 %    \end{macrocode}
+% \end{macro}
 % \end{macro}
 %
 % \begin{macro}[int]{;}
@@ -1397,14 +1398,15 @@
 %    \begin{macrocode}
 \@@_forth_new_compilation_core:nn { POSTPONE }
   {
-    \@@_forth_input_word:n
+    \@@_forth_input_word:
+    \prop_get:NoN
+      \l_@@_forth_words_prop
+      \l_@@_forth_input_word_str
+      \l_@@_tmpa_tl
+    \@@_forth_def_put_right:x
       {
-        \prop_get:NnN \l_@@_forth_words_prop {#1} \l_@@_tmpa_tl
-        \@@_forth_def_put_right:x
-          {
-            \exp_after:wN \@@_forth_postpone:Nw
-              \l_@@_tmpa_tl \q_stop
-          }
+        \exp_after:wN \@@_forth_postpone:Nw
+          \l_@@_tmpa_tl \q_stop
       }
   }
 \cs_new:Npn \@@_forth_postpone:Nw #1#2 \q_stop
@@ -1453,12 +1455,13 @@
 %    \begin{macrocode}
 \@@_forth_new_core:nn { ' }
   {
-    \@@_forth_input_word:n
-      {
-        \prop_get:NnN \l_@@_forth_words_prop {#1} \l_@@_tmpa_tl
-        \@@_forth_push:n
-          { \exp_after:wN \use_none:n \l_@@_tmpa_tl }
-      }
+    \@@_forth_input_word:
+    \prop_get:NoN
+      \l_@@_forth_words_prop
+      \l_@@_forth_input_word_str
+      \l_@@_tmpa_tl
+    \@@_forth_push:n
+      { \exp_after:wN \use_none:n \l_@@_tmpa_tl }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -1471,14 +1474,15 @@
 %    \begin{macrocode}
 \@@_forth_new_compilation_core:nn { ['] }
   {
-    \@@_forth_input_word:n
+    \@@_forth_input_word:
+    \prop_get:NoN
+      \l_@@_forth_words_prop
+      \l_@@_forth_input_word_str
+      \l_@@_tmpa_tl
+    \@@_forth_def_put_right:x
       {
-        \prop_get:NnN \l_@@_forth_words_prop {#1} \l_@@_tmpa_tl
-        \@@_forth_def_put_right:x
-          {
-            \@@_forth_push:n
-              { \exp_after:wN \use_none:n \l_@@_tmpa_tl }
-          }
+        \@@_forth_push:n
+          { \exp_after:wN \use_none:n \l_@@_tmpa_tl }
       }
   }
 %    \end{macrocode}
@@ -2352,8 +2356,9 @@
 %    \begin{macrocode}
 \@@_forth_new_compilation_core:nn { ." }
   {
-    \@@_forth_input_until:nn { `" }
-      { \@@_forth_def_put_right:n { \@@_output:n {#1} } }
+    \@@_forth_input_until:n { `" }
+    \@@_forth_def_put_right:x
+      { \@@_output:n { \l_@@_forth_input_word_str } }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -2377,11 +2382,10 @@
 %    \begin{macrocode}
 \@@_forth_new_core:nn { CHAR }
   {
-    \@@_forth_input_word:n
-      {
-        \tl_set:Nx \l_@@_tmpa_tl { \str_head:n {#1} }
-        \@@_forth_push:n { \exp_after:wN ` \l_@@_tmpa_tl }
-      }
+    \@@_forth_input_word:
+    \tl_set:Nx \l_@@_tmpa_tl
+      { \str_head:N \l_@@_forth_input_word_str }
+    \@@_forth_push:n { \exp_after:wN ` \l_@@_tmpa_tl }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -2392,12 +2396,9 @@
 %    \begin{macrocode}
 \@@_forth_new_compilation_core:nn { [CHAR] }
   {
-    \@@_forth_input_word:n
-      {
-        \tl_set:Nx \l_@@_tmpa_tl { \str_head:n {#1} }
-        \@@_forth_def_put_right:x
-          { \@@_forth_push:n { ` \l_@@_tmpa_tl } }
-      }
+    \@@_forth_input_word:
+    \@@_forth_def_put_right:x
+      { \@@_forth_push:n { ` \str_head:N \l_@@_forth_input_word_str } }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -2456,9 +2457,8 @@
 %    \begin{macrocode}
 \@@_forth_new_compilation_core:nn { S" }
   {
-    \@@_forth_input_until:nn { `" }
-      { \tl_set:Nn \l_@@_tmpa_tl {#1} }
-    \int_set:Nn \l_@@_tmpa_int { \str_count:N \l_@@_tmpa_tl }
+    \@@_forth_input_until:n { `" }
+    \int_set:Nn \l_@@_tmpa_int { \str_count:N \l_@@_forth_input_word_str }
     \int_sub:Nn \l_@@_forth_data_text_int { \l_@@_tmpa_int }
     \int_compare:nNnTF
       \l_@@_forth_data_text_int < \l_@@_forth_data_here_int
@@ -2475,8 +2475,9 @@
             \@@_forth_push:n
               { \int_use:N \l_@@_tmpa_int }
           }
-        \tl_replace_all:Nnn \l_@@_tmpa_tl { ~ } { \ }
         \int_set_eq:NN \l_@@_tmpb_int \l_@@_forth_data_text_int
+        \tl_set_eq:NN \l_@@_tmpa_tl \l_@@_forth_input_word_str
+        \tl_replace_all:Nnn \l_@@_tmpa_tl { ~ } { \ }
         \tl_map_inline:Nn \l_@@_tmpa_tl
           {
             \@@_forth_data_gset:nn { \l_@@_tmpb_int } { `#1 }
@@ -2555,10 +2556,10 @@
     \@@_forth_pop_int:N \l_@@_tmpa_int
     \@@_forth_push:n { \l_@@_forth_data_here_int }
     \@@_forth_input_discard:n { \l_@@_tmpa_int }
-    \@@_forth_input_until:nn { \l_@@_tmpa_int }
-      { \tl_set:Nn \l_@@_tmpb_tl {#1} }
+    \@@_forth_input_until:n { \l_@@_tmpa_int }
     \int_set_eq:NN \l_@@_forth_data_word_int
       \l_@@_forth_data_here_int
+    \tl_set_eq:NN \l_@@_tmpb_tl \l_@@_forth_input_word_str
     \tl_replace_all:Nnn \l_@@_tmpb_tl { ~ } { \  }
     \tl_map_inline:Nn \l_@@_tmpb_tl
       {
@@ -2747,7 +2748,6 @@
 %
 % \subsubsection{Looping words}
 %
-% ^^A todo: Introduce wrapper for "no-interpretation" special core words.
 % ^^A todo: change nesting_int to be a stack instead.
 % \begin{macro}[int]{DO}
 %    \begin{macrocode}
@@ -2971,7 +2971,7 @@
 %   an immediate word.
 %    \begin{macrocode}
 \@@_forth_new_immediate_core:nn (
-  { \@@_forth_input_until:nN { `) } \use_none:n }
+  { \@@_forth_input_until:n { `) } }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -2988,7 +2988,10 @@
     \@@_forth_init:
     \bool_set_false:N \l_@@_forth_stop_bool
     \bool_until_do:Nn \l_@@_forth_stop_bool
-      { \@@_forth_input_word:n { \@@_forth_interpret:n {##1} } }
+      {
+        \@@_forth_input_word:
+        \@@_forth_interpret:V \l_@@_forth_input_word_str
+      }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -3019,7 +3022,7 @@
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[int]{\@@_forth_interpret:n}
+% \begin{macro}[int]{\@@_forth_interpret:n, \@@_forth_interpret:V}
 %   Use the interpretation semantics of |#1|.  If this fails, we hope to
 %   have a number, which should be parsed as such.
 %    \begin{macrocode}
@@ -3036,6 +3039,7 @@
           { \msg_error:nnn { runner/forth } { unknown-word } {#1} }
       }
   }
+\cs_generate_variant:Nn \@@_forth_interpret:n { V }
 %    \end{macrocode}
 % \end{macro}
 %
