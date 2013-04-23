@@ -151,6 +151,9 @@
   1234567 3456789 M* <# #S #> TYPE|||
 \typeout{\result}
 
+\runner{forth}[output = \result]|CHAR \ WORD '\ FIND . DUP EXECUTE ' . .|||
+\typeout{\result}
+
 \stop
 
 \runner{forth}[output = \result]|

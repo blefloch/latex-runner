@@ -46,7 +46,7 @@
 % \item do-loop |+LOOP|,
 % \item parse/input |>IN|, |ACCEPT|, |EVALUATE|,
 % \item ending |ABORT|, |ABORT"|, |QUIT|,
-% \item misc, |EXIT|, |FIND|, |KEY|, |MOVE|, |>NUMBER|.
+% \item misc, |EXIT|, |KEY|, |>NUMBER|.
 % \end{itemize}
 %
 % The following environment variables are not implemented:
@@ -1487,17 +1487,15 @@
       \l_@@_forth_words_prop
       \l_@@_forth_input_word_str
       \l_@@_tmpa_tl
-    \@@_forth_push:n
-      { \exp_after:wN \use_none:n \l_@@_tmpa_tl }
+    \@@_forth_push:n { \tl_tail:N \l_@@_tmpa_tl }
   }
 %    \end{macrocode}
 % \end{macro}
 %
 % \begin{macro}[int]{[']}
 %   Read a word, find it in the dictionary (prop), and find its
-%   execution token (the \cs{use_none:n} construction).  Then add to the
-%   current definition some code to place this execution token on the
-%   stack.
+%   execution token (the tail).  Then add to the current definition some
+%   code to place this execution token on the stack.
 %    \begin{macrocode}
 \@@_forth_new_compilation_core:nn { ['] }
   {
@@ -1507,10 +1505,7 @@
       \l_@@_forth_input_word_str
       \l_@@_tmpa_tl
     \@@_forth_def_code:x
-      {
-        \@@_forth_push:n
-          { \exp_after:wN \use_none:n \l_@@_tmpa_tl }
-      }
+      { \@@_forth_push:n { \tl_tail:N \l_@@_tmpa_tl } }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -1543,6 +1538,49 @@
       { \l_@@_forth_state_address_int }
       { \c_@@_forth_mod_int - \c_one }
     \cs_set_eq:NN \@@_forth_perform:n \@@_forth_compile:n
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{variable}{\l_@@_forth_find_word_str}
+%   String given to |FIND|, converted to a user representation.
+%    \begin{macrocode}
+\str_new:N \l_@@_forth_find_word_str
+%    \end{macrocode}
+% \end{variable}
+%
+% \begin{macro}[int]{FIND}
+%   Pop the address \(a\) of a counted string from the stack, and let
+%   \(v\) be the value at \(a\) (length of the string).  The string
+%   ranges from \(a+1\) to \(b = a+v\).  Go through these data cells,
+%   appending the corresponding character to the \texttt{find_word}
+%   string.
+%    \begin{macrocode}
+\@@_forth_new_core:nn { FIND }
+  {
+    \@@_forth_pop_int:N \l_@@_tmpa_int
+    \int_set:Nn \l_@@_tmpb_int
+      { \l_@@_tmpa_int + \@@_forth_data_get:n { \l_@@_tmpa_int } }
+    \tl_clear:N \l_@@_forth_find_word_str
+    \int_step_inline:nnnn
+      { \l_@@_tmpa_int + 1 } { 1 } { \l_@@_tmpb_int }
+      {
+        \@@_forth_str_put_char:Nn \l_@@_forth_find_word_str
+          { \@@_forth_data_get:n {#1} }
+      }
+    \prop_get:NVNF
+      \l_@@_forth_words_prop
+      \l_@@_forth_find_word_str
+      \l_@@_tmpa_tl
+      { \tl_set:Nn \l_@@_tmpa_tl { 3 } }
+    \int_compare:nNnTF { \tl_head:N \l_@@_tmpa_tl } = { 3 }
+      { \@@_forth_push:nn { \l_@@_tmpa_int } { 0 } }
+      {
+        \@@_forth_push:n { \tl_tail:N \l_@@_tmpa_tl }
+        \int_compare:nNnTF { \tl_head:N \l_@@_tmpa_tl } = { 2 }
+          { \@@_forth_push:n { 1 } }
+          { \@@_forth_push_signed:n { -1 } }
+      }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -2252,6 +2290,37 @@
 %    \begin{macrocode}
 \@@_forth_new_core:nn { HERE }
   { \@@_forth_push:n { \l_@@_forth_data_here_int } }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int]{MOVE}
+%   If the number \(c\) of cells to copy from \(a\) to \(b\) is not
+%   positive, do nothing.  If \(a<b\), copy from the top end of the
+%   block of cells.  If \(b\leq a\) start from the bottom end.  This
+%   works even if the blocks overlap.
+%    \begin{macrocode}
+\@@_forth_new_core:nn { MOVE }
+  {
+    \@@_forth_pop_int:NNN
+      \l_@@_tmpa_int \l_@@_tmpb_int \l_@@_tmpc_int
+    \int_compare:nNnT \l_@@_tmpc_int > \c_zero
+      {
+        \int_compare:nNnTF \l_@@_tmpa_int < \l_@@_tmpb_int
+          {
+            \int_step_inline:nnnn
+              { \l_@@_tmpc_int - 1 } { -1 } { 0 }
+          }
+          {
+            \int_step_inline:nnnn
+              { 0 } { 1 } { \l_@@_tmpc_int - 1 }
+          }
+              {
+                \@@_forth_data_gset:nn
+                  { \l_@@_tmpb_int + #1 }
+                  { \@@_forth_data_get:n { \l_@@_tmpa_int + #1 } }
+              }
+      }
+  }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -3064,8 +3133,8 @@
 %
 % \begin{macro}[int]{(}%^^A)
 %   Comments are implemented by grabbing a piece of input delimited by a
-%   right parenthesis, and discarding it with \cs{use_none:n}.  This is
-%   an immediate word.
+%   right parenthesis, and not doing anything with it.  This is an
+%   immediate word.
 %    \begin{macrocode}
 \@@_forth_new_immediate_core:nn (
   { \@@_forth_input_until:n { `) } }
@@ -3131,10 +3200,7 @@
 \cs_new_protected:Npn \@@_forth_interpret:n #1
   {
     \prop_get:NnNTF \l_@@_forth_words_prop {#1} \l_@@_tmpa_tl
-      {
-        \@@_forth_execute:n
-          { \exp_after:wN \use_none:n \l_@@_tmpa_tl }
-      }
+      { \@@_forth_execute:n { \tl_tail:N \l_@@_tmpa_tl } }
       {
         \@@_forth_get_number:nNTF {#1} \l_@@_tmpa_tl
           { \@@_forth_push:n { \l_@@_tmpa_tl } }
