@@ -242,60 +242,52 @@
 \int_new:N \l__runner_forth_toks_int
 \int_new:N \g__runner_forth_core_toks_int
 \tl_new:N \g__runner_forth_init_toks_tl
-\cs_new_protected:Npn \__runner_forth_new_core:nn #1#2
+\cs_new_protected:Npn \__runner_forth_chk_if_core_free:n #1
   {
-    \tl_gput_right:Nx \g__runner_forth_init_toks_tl
-      {
-        \tex_toks:D \int_use:N \g__runner_forth_core_toks_int
-          { \exp_not:n {#2} }
-      }
-    \prop_gput:Nnx \g__runner_forth_core_words_prop {#1}
-      { \int_eval:n { 100000 + \g__runner_forth_core_toks_int } }
-    \int_gincr:N \g__runner_forth_core_toks_int
+    \prop_get:NnNT \g__runner_forth_core_words_prop {#1} \l__runner_tmpa_tl
+      { \msg_error:nn { runner/forth } { internal } }
   }
-\cs_new_protected:Npn \__runner_forth_new_immediate_core:nn #1#2
-  {
-    \tl_gput_right:Nx \g__runner_forth_init_toks_tl
-      {
-        \tex_toks:D \int_use:N \g__runner_forth_core_toks_int
-          { \exp_not:n {#2} }
-      }
-    \prop_gput:Nnx \g__runner_forth_core_words_prop {#1}
-      { \int_eval:n { 200000 + \g__runner_forth_core_toks_int } }
-    \int_gincr:N \g__runner_forth_core_toks_int
-  }
-\cs_new_protected:Npn \__runner_forth_new_special_core:nnn #1#2#3
-  {
-    \tl_gput_right:Nx \g__runner_forth_init_toks_tl
-      {
-        \tex_toks:D \int_use:N \g__runner_forth_core_toks_int
-          { \exp_not:n {#2} }
-        \tex_toks:D \int_eval:n { \g__runner_forth_core_toks_int + 1 }
-          { \exp_not:n {#3} }
-      }
-    \prop_gput:Nnx \g__runner_forth_core_words_prop {#1}
-      { \int_eval:n { 300000 + \g__runner_forth_core_toks_int } }
-    \int_gadd:Nn \g__runner_forth_core_toks_int \c_two
-  }
+\cs_new_protected_nopar:Npn \__runner_forth_new_core:nn
+  { \__runner_forth_new_aux:nnn { 1 } }
+\cs_new_protected_nopar:Npn \__runner_forth_new_immediate_core:nn
+  { \__runner_forth_new_aux:nnn { 2 } }
 \cs_new_protected:Npn \__runner_forth_new_compilation_core:nn #1#2
   {
-    \__runner_forth_new_special_core:nnn {#1}
+    \__runner_forth_new_aux:nnn { 3 } {#1}
       { \msg_error:nnn { runner/forth } { no-interpretation } {#1} }
-      {#2}
+    \tl_gput_right:Nx \g__runner_forth_init_toks_tl
+      {
+        \tex_toks:D \int_use:N \g__runner_forth_core_toks_int
+          { \exp_not:n {#2} }
+      }
+    \int_gincr:N \g__runner_forth_core_toks_int
+  }
+\cs_new_protected:Npn \__runner_forth_new_aux:nnn #1#2#3
+  {
+    \__runner_forth_chk_if_core_free:n {#2}
+    \tl_gput_right:Nx \g__runner_forth_init_toks_tl
+      {
+        \tex_toks:D \int_use:N \g__runner_forth_core_toks_int
+          { \exp_not:n {#3} }
+      }
+    \prop_gput:Nnx \g__runner_forth_core_words_prop {#2}
+      { \int_eval:n { #1 00000 + \g__runner_forth_core_toks_int } }
+    \int_gincr:N \g__runner_forth_core_toks_int
   }
 \cs_new_protected:Npn \__runner_forth_core_alias:nn #1#2
   {
+    \__runner_forth_chk_if_core_free:n {#1}
     \prop_get:NnN \g__runner_forth_core_words_prop {#2} \l__runner_tmpa_tl
     \prop_gput:NnV \g__runner_forth_core_words_prop {#1} \l__runner_tmpa_tl
   }
-\cs_new_protected:Npn \__runner_forth_new_word:nn #1#2
+\cs_new_protected:Npn \__runner_forth_set_word:nn #1#2
   {
     \tex_toks:D \l__runner_forth_toks_int {#2}
     \prop_put:Nnx \l__runner_forth_words_prop {#1}
       { \int_eval:n { 100000 + \l__runner_forth_toks_int } }
     \int_incr:N \l__runner_forth_toks_int
   }
-\cs_generate_variant:Nn \__runner_forth_new_word:nn { nx }
+\cs_generate_variant:Nn \__runner_forth_set_word:nn { nx }
 \tl_new:N \l__runner_forth_input_until_tl
 \str_new:N \l__runner_forth_input_str
 \group_begin:
@@ -492,7 +484,7 @@
     \__runner_forth_pop_int:N \l__runner_tmpa_int
     \__runner_forth_input_word:n
       {
-        \__runner_forth_new_word:nx {#1}
+        \__runner_forth_set_word:nx {#1}
           { \__runner_forth_push:n { \int_use:N \l__runner_tmpa_int } }
       }
   }
@@ -503,7 +495,7 @@
         \int_compare:nNnTF
           \l__runner_forth_data_here_int < \l__runner_forth_data_text_int
           {
-            \__runner_forth_new_word:nx {#1}
+            \__runner_forth_set_word:nx {#1}
               {
                 \__runner_forth_push:n
                   { \int_use:N \l__runner_forth_data_here_int }
@@ -528,7 +520,7 @@
         \prg_replicate:nn \l__runner_forth_def_nesting_int
           { \__runner_forth_def_put_right_x:n { \if_false: { \fi: } } }
       }
-    \__runner_forth_new_word:nx {#1} { \l__runner_forth_def_tl }
+    \__runner_forth_set_word:nx {#1} { \l__runner_forth_def_tl }
     \str_set:Nn \l__runner_forth_def_name_str {#1}
     \seq_pop:NN \l__runner_forth_flow_seq \l__runner_forth_def_tl
   }
