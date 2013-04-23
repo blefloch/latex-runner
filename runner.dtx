@@ -318,6 +318,113 @@
 %    \end{macrocode}
 % \end{macro}
 %
+% \subsection{Bit operations}
+%
+% \begin{variable}{\l_@@_bit_power_int}
+%   Holds a power of two during bit operations.
+%    \begin{macrocode}
+\int_new:N \l_@@_bit_power_int
+%    \end{macrocode}
+% \end{variable}
+%
+% \begin{macro}[int]
+%   {\@@_bit_and:NNN, \@@_bit_or:NNN, \@@_bit_xor:NNN}
+% \begin{macro}[aux]{\@@_bit_aux:nNNN}
+%   Compute the logical ``and'', ``or'', or ``xor'' of the last two
+%   non-negative integer variables, and store the result in the first.
+%   Note that this turns the last two arguments to~\(0\).
+%    \begin{macrocode}
+\cs_new_protected:Npn \@@_bit_and:NNN #1#2#3
+  {
+    \@@_bit_aux:nNNN
+      {
+        \int_if_odd:nT #2
+          {
+            \int_if_odd:nT #3
+              { \int_add:Nn #1 { \l_@@_bit_power_int } }
+          }
+      }
+      #1#2#3
+  }
+\cs_new_protected:Npn \@@_bit_or:NNN #1#2#3
+  {
+    \@@_bit_aux:nNNN
+      {
+        \int_if_odd:nTF #2
+          { \int_add:Nn #1 { \l_@@_bit_power_int } }
+          {
+            \int_if_odd:nT #3
+              { \int_add:Nn #1 { \l_@@_bit_power_int } }
+          }
+      }
+      #1#2#3
+  }
+\cs_new_protected:Npn \@@_bit_xor:NNN #1#2#3
+  {
+    \@@_bit_aux:nNNN
+      {
+        \int_if_odd:nTF #2
+          { \int_if_odd:nF #3 }
+          { \int_if_even:nF #3 }
+              { \int_add:Nn #1 { \l_@@_bit_power_int } }
+      }
+      #1#2#3
+  }
+\cs_new_protected:Npn \@@_bit_aux:nNNN #1#2#3#4
+  {
+    \int_zero:N #2
+    \int_set_eq:NN \l_@@_bit_power_int \c_one
+    \int_do_while:nNnn { #3 + #4 } > \c_zero
+      {
+        #1
+        \tex_divide:D #3 \c_two
+        \tex_divide:D #4 \c_two
+        \tex_multiply:D \l_@@_bit_power_int \c_two
+      }
+  }
+%    \end{macrocode}
+% \end{macro}
+% \end{macro}
+%
+% \begin{macro}[int]{\@@_bit_lshift:NN}
+%   Shift |#1| by |#2| bits to the left, in place, filling the low-order
+%   bits with \(0\).  If |#2| is larger than \(30\), the result is zero.
+%   Otherwise, repeatedly multiply by \(2\), dropping the highest bit.
+%   Note that \cs{c_max_int} is \(2^{31}-1\): dividing an integer from
+%   \([0, 2^{30}-1]\) by this number gives \(0\), and dividing an
+%   integer from \(2^{30}\) to the maximum \TeX{} integer gives \(1\).
+%    \begin{macrocode}
+\cs_new_protected:Npn \@@_bit_lshift:NN #1#2
+  {
+    \int_compare:nNnTF {#2} > { 30 }
+      { \int_zero:N #1 }
+      {
+        \prg_replicate:nn {#2}
+          {
+            \int_set:Nn #1
+              { \c_two * (#1 - #1 / \c_max_int * ( \c_max_int / 2 ) ) }
+          }
+      }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% ^^A todo: improve behaviour for large |#2|
+% \begin{macro}[int]{\@@_bit_rshift:NN}
+%   Perform floored division of |#1| by \(2\), |#2| times, to shift that
+%   number of bits to the right.
+%    \begin{macrocode}
+\cs_new_protected:Npn \@@_bit_rshift:NN #1#2
+  {
+    \prg_replicate:nn {#2}
+      {
+        \int_if_even:nF {#1} { \int_decr:N #1 }
+        \int_set:Nn #1 { #1 / \c_two }
+      }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
 % \subsection{Misc}
 %
 % \begin{macro}[int, EXP]{\@@_break:n, \@@_break_point:n}

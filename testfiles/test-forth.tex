@@ -116,6 +116,15 @@
   : x HERE 5 ALLOT DUP 3 [CHAR] XYZ FILL 3 TYPE ; x |||
 \typeout{\result}
 
+\runner{forth}[output = \result]|
+  18 3 OR .
+  18 3 AND .
+  18 3 XOR .
+  18 3 LSHIFT .
+  18 3 RSHIFT .
+  18 INVERT .|||
+\typeout{\result}
+
 \stop
 
 \runner{forth}[output = \result]|

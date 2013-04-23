@@ -892,6 +892,47 @@
       }
     \__runner_forth_push_fp_mod:n { \l__runner_tmpa_fp }
   }
+\__runner_forth_new_core:nn { AND }
+  {
+    \__runner_forth_pop_int:NN \l__runner_tmpa_int \l__runner_tmpb_int
+    \__runner_bit_and:NNN
+      \l__runner_tmpc_int \l__runner_tmpa_int \l__runner_tmpb_int
+    \__runner_forth_push:n { \l__runner_tmpc_int }
+  }
+\__runner_forth_new_core:nn { OR }
+  {
+    \__runner_forth_pop_int:NN \l__runner_tmpa_int \l__runner_tmpb_int
+    \__runner_bit_or:NNN
+      \l__runner_tmpc_int \l__runner_tmpa_int \l__runner_tmpb_int
+    \__runner_forth_push:n { \l__runner_tmpc_int }
+  }
+\__runner_forth_new_core:nn { XOR }
+  {
+    \__runner_forth_pop_int:NN \l__runner_tmpa_int \l__runner_tmpb_int
+    \__runner_bit_xor:NNN
+      \l__runner_tmpc_int \l__runner_tmpa_int \l__runner_tmpb_int
+    \__runner_forth_push:n { \l__runner_tmpc_int }
+  }
+\__runner_forth_new_core:nn { INVERT }
+  {
+    \__runner_forth_pop_int:N \l__runner_tmpa_int
+    \__runner_forth_push:n
+      { \c__runner_forth_mod_int - \l__runner_tmpa_int - \c_one }
+  }
+\__runner_forth_new_core:nn { LSHIFT }
+  {
+    \__runner_forth_pop_int:NN \l__runner_tmpa_int \l__runner_tmpb_int
+    \__runner_bit_lshift:NN \l__runner_tmpa_int \l__runner_tmpb_int
+    \__runner_forth_push_mod:n { \l__runner_tmpa_int }
+  }
+\__runner_forth_new_core:nn { RSHIFT }
+  {
+    \__runner_forth_pop_int:NN \l__runner_tmpa_int \l__runner_tmpb_int
+    \int_set:Nn \l__runner_tmpa_int
+      { \__runner_forth_signed:N \l__runner_tmpa_int }
+    \__runner_bit_rshift:NN \l__runner_tmpa_int \l__runner_tmpb_int
+    \__runner_forth_push_signed:n { \l__runner_tmpa_int }
+  }
 \__runner_forth_new_core:nn { ALIGN } { }
 \__runner_forth_new_core:nn { ALIGNED }
   {

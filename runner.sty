@@ -87,6 +87,75 @@
         { \group_end: \str_put_right:Nn \l__runner_output_str { ^^@ } }
     }
 \group_end:
+\int_new:N \l__runner_bit_power_int
+\cs_new_protected:Npn \__runner_bit_and:NNN #1#2#3
+  {
+    \__runner_bit_aux:nNNN
+      {
+        \int_if_odd:nT #2
+          {
+            \int_if_odd:nT #3
+              { \int_add:Nn #1 { \l__runner_bit_power_int } }
+          }
+      }
+      #1#2#3
+  }
+\cs_new_protected:Npn \__runner_bit_or:NNN #1#2#3
+  {
+    \__runner_bit_aux:nNNN
+      {
+        \int_if_odd:nTF #2
+          { \int_add:Nn #1 { \l__runner_bit_power_int } }
+          {
+            \int_if_odd:nT #3
+              { \int_add:Nn #1 { \l__runner_bit_power_int } }
+          }
+      }
+      #1#2#3
+  }
+\cs_new_protected:Npn \__runner_bit_xor:NNN #1#2#3
+  {
+    \__runner_bit_aux:nNNN
+      {
+        \int_if_odd:nTF #2
+          { \int_if_odd:nF #3 }
+          { \int_if_even:nF #3 }
+              { \int_add:Nn #1 { \l__runner_bit_power_int } }
+      }
+      #1#2#3
+  }
+\cs_new_protected:Npn \__runner_bit_aux:nNNN #1#2#3#4
+  {
+    \int_zero:N #2
+    \int_set_eq:NN \l__runner_bit_power_int \c_one
+    \int_do_while:nNnn { #3 + #4 } > \c_zero
+      {
+        #1
+        \tex_divide:D #3 \c_two
+        \tex_divide:D #4 \c_two
+        \tex_multiply:D \l__runner_bit_power_int \c_two
+      }
+  }
+\cs_new_protected:Npn \__runner_bit_lshift:NN #1#2
+  {
+    \int_compare:nNnTF {#2} > { 30 }
+      { \int_zero:N #1 }
+      {
+        \prg_replicate:nn {#2}
+          {
+            \int_set:Nn #1
+              { \c_two * (#1 - #1 / \c_max_int * ( \c_max_int / 2 ) ) }
+          }
+      }
+  }
+\cs_new_protected:Npn \__runner_bit_rshift:NN #1#2
+  {
+    \prg_replicate:nn {#2}
+      {
+        \int_if_even:nF {#1} { \int_decr:N #1 }
+        \int_set:Nn #1 { #1 / \c_two }
+      }
+  }
 \cs_new:Npn \__runner_break:n #1 #2 \__runner_break_point:n #3 { #3 #1 }
 \cs_new_eq:NN \__runner_break_point:n \use:n
 \cs_new_protected:Npn \__runner:nnnn #1#2#3#4

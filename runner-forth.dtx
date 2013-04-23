@@ -49,7 +49,6 @@
 % \item number conversion |<#|, |#|, |#>|, |#S|, |>NUMBER|, |HOLD|,
 %   |SIGN|,
 % \item int |FM/MOD|, |M*|, |S>D|, |SM/REM|, |U.|, |U<|, |UM*|, |UM/MOD|,
-% \item bitwise |AND|, |INVERT|, |LSHIFT|, |OR|, |RSHIFT|, |XOR|,
 % \item misc, |EXIT|, |FIND|, |KEY|, |MOVE|, |STATE|, |[|, |]|.
 % \end{itemize}
 %
@@ -1894,6 +1893,77 @@
         - \l_@@_tmpc_int * \l_@@_tmpa_fp
       }
     \@@_forth_push_fp_mod:n { \l_@@_tmpa_fp }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \subsubsection{Bitwise words}
+%
+% \begin{macro}[int]{AND, OR, XOR}
+%   Pop two unsigned integers from the stack, evaluate the appropriate
+%   bitwise logical operator using a \pkg{runner} auxiliary, and push
+%   the (unsigned) result back onto the stack.
+%    \begin{macrocode}
+\@@_forth_new_core:nn { AND }
+  {
+    \@@_forth_pop_int:NN \l_@@_tmpa_int \l_@@_tmpb_int
+    \@@_bit_and:NNN
+      \l_@@_tmpc_int \l_@@_tmpa_int \l_@@_tmpb_int
+    \@@_forth_push:n { \l_@@_tmpc_int }
+  }
+\@@_forth_new_core:nn { OR }
+  {
+    \@@_forth_pop_int:NN \l_@@_tmpa_int \l_@@_tmpb_int
+    \@@_bit_or:NNN
+      \l_@@_tmpc_int \l_@@_tmpa_int \l_@@_tmpb_int
+    \@@_forth_push:n { \l_@@_tmpc_int }
+  }
+\@@_forth_new_core:nn { XOR }
+  {
+    \@@_forth_pop_int:NN \l_@@_tmpa_int \l_@@_tmpb_int
+    \@@_bit_xor:NNN
+      \l_@@_tmpc_int \l_@@_tmpa_int \l_@@_tmpb_int
+    \@@_forth_push:n { \l_@@_tmpc_int }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int]{INVERT}
+%   Logical inversion amounts to \(x \to -1-x\).
+%    \begin{macrocode}
+\@@_forth_new_core:nn { INVERT }
+  {
+    \@@_forth_pop_int:N \l_@@_tmpa_int
+    \@@_forth_push:n
+      { \c_@@_forth_mod_int - \l_@@_tmpa_int - \c_one }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int]{LSHIFT}
+%   The function \cs{@@_bit_lshift:NN} can return arbitrary non-negative
+%   \TeX{} integers, and we take the residue modulo \(2^{24}\).
+%    \begin{macrocode}
+\@@_forth_new_core:nn { LSHIFT }
+  {
+    \@@_forth_pop_int:NN \l_@@_tmpa_int \l_@@_tmpb_int
+    \@@_bit_lshift:NN \l_@@_tmpa_int \l_@@_tmpb_int
+    \@@_forth_push_mod:n { \l_@@_tmpa_int }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int]{RSHIFT}
+%   The function \cs{@@_bit_rshift:NN} expects a signed integer, and
+%   repeatedly does floored division by \(2\).
+%    \begin{macrocode}
+\@@_forth_new_core:nn { RSHIFT }
+  {
+    \@@_forth_pop_int:NN \l_@@_tmpa_int \l_@@_tmpb_int
+    \int_set:Nn \l_@@_tmpa_int
+      { \@@_forth_signed:N \l_@@_tmpa_int }
+    \@@_bit_rshift:NN \l_@@_tmpa_int \l_@@_tmpb_int
+    \@@_forth_push_signed:n { \l_@@_tmpa_int }
   }
 %    \end{macrocode}
 % \end{macro}
