@@ -1058,36 +1058,69 @@
 %
 % \subsubsection{Numbers}
 %
-% ^^A todo: bug, negative numbers not accepted.
 % \begin{macro}[int, TF]{\@@_forth_get_number:nN}
+% \begin{macro}[int]{\@@_forth_get_number_aux:nNN}
+%   Look for (and remove) a sign, and provide \(\pm 1\) as an argument
+%   to \cs{@@_forth_get_number_aux:nNN}.  This auxiliary reads the
+%   number itself, and builds it into \texttt{tmpa}.  The base is stored
+%   in \texttt{tmpb} once and for all.  Find the bounds on allowed
+%   digits: from |`0| to |`9| or less if the base is small, and from
+%   |`A| to |`A| plus the base minus \(11\) (this works both for small
+%   and large bases).  The upper bounds of those two ranges are stored
+%   as \texttt{tmpc} and \texttt{tmpd}.  Loop through characters in the
+%   string (we assume there is no space): for valid digits multiply
+%   \texttt{tmpa} by the base and add the value of the digit (the
+%   formula is different in the two ranges of digits).  Upon
+%   encountering an invalid digit, set the boolean \texttt{tmpa}, which
+%   marks a success, as false, and exit the loop.  Eventually, combine
+%   the integer and the sign into |#3|, and return the value of the
+%   \texttt{tmpa} boolean.
 %    \begin{macrocode}
 \prg_new_protected_conditional:Npnn \@@_forth_get_number:nN #1#2 { TF }
   {
+    \tl_if_head_eq_charcode:nNTF {#1} -
+      {
+        \exp_args:No \@@_forth_get_number_aux:nNN
+          { \use_none:n #1 } - #2
+      }
+      { \@@_forth_get_number_aux:nNN {#1} + #2 }
+  }
+\cs_new_protected:Npn \@@_forth_get_number_aux:nNN #1#2#3
+  {
+    \int_zero:N \l_@@_tmpa_int
     \int_set:Nn \l_@@_tmpb_int { \@@_forth_base: }
-    \int_set:Nn \l_@@_tmpa_int
+    \int_set:Nn \l_@@_tmpc_int
       { \int_min:nn { `9 } { `0 + \l_@@_tmpb_int - 1 } }
-    \int_set:Nn \l_@@_tmpb_int
-      { `A + \l_@@_tmpb_int - 11 }
+    \int_set:Nn \l_@@_tmpd_int { `A + \l_@@_tmpb_int - 11 }
     \bool_set_true:N \l_@@_tmpa_bool
     \tl_map_inline:nn {#1}
       {
-        \int_compare:nF { `0 <= `##1 <= \l_@@_tmpa_int }
+        \int_compare:nTF { `0 <= `##1 <= \l_@@_tmpc_int }
           {
-            \int_compare:nF { `A <= `##1 <= \l_@@_tmpb_int }
+            \int_set:Nn \l_@@_tmpa_int
+              { \l_@@_tmpa_int * \l_@@_tmpb_int }
+            \int_add:Nn \l_@@_tmpa_int { `##1 - `0 }
+          }
+          {
+            \int_compare:nTF { `A <= `##1 <= \l_@@_tmpd_int }
+              {
+                \int_set:Nn \l_@@_tmpa_int
+                  { \l_@@_tmpa_int * \l_@@_tmpb_int }
+                \int_add:Nn \l_@@_tmpa_int { `##1 - `A + 10 }
+              }
               {
                 \bool_set_false:N \l_@@_tmpa_bool
                 \tl_map_break:
               }
           }
       }
+    \tl_set:Nx #3 { #2 \int_use:N \l_@@_tmpa_int }
     \bool_if:NTF \l_@@_tmpa_bool
-      {
-        \tl_set:Nx #2 { \int_from_base:nn {#1} { \@@_forth_base: } }
-        \prg_return_true:
-      }
+      { \prg_return_true: }
       { \prg_return_false: }
   }
 %    \end{macrocode}
+% \end{macro}
 % \end{macro}
 %
 % \subsubsection{Misc}

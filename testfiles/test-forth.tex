@@ -117,6 +117,12 @@
 \typeout{\result}
 
 \runner{forth}[output = \result]|
+  5 -78 . .
+  8 BASE ! 70 DECIMAL .
+  16 BASE ! -FF 8 BASE ! .|||
+\typeout{\result}
+
+\runner{forth}[output = \result]|
   18 3 OR .
   18 3 AND .
   18 3 XOR .
