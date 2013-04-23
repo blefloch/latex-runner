@@ -646,12 +646,9 @@
 \__runner_forth_new_core:nn { ?DUP }
   {
     \__runner_forth_pop_int:N \l__runner_tmpa_int
-    \int_compare:nNnTF \l__runner_tmpa_int = \c_zero
-      { \__runner_forth_push:n { \c_zero } }
-      {
-        \__runner_forth_push:nn
-          { \l__runner_tmpa_int } { \l__runner_tmpa_int }
-      }
+    \__runner_forth_push:n { \l__runner_tmpa_int }
+    \int_compare:nNnF \l__runner_tmpa_int = \c_zero
+      { \__runner_forth_push:n { \l__runner_tmpa_int } }
   }
 \__runner_forth_new_core:nn { DROP }
   { \__runner_forth_pop_int:N \l__runner_tmpa_int }
@@ -709,7 +706,8 @@
 \__runner_forth_new_core:nn { 0< }
   {
     \__runner_forth_pop_int:N \l__runner_tmpa_int
-    \int_compare:nNnTF \l__runner_tmpa_int < \c_zero
+    \int_compare:nNnTF
+      { \__runner_forth_signed:N \l__runner_tmpa_int } < \c_zero
       { \__runner_forth_push_true: }
       { \__runner_forth_push_false: }
   }
@@ -723,21 +721,27 @@
 \__runner_forth_new_core:nn { < }
   {
     \__runner_forth_pop_int:NN \l__runner_tmpa_int \l__runner_tmpb_int
-    \int_compare:nNnTF \l__runner_tmpa_int < \l__runner_tmpb_int
+    \int_compare:nNnTF
+      { \__runner_forth_signed:N \l__runner_tmpa_int }
+      < { \__runner_forth_signed:N \l__runner_tmpb_int }
       { \__runner_forth_push_true: }
       { \__runner_forth_push_false: }
   }
 \__runner_forth_new_core:nn { = }
   {
     \__runner_forth_pop_int:NN \l__runner_tmpa_int \l__runner_tmpb_int
-    \int_compare:nNnTF \l__runner_tmpa_int = \l__runner_tmpb_int
+    \int_compare:nNnTF
+      { \__runner_forth_signed:N \l__runner_tmpa_int }
+      = { \__runner_forth_signed:N \l__runner_tmpb_int }
       { \__runner_forth_push_true: }
       { \__runner_forth_push_false: }
   }
 \__runner_forth_new_core:nn { > }
   {
     \__runner_forth_pop_int:NN \l__runner_tmpa_int \l__runner_tmpb_int
-    \int_compare:nNnTF \l__runner_tmpa_int > \l__runner_tmpb_int
+    \int_compare:nNnTF
+      { \__runner_forth_signed:N \l__runner_tmpa_int }
+      > { \__runner_forth_signed:N \l__runner_tmpb_int }
       { \__runner_forth_push_true: }
       { \__runner_forth_push_false: }
   }
@@ -880,17 +884,39 @@
       { \__runner_forth_signed:N \l__runner_tmpb_int }
     \int_set:Nn \l__runner_tmpc_int
       { \__runner_forth_signed:N \l__runner_tmpc_int }
-    \fp_set:Nn \l__runner_tmpa_fp
-      {
-        round0 ( \l__runner_tmpa_int * \l__runner_tmpb_int
-        / \l__runner_tmpc_int )
-      }
-    \__runner_forth_push_fp_mod:n
-      {
-        \l__runner_tmpa_int * \l__runner_tmpb_int
-        - \l__runner_tmpc_int * \l__runner_tmpa_fp
-      }
+    \__runner_forth_mstar:NNN
+      \l__runner_tmpa_int \l__runner_tmpb_int \l__runner_tmpc_int
+  }
+\__runner_forth_new_core:nn { M* }
+  {
+    \__runner_forth_pop_int:NN \l__runner_tmpa_int \l__runner_tmpb_int
+    \int_set:Nn \l__runner_tmpa_int
+      { \__runner_forth_signed:N \l__runner_tmpa_int }
+    \int_set:Nn \l__runner_tmpb_int
+      { \__runner_forth_signed:N \l__runner_tmpb_int }
+    \__runner_forth_mstar:NNN
+      \l__runner_tmpa_int \l__runner_tmpb_int \c__runner_forth_mod_int
+  }
+\__runner_forth_new_core:nn { UM* }
+  {
+    \__runner_forth_pop_int:NN \l__runner_tmpa_int \l__runner_tmpb_int
+    \__runner_forth_mstar:NNN
+      \l__runner_tmpa_int \l__runner_tmpb_int \c__runner_forth_mod_int
+  }
+\cs_new_protected:Npn \__runner_forth_mstar:NNN #1#2#3
+  {
+    \fp_set:Nn \l__runner_tmpa_fp { round0 ( #1 * #2 / #3 ) }
+    \__runner_forth_push_fp_mod:n { #1 * #2 - #3 * \l__runner_tmpa_fp }
     \__runner_forth_push_fp_mod:n { \l__runner_tmpa_fp }
+  }
+\__runner_forth_new_core:nn { S>D }
+  {
+    \__runner_forth_pop_int:N \l__runner_tmpa_int
+    \__runner_forth_push:n { \l__runner_tmpa_int }
+    \int_compare:nNnTF
+      { \l__runner_tmpa_int } < { \c__runner_forth_mod_int / \c_two }
+      { \__runner_forth_push:n { 0 } }
+      { \__runner_forth_push:n { \c__runner_forth_mod_int - \c_one } }
   }
 \__runner_forth_new_core:nn { AND }
   {
@@ -1026,7 +1052,11 @@
   {
     \__runner_forth_pop_int:N \l__runner_tmpa_int
     \__runner_output:x
-      { \int_to_base:nn { \l__runner_tmpa_int } { \__runner_forth_base: } ~ }
+      {
+        \int_to_base:nn
+          { \__runner_forth_signed:N \l__runner_tmpa_int }
+          { \__runner_forth_base: } ~
+      }
   }
 \__runner_forth_new_compilation_core:nn { ." }
   {

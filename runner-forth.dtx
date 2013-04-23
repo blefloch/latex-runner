@@ -48,7 +48,7 @@
 % \item ending |ABORT|, |ABORT"|, |QUIT|,
 % \item number conversion |<#|, |#|, |#>|, |#S|, |>NUMBER|, |HOLD|,
 %   |SIGN|,
-% \item int |FM/MOD|, |M*|, |S>D|, |SM/REM|, |U.|, |U<|, |UM*|, |UM/MOD|,
+% \item int |FM/MOD|, |SM/REM|, |U.|, |U<|, |UM/MOD|,
 % \item misc, |EXIT|, |FIND|, |KEY|, |MOVE|, |STATE|, |[|, |]|.
 % \end{itemize}
 %
@@ -1426,7 +1426,7 @@
 %    \end{macrocode}
 % \end{macro}
 %
-% ^^A todo: take (tmpa mod 2^24).
+% ^^A todo: take (tmpa mod 2^16 or 2^15).
 % \begin{macro}[int]{EXECUTE}
 %   Pop from the data stack an execution token.  Perform it.
 %    \begin{macrocode}
@@ -1492,12 +1492,9 @@
 \@@_forth_new_core:nn { ?DUP }
   {
     \@@_forth_pop_int:N \l_@@_tmpa_int
-    \int_compare:nNnTF \l_@@_tmpa_int = \c_zero
-      { \@@_forth_push:n { \c_zero } }
-      {
-        \@@_forth_push:nn
-          { \l_@@_tmpa_int } { \l_@@_tmpa_int }
-      }
+    \@@_forth_push:n { \l_@@_tmpa_int }
+    \int_compare:nNnF \l_@@_tmpa_int = \c_zero
+      { \@@_forth_push:n { \l_@@_tmpa_int } }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -1595,7 +1592,8 @@
 \@@_forth_new_core:nn { 0< }
   {
     \@@_forth_pop_int:N \l_@@_tmpa_int
-    \int_compare:nNnTF \l_@@_tmpa_int < \c_zero
+    \int_compare:nNnTF
+      { \@@_forth_signed:N \l_@@_tmpa_int } < \c_zero
       { \@@_forth_push_true: }
       { \@@_forth_push_false: }
   }
@@ -1621,21 +1619,27 @@
 \@@_forth_new_core:nn { < }
   {
     \@@_forth_pop_int:NN \l_@@_tmpa_int \l_@@_tmpb_int
-    \int_compare:nNnTF \l_@@_tmpa_int < \l_@@_tmpb_int
+    \int_compare:nNnTF
+      { \@@_forth_signed:N \l_@@_tmpa_int }
+      < { \@@_forth_signed:N \l_@@_tmpb_int }
       { \@@_forth_push_true: }
       { \@@_forth_push_false: }
   }
 \@@_forth_new_core:nn { = }
   {
     \@@_forth_pop_int:NN \l_@@_tmpa_int \l_@@_tmpb_int
-    \int_compare:nNnTF \l_@@_tmpa_int = \l_@@_tmpb_int
+    \int_compare:nNnTF
+      { \@@_forth_signed:N \l_@@_tmpa_int }
+      = { \@@_forth_signed:N \l_@@_tmpb_int }
       { \@@_forth_push_true: }
       { \@@_forth_push_false: }
   }
 \@@_forth_new_core:nn { > }
   {
     \@@_forth_pop_int:NN \l_@@_tmpa_int \l_@@_tmpb_int
-    \int_compare:nNnTF \l_@@_tmpa_int > \l_@@_tmpb_int
+    \int_compare:nNnTF
+      { \@@_forth_signed:N \l_@@_tmpa_int }
+      > { \@@_forth_signed:N \l_@@_tmpb_int }
       { \@@_forth_push_true: }
       { \@@_forth_push_false: }
   }
@@ -1853,13 +1857,10 @@
 %
 % ^^A todo: division by zero?
 % ^^A todo: bug because of double rounding.  Later, fp will provide mod.
-% ^^A todo: test whether I just completely screwed up.
-% \begin{macro}[int]{*/, */MOD}
-%   Those two words have a lot of code in common, and start by popping
-%   three signed integers from the stack.  Then compute \(a\times b/c\)
-%   using floating points, rounding it towards zero.  For |*/| this is
-%   the end, and the result is output (after suitably reducing its
-%   range).  For |*/MOD|, use that quotient to compute the remainder.
+% \begin{macro}[int]{*/}
+%   Pop three signed integers from the stack and compute \(a\times b/c\)
+%   using floating points.  The result is output, after rounding towards
+%   zero and reducing its range in case of overflow.
 %    \begin{macrocode}
 \@@_forth_new_core:nn { */ }
   {
@@ -1872,6 +1873,16 @@
         / \@@_forth_signed:N \l_@@_tmpc_int
       }
   }
+%    \end{macrocode}
+% \end{macro}
+%
+% ^^A todo: test whether I just completely screwed up.
+% \begin{macro}[int]{*/MOD, M*, UM*}
+% \begin{macro}[aux]{\@@_forth_mstar:NNN}
+%   Pop two or three signed or unsigned integers from the stack, then
+%   call an auxiliary to compute the first times the second, |/MOD| the
+%   third (or \cs{c_@@_forth_mod_int}).  This is stored onto the stack
+%    \begin{macrocode}
 \@@_forth_new_core:nn { */MOD }
   {
     \@@_forth_pop_int:NNN
@@ -1882,17 +1893,49 @@
       { \@@_forth_signed:N \l_@@_tmpb_int }
     \int_set:Nn \l_@@_tmpc_int
       { \@@_forth_signed:N \l_@@_tmpc_int }
-    \fp_set:Nn \l_@@_tmpa_fp
-      {
-        round0 ( \l_@@_tmpa_int * \l_@@_tmpb_int
-        / \l_@@_tmpc_int )
-      }
-    \@@_forth_push_fp_mod:n
-      {
-        \l_@@_tmpa_int * \l_@@_tmpb_int
-        - \l_@@_tmpc_int * \l_@@_tmpa_fp
-      }
+    \@@_forth_mstar:NNN
+      \l_@@_tmpa_int \l_@@_tmpb_int \l_@@_tmpc_int
+  }
+\@@_forth_new_core:nn { M* }
+  {
+    \@@_forth_pop_int:NN \l_@@_tmpa_int \l_@@_tmpb_int
+    \int_set:Nn \l_@@_tmpa_int
+      { \@@_forth_signed:N \l_@@_tmpa_int }
+    \int_set:Nn \l_@@_tmpb_int
+      { \@@_forth_signed:N \l_@@_tmpb_int }
+    \@@_forth_mstar:NNN
+      \l_@@_tmpa_int \l_@@_tmpb_int \c_@@_forth_mod_int
+  }
+\@@_forth_new_core:nn { UM* }
+  {
+    \@@_forth_pop_int:NN \l_@@_tmpa_int \l_@@_tmpb_int
+    \@@_forth_mstar:NNN
+      \l_@@_tmpa_int \l_@@_tmpb_int \c_@@_forth_mod_int
+  }
+\cs_new_protected:Npn \@@_forth_mstar:NNN #1#2#3
+  {
+    \fp_set:Nn \l_@@_tmpa_fp { round0 ( #1 * #2 / #3 ) }
+    \@@_forth_push_fp_mod:n { #1 * #2 - #3 * \l_@@_tmpa_fp }
     \@@_forth_push_fp_mod:n { \l_@@_tmpa_fp }
+  }
+%    \end{macrocode}
+% \end{macro}
+% \end{macro}
+%
+% \begin{macro}[int]{S>D}
+%   The most significant part of a double-cell integer is stored on top,
+%   thus converting a single cell to a double-cell integer simply
+%   requires pushing \(0\) for positive and \(-1\) (all bits set) for
+%   negative integers.
+%    \begin{macrocode}
+\@@_forth_new_core:nn { S>D }
+  {
+    \@@_forth_pop_int:N \l_@@_tmpa_int
+    \@@_forth_push:n { \l_@@_tmpa_int }
+    \int_compare:nNnTF
+      { \l_@@_tmpa_int } < { \c_@@_forth_mod_int / \c_two }
+      { \@@_forth_push:n { 0 } }
+      { \@@_forth_push:n { \c_@@_forth_mod_int - \c_one } }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -2153,7 +2196,11 @@
   {
     \@@_forth_pop_int:N \l_@@_tmpa_int
     \@@_output:x
-      { \int_to_base:nn { \l_@@_tmpa_int } { \@@_forth_base: } ~ }
+      {
+        \int_to_base:nn
+          { \@@_forth_signed:N \l_@@_tmpa_int }
+          { \@@_forth_base: } ~
+      }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -2473,6 +2520,7 @@
 % \end{macro}
 %
 % ^^A todo: optimize
+% ^^A todo: now, this fails for i=-1, lim=0.
 % \begin{macro}[int]{\@@_forth_compiled_do:n}
 %    \begin{macrocode}
 \cs_new_protected:Npn \@@_forth_compiled_do:n #1
