@@ -1176,14 +1176,6 @@
 % \end{macro}
 % \end{variable}
 %
-% ^^A todo: implement control-flow as in the standard.
-% \begin{variable}{\l_@@_forth_flow_seq}
-%   Control flow stack.
-%    \begin{macrocode}
-\seq_new:N \l_@@_forth_flow_seq
-%    \end{macrocode}
-% \end{variable}
-%
 % \subsection{Core words}
 %
 % \subsubsection{Definition words}
@@ -1260,32 +1252,33 @@
 %
 % ^^A todo: what is the compilation semantics of the colon word?
 % \begin{macro}[int]{:}
-%   Read a word, and feed it to \cs{@@_forth_def:n}, responsible for all
-%   the work.
+%   Read a word, and feed it, and the definition that was being built,
+%   to \cs{@@_forth_def:n}, responsible for all the work.
 %    \begin{macrocode}
 \@@_forth_new_core:nn { : }
   {
     \@@_forth_input_word:
-    \@@_forth_def:V \l_@@_forth_input_word_str
+    \@@_forth_def:VV
+      \l_@@_forth_input_word_str \l_@@_forth_def_tl
   }
 %    \end{macrocode}
 % \end{macro}
 %
-% ^^A todo: robustify the flow_seq against bad input (nesting).
+% ^^A todo: robustify the flow against bad input (nesting).
 % ^^A todo: improve error recovery with missing THEN.
-% \begin{macro}[int]{\@@_forth_def:n, \@@_forth_def:V}
-%   Store in the control-flow stack the definition being built, if any,
-%   and empty \cs{l_@@_forth_def_tl}.  Then switch to compiling state,
-%   looping until something (typically, the word |;|) makes the ``stop''
-%   boolean true.  We then set the boolean back to be false: otherwise,
-%   the interpreter loop would end.  A new non-immediate word is then
-%   defined with the name |#1| and the definition that was collected.
-%   Finally, the name |#1| is store (for |IMMEDIATE|) and the former
-%   value of \cs{l_@@_forth_def_tl} is restored.
+% \begin{macro}[int]{\@@_forth_def:nn, \@@_forth_def:VV}
+%   Here |#1| is a word and |#2| is the definition built previously
+%   (just there to be restored once we are done).  Then switch to
+%   compiling state, looping until something (typically, the word |;|)
+%   makes the ``stop'' boolean true.  We then set the boolean back to be
+%   false: otherwise, the interpreter loop would end.  A new
+%   non-immediate word is then defined with the name |#1| and the
+%   definition that was collected.  Finally, the name |#1| is store (for
+%   |IMMEDIATE|) and the former value of \cs{l_@@_forth_def_tl} is
+%   restored.
 %    \begin{macrocode}
-\cs_new_protected:Npn \@@_forth_def:n #1
+\cs_new_protected:Npn \@@_forth_def:nn #1#2
   {
-    \seq_push:NV \l_@@_forth_flow_seq \l_@@_forth_def_tl
     \tl_clear:N \l_@@_forth_def_tl
     \bool_until_do:Nn \l_@@_forth_stop_bool
       {
@@ -1301,9 +1294,9 @@
       }
     \@@_forth_set_word:nx {#1} { \l_@@_forth_def_tl }
     \str_set:Nn \l_@@_forth_def_name_str {#1}
-    \seq_pop:NN \l_@@_forth_flow_seq \l_@@_forth_def_tl
+    \tl_set:Nn \l_@@_forth_def_tl {#2}
   }
-\cs_generate_variant:Nn \@@_forth_def:n { V }
+\cs_generate_variant:Nn \@@_forth_def:nn { VV }
 %    \end{macrocode}
 % \end{macro}
 %

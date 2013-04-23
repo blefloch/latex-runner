@@ -464,7 +464,6 @@
           { \__runner_forth_data_get:N \l__runner_forth_base_address_int }
       }
   }
-\seq_new:N \l__runner_forth_flow_seq
 \tl_new:N \l__runner_forth_def_tl
 \cs_new_protected:Npn \__runner_forth_def_put_right:n #1
   { \tl_put_right:Nn \l__runner_forth_def_tl { \exp_not:n {#1} } }
@@ -498,11 +497,11 @@
 \__runner_forth_new_core:nn { : }
   {
     \__runner_forth_input_word:
-    \__runner_forth_def:V \l__runner_forth_input_word_str
+    \__runner_forth_def:VV
+      \l__runner_forth_input_word_str \l__runner_forth_def_tl
   }
-\cs_new_protected:Npn \__runner_forth_def:n #1
+\cs_new_protected:Npn \__runner_forth_def:nn #1#2
   {
-    \seq_push:NV \l__runner_forth_flow_seq \l__runner_forth_def_tl
     \tl_clear:N \l__runner_forth_def_tl
     \bool_until_do:Nn \l__runner_forth_stop_bool
       {
@@ -518,9 +517,9 @@
       }
     \__runner_forth_set_word:nx {#1} { \l__runner_forth_def_tl }
     \str_set:Nn \l__runner_forth_def_name_str {#1}
-    \seq_pop:NN \l__runner_forth_flow_seq \l__runner_forth_def_tl
+    \tl_set:Nn \l__runner_forth_def_tl {#2}
   }
-\cs_generate_variant:Nn \__runner_forth_def:n { V }
+\cs_generate_variant:Nn \__runner_forth_def:nn { VV }
 \cs_new_protected:Npn \__runner_forth_compile:n #1
   {
     \prop_get:NnNTF \l__runner_forth_words_prop {#1} \l__runner_tmpa_tl
