@@ -43,14 +43,21 @@
 \typeout{\result}
 
 \runner{forth}[output = \result]|
-  : FACTORIAL ( +n1 -- +n2)
+  : REP-FACTORIAL ( +n1 -- +n2)
   DUP 2 < IF DROP 1 ELSE
   DUP 1- RECURSE * THEN
   ;
+  : IT-FACTORIAL ( +n1 -- +n2)
+  DUP 2 < IF DROP 1 ELSE
+  DUP
+  BEGIN DUP 2 > WHILE
+  1- SWAP OVER * SWAP
+  REPEAT DROP THEN
+  ;
 ||
-0 FACTORIAL . 1 . CR
-3 FACTORIAL . 6 . CR
-24 FACTORIAL . 12582912 .|
+0 DUP REP-FACTORIAL . IT-FACTORIAL . CR
+3 DUP REP-FACTORIAL . IT-FACTORIAL . CR
+24 DUP REP-FACTORIAL . IT-FACTORIAL .|
 \typeout{\result}
 
 \runner{forth}[output = \result]|
@@ -153,6 +160,7 @@
 
 \runner{forth}[output = \result]|CHAR \ WORD '\ FIND . DUP EXECUTE ' . .|||
 \typeout{\result}
+
 
 \stop
 

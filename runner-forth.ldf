@@ -1450,6 +1450,66 @@
         \__runner_forth_return_pop_int:N \l__runner_tmpb_int
       }
   }
+\__runner_forth_new_compilation_core:nn { BEGIN }
+  {
+    \seq_push:NV \l__runner_forth_def_seq \l__runner_forth_def_code_tl
+    \tl_clear:N \l__runner_forth_def_code_tl
+    \__runner_forth_control_open:n { 4 }
+  }
+\__runner_forth_new_compilation_core:nn { UNTIL }
+  {
+    \__runner_forth_control_close:nTF { 4 }
+      {
+        \tl_set_eq:NN \l__runner_tmpa_tl \l__runner_forth_def_code_tl
+        \seq_pop:NN \l__runner_forth_def_seq \l__runner_forth_def_code_tl
+        \__runner_forth_def_code:x
+          { \__runner_forth_compiled_until:n { \l__runner_tmpa_tl } }
+      }
+      { \msg_error:nnn { runner/forth } { misplaced } { UNTIL } }
+  }
+\cs_new_protected:Npn \__runner_forth_compiled_until:n #1
+  {
+    \int_do_while:nNnn \l__runner_tmpa_int = \c_zero
+      {
+        #1
+        \__runner_forth_pop_int:N \l__runner_tmpa_int
+      }
+  }
+\__runner_forth_new_compilation_core:nn { WHILE }
+  {
+    \__runner_forth_control_close:nTF { 4 }
+      {
+        \seq_push:NV \l__runner_forth_def_seq \l__runner_forth_def_code_tl
+        \tl_clear:N \l__runner_forth_def_code_tl
+        \__runner_forth_control_open:n { 5 }
+      }
+      { \msg_error:nnn { runner/forth } { misplaced } { WHILE } }
+  }
+\__runner_forth_new_compilation_core:nn { REPEAT }
+  {
+    \__runner_forth_control_close:nTF { 5 }
+      {
+        \tl_set_eq:NN \l__runner_tmpb_tl \l__runner_forth_def_code_tl
+        \seq_pop:NN \l__runner_forth_def_seq \l__runner_tmpa_tl
+        \seq_pop:NN \l__runner_forth_def_seq \l__runner_forth_def_code_tl
+        \__runner_forth_def_code:x
+          {
+            \__runner_forth_compiled_repeat:nn
+              { \l__runner_tmpa_tl } { \l__runner_tmpb_tl }
+          }
+      }
+      { \msg_error:nnn { runner/forth } { misplaced } { REPEAT } }
+  }
+\cs_new_protected:Npn \__runner_forth_compiled_repeat:nn #1#2
+  {
+    #1
+    \__runner_forth_pop_int:N \l__runner_tmpa_int
+    \int_compare:nNnF \l__runner_tmpa_int = \c_zero
+      {
+        #2
+        \__runner_forth_compiled_repeat:nn {#1} {#2}
+      }
+  }
 \__runner_forth_new_immediate_core:nn { }
   { \bool_set_true:N \l__runner_forth_stop_bool }
 \__runner_forth_new_core:nn { BASE }
