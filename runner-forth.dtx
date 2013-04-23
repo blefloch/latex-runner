@@ -48,7 +48,6 @@
 % \item ending |ABORT|, |ABORT"|, |QUIT|,
 % \item number conversion |<#|, |#|, |#>|, |#S|, |>NUMBER|, |HOLD|,
 %   |SIGN|,
-% \item int |FM/MOD|, |SM/REM|, |U.|, |UM/MOD|,
 % \item misc, |EXIT|, |FIND|, |KEY|, |MOVE|, |STATE|, |[|, |]|.
 % \end{itemize}
 %
@@ -1922,12 +1921,91 @@
 %    \end{macrocode}
 % \end{macro}
 %
-% ^^A todo: test whether I just completely screwed up.
-% \begin{macro}[int]{*/MOD, M*, UM*}
-% \begin{macro}[aux]{\@@_forth_mstar:NNN}
-%   Pop two or three signed or unsigned integers from the stack, then
-%   call an auxiliary to compute the first times the second, |/MOD| the
-%   third (or \cs{c_@@_forth_mod_int}).  This is stored onto the stack
+% ^^A todo: bug because of double rounding.  Later, fp will provide mod.
+% \begin{macro}[aux]{\@@_forth_push_remquo:nNN}
+%   Given a (possibly large) integer expression |#1|, an integer |#2|,
+%   and a rounding direction |0| or |-|, compute using floating points
+%   the integer quotient and remainder of dividing |#1| by |#2|.
+%   Rounding toward~\(0\) gives symmetric division.  Rounding
+%   towards~\(-\infty\) gives floored division.  The results are pushed
+%   onto the stack, first the remainder, then the quotient.  Using the
+%   \texttt{fp_mod} pushing function protects against
+%   overflow/underflow, and takes care of putting signed results back
+%   into unsigned form.  This auxiliary is used by |FM/MOD|, |SM/REM|,
+%   |UM/MOD|, |*/MOD|, |M*|, and |UM*|.
+%    \begin{macrocode}
+\cs_new_protected:Npn \@@_forth_push_remquo:nNN #1#2#3
+  {
+    \fp_set:Nn \l_@@_tmpa_fp { round #3 ( (#1) / #2 ) }
+    \@@_forth_push_fp_mod:n { #1 - #2 * \l_@@_tmpa_fp }
+    \@@_forth_push_fp_mod:n { \l_@@_tmpa_fp }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int]{M*, UM*}
+%   Pop two signed or unsigned integers from the stack, then split the
+%   product into the quotient by \cs{c_@@_forth_mod_int} and its
+%   remainder (using floored division).  This is done by
+%   \cs{@@_forth_push_remquo:nNN}, which pushes the remainder and the
+%   quotient onto the stack, in the expected order.
+%    \begin{macrocode}
+\@@_forth_new_core:nn { M* }
+  {
+    \@@_forth_pop_int:NN \l_@@_tmpa_int \l_@@_tmpb_int
+    \int_set:Nn \l_@@_tmpa_int
+      { \@@_forth_signed:N \l_@@_tmpa_int }
+    \int_set:Nn \l_@@_tmpb_int
+      { \@@_forth_signed:N \l_@@_tmpb_int }
+    \@@_forth_push_remquo:nNN
+      { \l_@@_tmpa_int * \l_@@_tmpb_int } \c_@@_forth_mod_int -
+  }
+\@@_forth_new_core:nn { UM* }
+  {
+    \@@_forth_pop_int:NN \l_@@_tmpa_int \l_@@_tmpb_int
+    \@@_forth_push_remquo:nNN
+      { \l_@@_tmpa_int * \l_@@_tmpb_int } \c_@@_forth_mod_int -
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int]{FM/MOD, SM/REM, UM/MOD}
+% \begin{macro}[aux]{\@@_forth_mslash:NN}
+%   The auxiliary pops a cell \(c\) and a cell pair \((a,b)\) from the
+%   stack.  First convert to signed integers if needed (for the cell
+%   pair, this only affects the leading cell \(b\)).  Then push the
+%   remainder and quotient of dividing the value \(a + b \cdot 2^{24}\)
+%   of the cell pair by \(c\), rounding towards \(-\infty\) for floored
+%   division (|FM/MOD| and |UM/MOD|) and towards \(0\) for symmetric
+%   division (|SM/REM|).
+%    \begin{macrocode}
+\@@_forth_new_core:nn { FM/MOD }
+  { \@@_forth_mslash:NN \@@_forth_signed:N - }
+\@@_forth_new_core:nn { SM/REM }
+  { \@@_forth_mslash:NN \@@_forth_signed:N 0 }
+\@@_forth_new_core:nn { UM/MOD }
+  { \@@_forth_mslash:NN \prg_do_nothing: - }
+\cs_new_protected:Npn \@@_forth_mslash:NN #1#2
+  {
+    \@@_forth_pop_int:NNN
+      \l_@@_tmpa_int \l_@@_tmpb_int \l_@@_tmpc_int
+    \int_set:Nn \l_@@_tmpb_int { #1 \l_@@_tmpb_int }
+    \int_set:Nn \l_@@_tmpc_int { #1 \l_@@_tmpc_int }
+    \@@_forth_push_remquo:nNN
+      {
+        \l_@@_tmpa_int
+        + \l_@@_tmpb_int * \c_@@_forth_mod_int
+      }
+      \l_@@_tmpc_int #2
+  }
+%    \end{macrocode}
+% \end{macro}
+% \end{macro}
+%
+% \begin{macro}[int]{*/MOD}
+%   Pop three signed integers from the stack, and use
+%   \cs{@@_forth_push_remquo:nNN} to evaluate the remainder and quotient
+%   of the symmetric division \((a\times b) / c\).
 %    \begin{macrocode}
 \@@_forth_new_core:nn { */MOD }
   {
@@ -1939,33 +2017,10 @@
       { \@@_forth_signed:N \l_@@_tmpb_int }
     \int_set:Nn \l_@@_tmpc_int
       { \@@_forth_signed:N \l_@@_tmpc_int }
-    \@@_forth_mstar:NNN
-      \l_@@_tmpa_int \l_@@_tmpb_int \l_@@_tmpc_int
-  }
-\@@_forth_new_core:nn { M* }
-  {
-    \@@_forth_pop_int:NN \l_@@_tmpa_int \l_@@_tmpb_int
-    \int_set:Nn \l_@@_tmpa_int
-      { \@@_forth_signed:N \l_@@_tmpa_int }
-    \int_set:Nn \l_@@_tmpb_int
-      { \@@_forth_signed:N \l_@@_tmpb_int }
-    \@@_forth_mstar:NNN
-      \l_@@_tmpa_int \l_@@_tmpb_int \c_@@_forth_mod_int
-  }
-\@@_forth_new_core:nn { UM* }
-  {
-    \@@_forth_pop_int:NN \l_@@_tmpa_int \l_@@_tmpb_int
-    \@@_forth_mstar:NNN
-      \l_@@_tmpa_int \l_@@_tmpb_int \c_@@_forth_mod_int
-  }
-\cs_new_protected:Npn \@@_forth_mstar:NNN #1#2#3
-  {
-    \fp_set:Nn \l_@@_tmpa_fp { round0 ( #1 * #2 / #3 ) }
-    \@@_forth_push_fp_mod:n { #1 * #2 - #3 * \l_@@_tmpa_fp }
-    \@@_forth_push_fp_mod:n { \l_@@_tmpa_fp }
+    \@@_forth_push_remquo:nNN
+      { \l_@@_tmpa_int * \l_@@_tmpb_int } \l_@@_tmpc_int 0
   }
 %    \end{macrocode}
-% \end{macro}
 % \end{macro}
 %
 % \begin{macro}[int]{S>D}
