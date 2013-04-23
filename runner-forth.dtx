@@ -50,7 +50,7 @@
 % \end{itemize}
 %
 % The following environment variables are not implemented:
-% |/COUNTED-STRING|, |/HOLD|.
+% |/COUNTED-STRING|.
 %
 % Implementation specificities are as follows.
 % \begin{itemize}
@@ -2939,6 +2939,11 @@
     {
       \@@_forth_push:n { 16777215 }
       \@@_forth_push:n { 16777215 }
+    }
+  \@@_forth_environment_def:nn { /HOLD }
+    {
+      \@@_forth_push:n
+        { \g_@@_forth_picnum_max_int - \g_@@_forth_picnum_min_int }
     }
   \@@_forth_environment_def:nn { /PAD }
     {

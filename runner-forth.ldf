@@ -1451,6 +1451,11 @@
       \__runner_forth_push:n { 16777215 }
       \__runner_forth_push:n { 16777215 }
     }
+  \__runner_forth_environment_def:nn { /HOLD }
+    {
+      \__runner_forth_push:n
+        { \g__runner_forth_picnum_max_int - \g__runner_forth_picnum_min_int }
+    }
   \__runner_forth_environment_def:nn { /PAD }
     {
       \__runner_forth_push:n
