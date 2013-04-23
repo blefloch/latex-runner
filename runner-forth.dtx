@@ -58,15 +58,20 @@
 % \item Character set: ?
 % \item Character-set-extensions matching characteristics: ?
 % \item Conditions under which control characters match a space
-%   delimiter: ?
-% \item Format of the control-flow stack: ?
-% \item Conditions under which control characters match a space delimiter: ?
-% \item Format of the control-flow stack: ?
+%   delimiter: whenever a space delimiter (character code \(32\)) is
+%   called for, all characters in \([0,32]\) will match.  Even in the
+%   case of |WORD|.
+% \item Format of the control-flow stack: integers, indicating what was
+%   the last control-flow construct used, \(0\) for |:|, \(1\) for |IF|,
+%   \(2\) for |ELSE|, \(3\) for |DO|, \(4\) for |BEGIN|, \(5\) for
+%   |WHILE|.
 % \item Conversion of digits larger than thirty-five: this never arises,
 %   as the base used in conversion is automatically truncated to the
 %   interval \([2, 36]\).
 % \item Display after input terminates in |ACCEPT|: ?
-% \item Exception abort sequence (as in |ABORT"|): ?
+% \item Exception abort sequence (as in |ABORT"|): message to the \TeX{}
+%   terminal, with the non-zero value that was on the stack, and the
+%   compile-time string.
 % \item Input line terminator: ?  User input device: ?
 % \item Maximum size of a counted string, in chars: ?
 % \item Maximum size of a parsed string: ?
@@ -89,10 +94,11 @@
 % \item One character is one address unit.
 % \item Size of the keyboard terminal input buffer: fixed upon starting
 %   the Forth interpreter, at least \(128\).
-% \item Size of the pictured numeric output string buffer: ?
+% \item Size of the pictured numeric output string buffer: fixed upon
+%   starting the Forth interpreter, at least \(127\).
 % \item Size of the scratch area whose address is returned by |PAD|:
 %   fixed upon starting the Forth interpreter, at least \(128\).
-% \item Case-sensitivity: ?
+% \item Case-sensitivity: yes. (?)
 % \item Prompt (see |QUIT|): ?
 % \item Division rounding: symmetric (the quotient is rounded towards
 %   zero, the remainder has the sign of the numerator).
@@ -101,7 +107,8 @@
 %   modulo \(2^{24}\).
 % \item Whether the current definition can be found after |DOES>|: ?
 % \end{itemize}
-% ^^A todo: ensure that input buffer and pad are both at least 128 cells wide.
+% ^^A todo: ensure that picnum buffer is >= 127 cells wide.
+% ^^A todo: ensure that input buffer and pad are >= 128 cells wide.
 %
 % Here is a list of data types and their sizes in this implementation.
 % \begin{center}
@@ -2822,9 +2829,6 @@
 % \end{macro}
 %
 % \subsubsection{Conditional words}
-%
-% ^^A todo: doc that 0 = ':', 1 = 'IF', 2 = 'ELSE',
-% ^^A 3 = 'DO', 4 = 'BEGIN', 5 = 'WHILE'
 %
 % \begin{macro}[int]{IF}
 %   Save the definition-so-far in the \texttt{def} stack, and empty that
