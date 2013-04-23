@@ -45,7 +45,7 @@
 % \item do-loop |+LOOP|,
 % \item parse/input |>IN|, |ACCEPT|, |EVALUATE|,
 % \item ending |ABORT|, |ABORT"|, |QUIT|,
-% \item misc, |EXIT|, |KEY|, |>NUMBER|.
+% \item misc, |KEY|, |>NUMBER|.
 % \end{itemize}
 %
 % The following environment variables are not implemented:
@@ -187,6 +187,18 @@
 \cs_generate_variant:Nn \prop_gput:Nnn { Nx }
 \cs_generate_variant:Nn \prop_get:NnNTF { Nx }
 %    \end{macrocode}
+%
+% ^^A todo: try to only put the marker on actual definitions.
+% \begin{macro}[int]{\@@_forth_exit:, \@@_forth_exit_point:}
+%   When executing code given an execution token (see
+%   \cs{@@_forth_execute:n}), a \texttt{exit_point} marker is placed
+%   after the code, so that |EXIT| can safely leave definitions.
+%    \begin{macrocode}
+\cs_new_protected:Npn \@@_forth_exit:
+  #1 \@@_forth_exit_point: { }
+\cs_new_eq:NN \@@_forth_exit_point: \scan_stop:
+%    \end{macrocode}
+% \end{macro}
 %
 % \subsection{Data structures}
 %
@@ -868,7 +880,7 @@
 %   space terminates the number returned by \cs{int_eval:n}.
 %    \begin{macrocode}
 \cs_new_protected:Npn \@@_forth_execute:n #1
-  { \tex_the:D \tex_toks:D \int_eval:n {#1} ~ }
+  { \tex_the:D \tex_toks:D \int_eval:n {#1} \@@_forth_exit_point: }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -3105,6 +3117,17 @@
 \@@_forth_new_immediate_core:nn { }
   { \bool_set_true:N \l_@@_forth_stop_bool }
 %    \end{macrocode}
+%
+% ^^A todo: bug, EXIT should not have interpretation semantics.
+% \begin{macro}[int]{EXIT}
+%   Leave the current definition.  See \cs{@@_forth_exit:} and
+%   \cs{@@_forth_exit_point:}.  The \cs{use_i:nn} is a bit of a hack, to
+%   remove the \texttt{exit_point} that is inserted after the code of
+%   |EXIT| itself.
+%    \begin{macrocode}
+\@@_forth_new_core:nn { EXIT } { \use_i:nn \@@_forth_exit: }
+%    \end{macrocode}
+% \end{macro}
 %
 % \subsubsection{Environmental variables}
 %

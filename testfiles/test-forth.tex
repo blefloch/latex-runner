@@ -44,15 +44,15 @@
 
 \runner{forth}[output = \result]|
   : REP-FACTORIAL ( +n1 -- +n2)
-  DUP 2 < IF DROP 1 ELSE
-  DUP 1- RECURSE * THEN
+  DUP 2 < IF DROP 1 EXIT THEN
+  DUP 1- RECURSE *
   ;
   : IT-FACTORIAL ( +n1 -- +n2)
-  DUP 2 < IF DROP 1 ELSE
+  DUP 2 < IF DROP 1 EXIT THEN
   DUP
   BEGIN DUP 2 > WHILE
   1- SWAP OVER * SWAP
-  REPEAT DROP THEN
+  REPEAT DROP
   ;
 ||
 0 DUP REP-FACTORIAL . IT-FACTORIAL . CR
@@ -62,12 +62,11 @@
 
 \runner{forth}[output = \result]|
   : FACTORIAL ( +n1 -- +d2)
-  DUP 2 < IF DROP 1 0 ELSE
+  DUP 2 < IF DROP 1 0 EXIT THEN
   DUP 1- RECURSE ( n f2 f1)
   ROT SWAP OVER ( f2 n f1 n)
   * ROT ROT ( f1' f2 n)
   UM* ROT +
-  THEN
   ;
 ||
 0 FACTORIAL <# #S #> TYPE CR
