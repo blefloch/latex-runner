@@ -428,12 +428,16 @@
 % \subsection{Misc}
 %
 % \begin{macro}[int, EXP]{\@@_break:n, \@@_break_point:n}
+% \begin{macro}[int]{\@@_break_protected:n}
 %   A tool to jump to the end of a loop, leaving the appropriate
 %   clean-up code (argument of \cs{@@_break_point:n}).
 %    \begin{macrocode}
 \cs_new:Npn \@@_break:n #1 #2 \@@_break_point:n #3 { #3 #1 }
+\cs_new_protected:Npn \@@_break_protected:n
+  #1 #2 \@@_break_point:n #3 { #3 #1 }
 \cs_new_eq:NN \@@_break_point:n \use:n
 %    \end{macrocode}
+% \end{macro}
 % \end{macro}
 %
 % \subsection{Running programs}

@@ -157,6 +157,8 @@
       }
   }
 \cs_new:Npn \__runner_break:n #1 #2 \__runner_break_point:n #3 { #3 #1 }
+\cs_new_protected:Npn \__runner_break_protected:n
+  #1 #2 \__runner_break_point:n #3 { #3 #1 }
 \cs_new_eq:NN \__runner_break_point:n \use:n
 \cs_new_protected:Npn \__runner:nnnn #1#2#3#4
   {
