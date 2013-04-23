@@ -255,9 +255,12 @@
 %     lie between \texttt{data_text} (included) and \texttt{data_max}
 %     (excluded).
 %   \end{itemize}
-% \item The stack, combining the data and control-flow stacks, lies from
-%   \texttt{stack_min} to \texttt{stack_max}, and the position where a
-%   new value would be pushed is at \texttt{stack_here}.
+% \item The data stack lies from \texttt{stack_min} to
+%   \texttt{stack_max}, and the position where a new value would be
+%   pushed is at \texttt{stack_here}.
+% \item The control-flow stack lies from \texttt{control_min} to
+%   \texttt{control_max}, and the position where a new value would be
+%   pushed is \texttt{control_here}.
 % \item The return stack lies from \texttt{return_min} to
 %   \texttt{return_max}, and the position where a new value would be
 %   pushed is at \texttt{return_here}.
@@ -350,13 +353,29 @@
 %     \l_@@_forth_stack_here_int,
 %     \g_@@_forth_stack_max_int
 %   }
-%   The combination of the data stack and the control flow stack lies in
-%   this range, with the bottom item at \cs{g_@@_forth_stack_min_int}
-%   and the top item just below \cs{l_@@_forth_stack_here_int}.
+%   The data stack lies in this range, with the bottom item at
+%   \cs{g_@@_forth_stack_min_int} and the top item just below
+%   \cs{l_@@_forth_stack_here_int}.
 %    \begin{macrocode}
 \int_new:N \g_@@_forth_stack_min_int
 \int_new:N \l_@@_forth_stack_here_int
 \int_new:N \g_@@_forth_stack_max_int
+%    \end{macrocode}
+% \end{variable}
+%
+% \begin{variable}
+%   {
+%     \g_@@_forth_control_min_int,
+%     \l_@@_forth_control_here_int,
+%     \g_@@_forth_control_max_int
+%   }
+%   The control flow stack lies in this range, with the bottom item at
+%   \cs{g_@@_forth_control_min_int} and the top item just below
+%   \cs{l_@@_forth_control_here_int}.
+%    \begin{macrocode}
+\int_new:N \g_@@_forth_control_min_int
+\int_new:N \l_@@_forth_control_here_int
+\int_new:N \g_@@_forth_control_max_int
 %    \end{macrocode}
 % \end{variable}
 %
@@ -396,6 +415,8 @@
       \g_@@_forth_data_max_int
     \int_set_eq:NN \l_@@_forth_stack_here_int
       \g_@@_forth_stack_min_int
+    \int_set_eq:NN \l_@@_forth_control_here_int
+      \g_@@_forth_control_min_int
     \int_set_eq:NN \l_@@_forth_return_here_int
       \g_@@_forth_return_min_int
   }
@@ -416,9 +437,11 @@
 \int_gset:Nn \g_@@_forth_pad_min_int { 256 }
 \int_gset:Nn \g_@@_forth_pad_max_int { 384 }
 \int_gset:Nn \g_@@_forth_data_min_int { 384 }
-\int_gset:Nn \g_@@_forth_data_max_int { 65280 }
-\int_gset:Nn \g_@@_forth_stack_min_int { 65280 }
-\int_gset:Nn \g_@@_forth_stack_max_int { 65408 }
+\int_gset:Nn \g_@@_forth_data_max_int { 65152 }
+\int_gset:Nn \g_@@_forth_stack_min_int { 65152 }
+\int_gset:Nn \g_@@_forth_stack_max_int { 65280 }
+\int_gset:Nn \g_@@_forth_control_min_int { 65280 }
+\int_gset:Nn \g_@@_forth_control_max_int { 65408 }
 \int_gset:Nn \g_@@_forth_return_min_int { 65408 }
 \int_gset:Nn \g_@@_forth_return_max_int { 65536 }
 \@@_array_new:Nn \g_@@_forth_array { 65536 }
@@ -684,6 +707,53 @@
 %    \end{macrocode}
 % \end{macro}
 %
+% \subsubsection{Manipulating the control-flow stack}
+%
+% \begin{macro}[int]{\@@_forth_control_open:n}
+%   Push an unsigned integer onto the control-flow stack, at
+%   \texttt{control_here}, failing if the control-flow stack is full.
+%    \begin{macrocode}
+\cs_new_protected:Npn \@@_forth_control_open:n #1
+  {
+    \int_compare:nNnTF
+      \l_@@_forth_control_here_int < \g_@@_forth_control_max_int
+      {
+        \@@_array_gset:Nnn \g_@@_forth_array
+          \l_@@_forth_control_here_int {#1}
+        \int_incr:N \l_@@_forth_control_here_int
+      }
+      { \msg_error:nn { runner/forth } { out-of-memory } }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int, TF]{\@@_forth_control_close:n}
+%   Read the top of the control-flow stack if not empty.  If this
+%   matches with |#1|, remove it (by shifting \texttt{control_here}),
+%   and return \texttt{true}, otherwise \texttt{false}.
+%    \begin{macrocode}
+\prg_new_protected_conditional:Npnn \@@_forth_control_close:n #1 { TF }
+  {
+    \int_compare:nNnTF
+      \l_@@_forth_control_here_int > \g_@@_forth_control_min_int
+      {
+        \int_compare:nNnTF
+          {
+            \@@_array_item:Nn \g_@@_forth_array
+              { \l_@@_forth_control_here_int - 1 }
+          }
+          = {#1}
+          {
+            \int_decr:N \l_@@_forth_control_here_int
+            \prg_return_true:
+          }
+          { \prg_return_false: }
+      }
+      { \prg_return_false: }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
 % \subsubsection{Manipulating the return stack}
 %
 % \begin{macro}[int]{\@@_forth_return_pop_int:N}
@@ -851,10 +921,16 @@
 % \end{macro}
 %
 % \begin{macro}[int]
-%   {\@@_forth_set_word:nn, \@@_forth_set_word:nx, \@@_forth_set_word:ox}
+%   {
+%     \@@_forth_set_word:nn,
+%     \@@_forth_set_word:nx,
+%     \@@_forth_set_word:ox
+%   }
+%   The name |#1| is stored (for |IMMEDIATE|).
 %    \begin{macrocode}
 \cs_new_protected:Npn \@@_forth_set_word:nn #1#2
   {
+    \str_set:Nn \l_@@_forth_def_name_str {#1}
     \tex_toks:D \l_@@_forth_toks_int {#2}
     \prop_put:Nnx \l_@@_forth_words_prop {#1}
       { \int_eval:n { 100000 + \l_@@_forth_toks_int } }
@@ -1180,35 +1256,40 @@
 %
 % \subsubsection{Definition words}
 %
-% \begin{variable}{\l_@@_forth_def_tl}
-%   The definition being built.
+% \begin{variable}{\l_@@_forth_def_word_str, \l_@@_forth_def_code_tl}
+%   The word whose definition is being built (empty for, \eg, |:NONAME|
+%   definitions), and the definition code.
 %    \begin{macrocode}
-\tl_new:N \l_@@_forth_def_tl
+\str_new:N \l_@@_forth_def_word_str
+\tl_new:N \l_@@_forth_def_code_tl
 %    \end{macrocode}
 % \end{variable}
 %
-% \begin{macro}[int]{\@@_forth_def_put_right:n, \@@_forth_def_put_right:x}
-% \begin{macro}[int]{\@@_forth_def_put_right_x:n}
+% \begin{variable}{\l_@@_forth_def_seq}
+%   A sequence holding information used when ending a definition.  Items
+%   are of two types: words, and their partial definition.  When a
+%   control-flow word is encountered, the partial definition is stored.
+%   Once a definition finishes, the variables
+%   \cs{l_@@_forth_def_word_str} and \cs{l_@@_forth_def_code_tl} are
+%   restored to the values given at the top of the sequence.
+%    \begin{macrocode}
+\seq_new:N \l_@@_forth_def_seq
+%    \end{macrocode}
+% \end{variable}
+%
+% \begin{macro}[int]{\@@_forth_def_code:n, \@@_forth_def_code:x}
+% \begin{macro}[int]{\@@_forth_def_code_x:n}
 %   Helpers to add material to the definition, with various types of
 %   expansion.
 %    \begin{macrocode}
-\cs_new_protected:Npn \@@_forth_def_put_right:n #1
-  { \tl_put_right:Nn \l_@@_forth_def_tl { \exp_not:n {#1} } }
-\cs_generate_variant:Nn \@@_forth_def_put_right:n { x }
-\cs_new_protected:Npn \@@_forth_def_put_right_x:n #1
-  { \tl_put_right:Nn \l_@@_forth_def_tl {#1} }
+\cs_new_protected:Npn \@@_forth_def_code:n #1
+  { \tl_put_right:Nn \l_@@_forth_def_code_tl { \exp_not:n {#1} } }
+\cs_generate_variant:Nn \@@_forth_def_code:n { x }
+\cs_new_protected:Npn \@@_forth_def_code_x:n #1
+  { \tl_put_right:Nn \l_@@_forth_def_code_tl {#1} }
 %    \end{macrocode}
 % \end{macro}
 % \end{macro}
-%
-% \begin{variable}{\l_@@_forth_def_nesting_int}
-%   Since conditionals add unmatched braces to the definition, we must
-%   ensure that at the end of the day there is no extra open or closed
-%   brace.
-%    \begin{macrocode}
-\int_new:N \l_@@_forth_def_nesting_int
-%    \end{macrocode}
-% \end{variable}
 %
 % \begin{variable}{\l_@@_forth_def_name_str}
 %   The last word that was defined: this is set just after the word's
@@ -1252,102 +1333,42 @@
 %
 % ^^A todo: what is the compilation semantics of the colon word?
 % \begin{macro}[int]{:}
-%   Read a word, and feed it, and the definition that was being built,
-%   to \cs{@@_forth_def:n}, responsible for all the work.
+%   Store the definition built previously in the \texttt{def} sequence
+%   (to restore it once we are done).  Read a word and store it.  Then
+%   switch to compiling state, and indicate in the control-flow stack
+%   that a definition is in progress (magic number \(0\)).
 %    \begin{macrocode}
 \@@_forth_new_core:nn { : }
   {
+    \seq_push:NV \l_@@_forth_def_seq \l_@@_forth_def_code_tl
+    \tl_clear:N \l_@@_forth_def_code_tl
     \@@_forth_input_word:
-    \@@_forth_def:VV
-      \l_@@_forth_input_word_str \l_@@_forth_def_tl
+    \seq_push:NV \l_@@_forth_def_seq \l_@@_forth_input_word_str
+    \int_set:Nn \l_@@_forth_state_int
+      { \c_@@_forth_mod_int - \c_one }
+    \@@_forth_control_open:n { 0 }
   }
 %    \end{macrocode}
-% \end{macro}
-%
-% ^^A todo: robustify the flow against bad input (nesting).
-% ^^A todo: improve error recovery with missing THEN.
-% \begin{macro}[int]{\@@_forth_def:nn, \@@_forth_def:VV}
-%   Here |#1| is a word and |#2| is the definition built previously
-%   (just there to be restored once we are done).  Then switch to
-%   compiling state, looping until something (typically, the word |;|)
-%   makes the ``stop'' boolean true.  We then set the boolean back to be
-%   false: otherwise, the interpreter loop would end.  A new
-%   non-immediate word is then defined with the name |#1| and the
-%   definition that was collected.  Finally, the name |#1| is store (for
-%   |IMMEDIATE|) and the former value of \cs{l_@@_forth_def_tl} is
-%   restored.
-%    \begin{macrocode}
-\cs_new_protected:Npn \@@_forth_def:nn #1#2
-  {
-    \tl_clear:N \l_@@_forth_def_tl
-    \bool_until_do:Nn \l_@@_forth_stop_bool
-      {
-        \@@_forth_input_word:
-        \@@_forth_compile:V \l_@@_forth_input_word_str
-      }
-    \bool_set_false:N \l_@@_forth_stop_bool
-    \int_compare:nNnF \l_@@_forth_def_nesting_int = \c_zero
-      {
-        \msg_error:nn { runner/forth } { too-many-ifs }
-        \prg_replicate:nn \l_@@_forth_def_nesting_int
-          { \@@_forth_def_put_right_x:n { \if_false: { \fi: } } }
-      }
-    \@@_forth_set_word:nx {#1} { \l_@@_forth_def_tl }
-    \str_set:Nn \l_@@_forth_def_name_str {#1}
-    \tl_set:Nn \l_@@_forth_def_tl {#2}
-  }
-\cs_generate_variant:Nn \@@_forth_def:nn { VV }
-%    \end{macrocode}
-% \end{macro}
-%
-% \begin{macro}[int]{\@@_forth_compile:n, \@@_forth_compile:V}
-% \begin{macro}[aux]{\@@_forth_compile:Nw}
-%   This is very similar to \cs{@@_forth_interpret:n}.  Try to find the
-%   word in the dictionary.  If it is present, split its value into \(1
-%   + 5\) digits: if the first is \(1\), simply add to the current
-%   definition; if the first is \(2\) perform the execution semantics,
-%   and if it is \(3\), the word is a special word, and we perform the
-%   compilation semantics.  Otherwise, we try to interpret the word as a
-%   number.
-%    \begin{macrocode}
-\cs_new_protected:Npn \@@_forth_compile:n #1
-  {
-    \prop_get:NnNTF \l_@@_forth_words_prop {#1} \l_@@_tmpa_tl
-      { \exp_after:wN \@@_forth_compile:Nw \l_@@_tmpa_tl \q_stop }
-      {
-        \@@_forth_get_number:nNTF {#1} \l_@@_tmpa_tl
-          {
-            \@@_forth_def_put_right:x
-              { \@@_forth_push:n { \l_@@_tmpa_tl } }
-          }
-          { \msg_error:nnn { runner/forth } { unknown-word } {#1} }
-      }
-  }
-\cs_new_protected:Npn \@@_forth_compile:Nw #1#2 \q_stop
-  {
-    \int_case:nnn {#1}
-      {
-        { 1 }
-          {
-            \@@_forth_def_put_right:n
-              { \tex_the:D \tex_toks:D #2 \scan_stop: }
-          }
-        { 2 } { \tex_the:D \tex_toks:D #2 \scan_stop: }
-      }
-      { \tex_the:D \tex_toks:D \int_eval:n { #2 + 1 } \scan_stop: }
-  }
-\cs_generate_variant:Nn \@@_forth_compile:n { V }
-%    \end{macrocode}
-% \end{macro}
 % \end{macro}
 %
 % \begin{macro}[int]{;}
-%   All the finishing touches for a definition are done by the
-%   implementation of the colon word, and here we only need to stop the
-%   compile loop by setting a boolean.
+%   Check that the |;| matches a start-of-definition on the control
+%   stack (magic number \(0\)).  Get from the \texttt{def} stack the
+%   name of the word to define, and assign it the definition code.  Then
+%   restore the former value of \cs{l_@@_forth_def_code_tl}, and go back
+%   to interpretation state.
 %    \begin{macrocode}
 \@@_forth_new_compilation_core:nn { ; }
-  { \bool_set_true:N \l_@@_forth_stop_bool }
+  {
+    \@@_forth_control_close:nTF { 0 }
+      {
+        \seq_pop:NN \l_@@_forth_def_seq \l_@@_tmpa_tl
+        \@@_forth_set_word:ox \l_@@_tmpa_tl { \l_@@_forth_def_code_tl }
+        \seq_pop:NN \l_@@_forth_def_seq \l_@@_forth_def_code_tl
+        \int_zero:N \l_@@_forth_state_int
+      }
+      { \msg_error:nnn { runner/forth } { misplaced } { ; } }
+  }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -1380,7 +1401,7 @@
 \@@_forth_new_compilation_core:nn { LITERAL }
   {
     \@@_forth_pop_int:N \l_@@_tmpa_int
-    \@@_forth_def_put_right:x
+    \@@_forth_def_code:x
       { \@@_forth_push:n { \int_use:N \l_@@_tmpa_int } }
   }
 %    \end{macrocode}
@@ -1396,7 +1417,7 @@
       \l_@@_forth_words_prop
       \l_@@_forth_input_word_str
       \l_@@_tmpa_tl
-    \@@_forth_def_put_right:x
+    \@@_forth_def_code:x
       {
         \exp_after:wN \@@_forth_postpone:Nw
           \l_@@_tmpa_tl \q_stop
@@ -1408,7 +1429,7 @@
       {
         { 1 }
           {
-            \@@_forth_def_put_right:n
+            \@@_forth_def_code:n
               { \exp_not:N \tex_the:D \tex_toks:D #2 \scan_stop: }
           }
         { 2 } { \exp_not:N \tex_the:D \tex_toks:D #2 \scan_stop: }
@@ -1430,7 +1451,7 @@
 %    \begin{macrocode}
 \@@_forth_new_compilation_core:nn { RECURSE }
   {
-    \@@_forth_def_put_right_x:n
+    \@@_forth_def_code_x:n
       {
         \exp_not:N \tex_the:D \tex_toks:D
         \int_use:N \l_@@_forth_toks_int \scan_stop:
@@ -1472,7 +1493,7 @@
       \l_@@_forth_words_prop
       \l_@@_forth_input_word_str
       \l_@@_tmpa_tl
-    \@@_forth_def_put_right:x
+    \@@_forth_def_code:x
       {
         \@@_forth_push:n
           { \exp_after:wN \use_none:n \l_@@_tmpa_tl }
@@ -2350,7 +2371,7 @@
 \@@_forth_new_compilation_core:nn { ." }
   {
     \@@_forth_input_until:n { `" }
-    \@@_forth_def_put_right:x
+    \@@_forth_def_code:x
       { \@@_output:n { \l_@@_forth_input_word_str } }
   }
 %    \end{macrocode}
@@ -2390,7 +2411,7 @@
 \@@_forth_new_compilation_core:nn { [CHAR] }
   {
     \@@_forth_input_word:
-    \@@_forth_def_put_right:x
+    \@@_forth_def_code:x
       { \@@_forth_push:n { ` \str_head:N \l_@@_forth_input_word_str } }
   }
 %    \end{macrocode}
@@ -2461,7 +2482,7 @@
           \l_@@_forth_data_here_int
       }
       {
-        \@@_forth_def_put_right:x
+        \@@_forth_def_code:x
           {
             \@@_forth_push:n
               { \int_use:N \l_@@_forth_data_text_int }
@@ -2690,9 +2711,9 @@
 %    \begin{macrocode}
 \@@_forth_new_compilation_core:nn { IF }
   {
-    \@@_forth_def_put_right_x:n
+    \@@_forth_def_code_x:n
       { \@@_forth_compiled_if:nw { \if_false: } \fi: }
-    \int_incr:N \l_@@_forth_def_nesting_int
+    \@@_forth_control_open:n { 1 }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -2701,10 +2722,11 @@
 %    \begin{macrocode}
 \@@_forth_new_compilation_core:nn { ELSE }
   {
-    \int_compare:nNnTF \l_@@_forth_def_nesting_int > \c_zero
+    \@@_forth_control_close:nTF { 1 }
       {
-        \@@_forth_def_put_right_x:n
+        \@@_forth_def_code_x:n
           { \if_false: { \fi: } { \if_false: } \fi: }
+        \@@_forth_control_open:n { 1 }
       }
       { \msg_error:nnn { runner/forth } { misplaced } { ELSE } }
   }
@@ -2715,13 +2737,12 @@
 %    \begin{macrocode}
 \@@_forth_new_compilation_core:nn { THEN }
   {
-    \int_compare:nNnTF \l_@@_forth_def_nesting_int > \c_zero
+    \@@_forth_control_close:nTF { 1 }
       {
-        \@@_forth_def_put_right_x:n
+        \@@_forth_def_code_x:n
           { \if_false: { \fi: } \@@_forth_compiled_then: }
       }
       { \msg_error:nnn { runner/forth } { misplaced } { THEN } }
-    \int_decr:N \l_@@_forth_def_nesting_int
   }
 %    \end{macrocode}
 % \end{macro}
@@ -2741,14 +2762,13 @@
 %
 % \subsubsection{Looping words}
 %
-% ^^A todo: change nesting_int to be a stack instead.
 % \begin{macro}[int]{DO}
 %    \begin{macrocode}
 \@@_forth_new_compilation_core:nn { DO }
   {
-    \@@_forth_def_put_right_x:n
+    \@@_forth_def_code_x:n
       { \@@_forth_compiled_do:n { \if_false: } \fi: }
-    \int_incr:N \l_@@_forth_def_nesting_int
+    \@@_forth_control_open:n { 2 }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -2757,10 +2777,9 @@
 %    \begin{macrocode}
 \@@_forth_new_compilation_core:nn { LOOP }
   {
-    \int_compare:nNnTF \l_@@_forth_def_nesting_int > \c_zero
-      { \@@_forth_def_put_right_x:n { \if_false: { \fi: } } }
+    \@@_forth_control_close:nTF { 2 }
+      { \@@_forth_def_code_x:n { \if_false: { \fi: } } }
       { \msg_error:nnn { runner/forth } { misplaced } { LOOP } }
-    \int_decr:N \l_@@_forth_def_nesting_int
   }
 %    \end{macrocode}
 % \end{macro}
@@ -2796,7 +2815,7 @@
 %    \begin{macrocode}
 \@@_forth_new_compilation_core:nn { I }
   {
-    \@@_forth_def_put_right:n
+    \@@_forth_def_code:n
       {
         \@@_forth_push:n
           {
@@ -2807,7 +2826,7 @@
   }
 \@@_forth_new_compilation_core:nn { J }
   {
-    \@@_forth_def_put_right_x:n
+    \@@_forth_def_code:n
       {
         \@@_forth_push:n
           {
@@ -2824,7 +2843,7 @@
 %   control parameters from the return stack.
 %    \begin{macrocode}
 \@@_forth_new_compilation_core:nn { LEAVE }
-  { \@@_forth_def_put_right:n { \@@_break:n { } } }
+  { \@@_forth_def_code:n { \@@_break:n { } } }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -2833,8 +2852,11 @@
 %    \begin{macrocode}
 \@@_forth_new_compilation_core:nn { UNLOOP }
   {
-    \@@_forth_return_pop_int:N \l_@@_tmpa_int
-    \@@_forth_return_pop_int:N \l_@@_tmpb_int
+    \@@_forth_def_code:n
+      {
+        \@@_forth_return_pop_int:N \l_@@_tmpa_int
+        \@@_forth_return_pop_int:N \l_@@_tmpb_int
+      }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -2973,7 +2995,7 @@
 % \begin{macro}[int]{\@@_forth_run:}
 %   The interpreter is an infinite loop retrieving a word at each
 %   iteration.  When there is nothing left, the word fed to
-%   \cs{@@_forth_interpret:n} is empty, and this word is defined to set
+%   \cs{@@_forth_perform:V} is empty, and this word is defined to set
 %   the boolean \cs{l_@@_forth_stop_bool}, so that the loop stops.
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \@@_forth_run:
@@ -2983,7 +3005,7 @@
     \bool_until_do:Nn \l_@@_forth_stop_bool
       {
         \@@_forth_input_word:
-        \@@_forth_interpret:V \l_@@_forth_input_word_str
+        \@@_forth_perform:V \l_@@_forth_input_word_str
       }
   }
 %    \end{macrocode}
@@ -3011,11 +3033,31 @@
     \@@_forth_put_here:n { 10 }
     \tl_set:Nx \l_@@_forth_input_str
       { \l_@@_program_str ^^J \l_@@_input_str ^^J }
+    \int_zero:N \l_@@_forth_state_int
   }
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[int]{\@@_forth_interpret:n, \@@_forth_interpret:V}
+% \begin{variable}{\l_@@_forth_state_int}
+%   State (interpretation: \(0\), compilation: \(2^{24}-1\)).
+%    \begin{macrocode}
+\int_new:N \l_@@_forth_state_int
+%    \end{macrocode}
+% \end{variable}
+%
+% \begin{macro}[int]{\@@_forth_perform:n, \@@_forth_perform:V}
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \@@_forth_perform:n
+  {
+    \int_compare:nNnTF { \l_@@_forth_state_int } = \c_zero
+      { \@@_forth_interpret:n }
+      { \@@_forth_compile:n }
+  }
+\cs_generate_variant:Nn \@@_forth_perform:n { V }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int]{\@@_forth_interpret:n}
 %   Use the interpretation semantics of |#1|.  If this fails, we hope to
 %   have a number, which should be parsed as such.
 %    \begin{macrocode}
@@ -3032,8 +3074,47 @@
           { \msg_error:nnn { runner/forth } { unknown-word } {#1} }
       }
   }
-\cs_generate_variant:Nn \@@_forth_interpret:n { V }
 %    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int]{\@@_forth_compile:n}
+% \begin{macro}[aux]{\@@_forth_compile:Nw}
+%   This is very similar to \cs{@@_forth_interpret:n}.  Try to find the
+%   word in the dictionary.  If it is present, split its value into \(1
+%   + 5\) digits: if the first is \(1\), simply add to the current
+%   definition; if the first is \(2\) perform the execution semantics,
+%   and if it is \(3\), the word is a special word, and we perform the
+%   compilation semantics.  Otherwise, we try to interpret the word as a
+%   number.
+%    \begin{macrocode}
+\cs_new_protected:Npn \@@_forth_compile:n #1
+  {
+    \prop_get:NnNTF \l_@@_forth_words_prop {#1} \l_@@_tmpa_tl
+      { \exp_after:wN \@@_forth_compile:Nw \l_@@_tmpa_tl \q_stop }
+      {
+        \@@_forth_get_number:nNTF {#1} \l_@@_tmpa_tl
+          {
+            \@@_forth_def_code:x
+              { \@@_forth_push:n { \l_@@_tmpa_tl } }
+          }
+          { \msg_error:nnn { runner/forth } { unknown-word } {#1} }
+      }
+  }
+\cs_new_protected:Npn \@@_forth_compile:Nw #1#2 \q_stop
+  {
+    \int_case:nnn {#1}
+      {
+        { 1 }
+          {
+            \@@_forth_def_code:n
+              { \tex_the:D \tex_toks:D #2 \scan_stop: }
+          }
+        { 2 } { \tex_the:D \tex_toks:D #2 \scan_stop: }
+      }
+      { \tex_the:D \tex_toks:D \int_eval:n { #2 + 1 } \scan_stop: }
+  }
+%    \end{macrocode}
+% \end{macro}
 % \end{macro}
 %
 % \subsection{Messages}
@@ -3130,8 +3211,6 @@
   { The~word~#1~can~only~be~used~in~definitions. }
 \msg_new:nnn { runner/forth } { no-def-immediate }
   { Somehow~the~word~#1~cannot~be~found~in~the~dictionary }
-\msg_new:nnn { runner/forth } { too-many-ifs }
-  { More~IFs~than~THENs~in~this~definition! }
 \msg_new:nnn { runner/forth } { misplaced }
   { Misplaced~#1. }
 \msg_new:nnn { runner/forth } { internal }
