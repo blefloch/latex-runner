@@ -2728,26 +2728,38 @@
 %
 % \subsubsection{Conditional words}
 %
+% ^^A todo: doc that 0 = ':', 1 = 'IF', 2 = 'ELSE', 3 = 'DO'.
+%
 % \begin{macro}[int]{IF}
+%   Save the definition-so-far in the \texttt{def} stack, and empty that
+%   variable.  Then continue collecting: the |THEN| word will take care
+%   of combining what is collected now with the definition-so-far saved
+%   on the \texttt{def} stack.  For subsequent control-flow words to
+%   know what happened, push \(1\) onto the control-flow stack.
 %    \begin{macrocode}
 \@@_forth_new_compilation_core:nn { IF }
   {
-    \@@_forth_def_code_x:n
-      { \@@_forth_compiled_if:nw { \if_false: } \fi: }
+    \seq_push:NV \l_@@_forth_def_seq \l_@@_forth_def_code_tl
+    \tl_clear:N \l_@@_forth_def_code_tl
     \@@_forth_control_open:n { 1 }
   }
 %    \end{macrocode}
 % \end{macro}
 %
 % \begin{macro}[int]{ELSE}
+%   The word |ELSE| can only be used if the last control flow word was
+%   |IF|.  Stash away the definition code of the \texttt{true} branch
+%   that was just collected, and empty the \texttt{def_code} variable to
+%   be ready for the \texttt{false} branch.  Then push \(2\) on the
+%   stack to indicate the presence of a dangling |ELSE|.
 %    \begin{macrocode}
 \@@_forth_new_compilation_core:nn { ELSE }
   {
     \@@_forth_control_close:nTF { 1 }
       {
-        \@@_forth_def_code_x:n
-          { \if_false: { \fi: } { \if_false: } \fi: }
-        \@@_forth_control_open:n { 1 }
+        \seq_push:NV \l_@@_forth_def_seq \l_@@_forth_def_code_tl
+        \tl_clear:N \l_@@_forth_def_code_tl
+        \@@_forth_control_open:n { 2 }
       }
       { \msg_error:nnn { runner/forth } { misplaced } { ELSE } }
   }
@@ -2755,51 +2767,88 @@
 % \end{macro}
 %
 % \begin{macro}[int]{THEN}
+% \begin{macro}[aux]{\@@_forth_compile_then:nn}
+%   The auxiliary restores the definition code to what it was before the
+%   matching |IF|, then appends to it \cs{@@_forth_compiled_if:TF}
+%   followed by the codes for the \texttt{true} branch and the
+%   \texttt{false} branch.  After an |IF| with no |ELSE| (magic number
+%   \(1\)), the \texttt{true} branch is in \texttt{def_code}, and the
+%   \texttt{false} branch is empty.  After an \texttt{ELSE} (magic
+%   number \(2\)), the \texttt{false} branch is in \texttt{def_code},
+%   and the \texttt{true} branch is on the \texttt{def} stack.  Any
+%   other circumstance means that |THEN| does not belong there.
 %    \begin{macrocode}
 \@@_forth_new_compilation_core:nn { THEN }
   {
     \@@_forth_control_close:nTF { 1 }
       {
-        \@@_forth_def_code_x:n
-          { \if_false: { \fi: } \@@_forth_compiled_then: }
+        \exp_args:NV \@@_forth_compile_then:nn
+          \l_@@_forth_def_code_tl { }
       }
-      { \msg_error:nnn { runner/forth } { misplaced } { THEN } }
+      {
+        \@@_forth_control_close:nTF { 2 }
+          {
+            \seq_pop:NN \l_@@_forth_def_seq \l_@@_tmpa_tl
+            \exp_args:NVV \@@_forth_compile_then:nn
+              \l_@@_tmpa_tl \l_@@_forth_def_code_tl
+          }
+          { \msg_error:nnn { runner/forth } { misplaced } { THEN } }
+      }
+  }
+\cs_new_protected:Npn \@@_forth_compile_then:nn #1#2
+  {
+    \seq_pop:NN \l_@@_forth_def_seq \l_@@_forth_def_code_tl
+    \@@_forth_def_code:x
+      { \@@_forth_compiled_if:TF {#1} {#2} }
   }
 %    \end{macrocode}
 % \end{macro}
+% \end{macro}
 %
-% \begin{macro}[int]{\@@_forth_compiled_if:nw, \@@_forth_compiled_then:}
+% ^^A todo: bug, RECURSE not expanded at the right time in compile_then?
+%
+% \begin{macro}[int, TF]{\@@_forth_compiled_if:}
 %    \begin{macrocode}
-\cs_new_protected:Npn \@@_forth_compiled_if:nw
-    #1#2 \@@_forth_compiled_then:
+\prg_new_protected_conditional:Npnn \@@_forth_compiled_if: { TF }
   {
     \@@_forth_pop_int:N \l_@@_tmpa_int
-    \int_compare:nNnTF \l_@@_tmpa_int = \c_zero {#2} {#1}
+    \int_compare:nNnTF \l_@@_tmpa_int = \c_zero
+      { \prg_return_false: } { \prg_return_true: }
   }
-\cs_new_protected_nopar:Npn \@@_forth_compiled_then:
-  { \msg_error:nn { runner/forth } { internal } }
 %    \end{macrocode}
 % \end{macro}
 %
 % \subsubsection{Looping words}
 %
 % \begin{macro}[int]{DO}
+%   Save the definition-so-far, and empty the variable, then push to the
+%   control-flow stack a flag indicating that a |DO| is unresolved
+%   (magic number \(3\)).
 %    \begin{macrocode}
 \@@_forth_new_compilation_core:nn { DO }
   {
-    \@@_forth_def_code_x:n
-      { \@@_forth_compiled_do:n { \if_false: } \fi: }
-    \@@_forth_control_open:n { 2 }
+    \seq_push:NV \l_@@_forth_def_seq \l_@@_forth_def_code_tl
+    \tl_clear:N \l_@@_forth_def_code_tl
+    \@@_forth_control_open:n { 3 }
   }
 %    \end{macrocode}
 % \end{macro}
 %
 % \begin{macro}[int]{LOOP}
+%   Save the code of the loop body as \texttt{tmpa}, then restore the
+%   definition as it was before the matching |DO|.  Finally, append to
+%   the definition \cs{@@_forth_compiled_do:n}, with the loop body as
+%   its argument.
 %    \begin{macrocode}
 \@@_forth_new_compilation_core:nn { LOOP }
   {
-    \@@_forth_control_close:nTF { 2 }
-      { \@@_forth_def_code_x:n { \if_false: { \fi: } } }
+    \@@_forth_control_close:nTF { 3 }
+      {
+        \tl_set_eq:NN \l_@@_tmpa_tl \l_@@_forth_def_code_tl
+        \seq_pop:NN \l_@@_forth_def_seq \l_@@_forth_def_code_tl
+        \@@_forth_def_code:x
+          { \@@_forth_compiled_do:n { \exp_not:V \l_@@_tmpa_tl } }
+      }
       { \msg_error:nnn { runner/forth } { misplaced } { LOOP } }
   }
 %    \end{macrocode}
@@ -2868,10 +2917,11 @@
 %    \end{macrocode}
 % \end{macro}
 %
+% ^^A todo: bug UNLOOP should not be allowed in interpretation mode.
 % \begin{macro}[int]{UNLOOP}
 %   Drop the loop control parameters from the return stack.
 %    \begin{macrocode}
-\@@_forth_new_compilation_core:nn { UNLOOP }
+\@@_forth_new_core:nn { UNLOOP }
   {
     \@@_forth_def_code:n
       {
