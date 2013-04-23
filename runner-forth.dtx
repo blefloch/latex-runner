@@ -858,6 +858,19 @@
 %    \end{macrocode}
 % \end{variable}
 %
+% \subsubsection{Accessing the code space}
+%
+% ^^A todo: expand this section
+% \begin{macro}[int]{\@@_forth_execute:n}
+%   Run the code saved in the \tn{toks} with number~|#1|.  This is
+%   protected, which simplifies handling of expansion.  The trailing
+%   space terminates the number returned by \cs{int_eval:n}.
+%    \begin{macrocode}
+\cs_new_protected:Npn \@@_forth_execute:n #1
+  { \tex_the:D \tex_toks:D \int_eval:n {#1} ~ }
+%    \end{macrocode}
+% \end{macro}
+%
 % \subsubsection{Adding to the name space}
 %
 % \begin{macro}[int]{\@@_forth_chk_if_core_free:n}
@@ -931,7 +944,10 @@
 \cs_new_protected:Npn \@@_forth_set_word:nn #1#2
   {
     \str_set:Nn \l_@@_forth_def_name_str {#1}
-    \tex_toks:D \l_@@_forth_toks_int {#2}
+    \cs_set_nopar:Npx \@@_forth_recurse:
+      { \@@_forth_execute:n { \int_use:N \l_@@_forth_toks_int } }
+    \use:x { \tex_toks:D \l_@@_forth_toks_int {#2} }
+    \cs_set_eq:NN \@@_forth_recurse: ?
     \prop_put:Nnx \l_@@_forth_words_prop {#1}
       { \int_eval:n { 100000 + \l_@@_forth_toks_int } }
     \int_incr:N \l_@@_forth_toks_int
@@ -1281,16 +1297,13 @@
 %    \end{macrocode}
 % \end{variable}
 %
-% \begin{macro}[int]{\@@_forth_def_code:n, \@@_forth_def_code:x}
-% \begin{macro}[int]{\@@_forth_def_code_x:n}
-%   Helpers to add material to the definition, with various types of
-%   expansion.
+% \begin{macro}[int]{\@@_forth_def_code:x}
+%   Add material to the definition.  Since all code is protected, and we
+%   sometimes need to perform expansion, we only provide the expanding
+%   variant.
 %    \begin{macrocode}
-\cs_new_protected:Npn \@@_forth_def_code:n #1
-  { \tl_put_right:Nn \l_@@_forth_def_code_tl { \exp_not:n {#1} } }
-\cs_generate_variant:Nn \@@_forth_def_code:n { x }
-\cs_new_protected:Npn \@@_forth_def_code_x:n #1
-  { \tl_put_right:Nn \l_@@_forth_def_code_tl {#1} }
+\cs_new_protected:Npn \@@_forth_def_code:x #1
+  { \tl_put_right:Nx \l_@@_forth_def_code_tl {#1} }
 %    \end{macrocode}
 % \end{macro}
 % \end{macro}
@@ -1436,36 +1449,28 @@
     \int_case:nnn {#1}
       {
         { 1 }
-          {
-            \@@_forth_def_code:n
-              { \exp_not:N \tex_the:D \tex_toks:D #2 \scan_stop: }
-          }
-        { 2 } { \exp_not:N \tex_the:D \tex_toks:D #2 \scan_stop: }
+          { \@@_forth_def_code:x { \@@_forth_execute:n {#2} } }
+        { 2 } { \@@_forth_execute:n {#2} }
       }
-      {
-        \exp_not:N \tex_the:D \tex_toks:D
-          \int_eval:n { #2 + 1 } \scan_stop:
-      }
+      { \@@_forth_execute:n { \int_eval:n { #2 + 1 } } }
   }
 %    \end{macrocode}
 % \end{macro}
 % \end{macro}
 %
+% ^^A todo: redoc
 % \begin{macro}[int]{RECURSE}
+% \begin{macro}[aux]{\@@_forth_recurse:}
 %   When the definition is expanded prior to the assignment,
 %   \cs{l_@@_forth_toks_int} is the value of the \tn{toks} register
 %   which will contain the code.  Recursion involves calling this code
 %   from within itself.
 %    \begin{macrocode}
 \@@_forth_new_compilation_core:nn { RECURSE }
-  {
-    \@@_forth_def_code_x:n
-      {
-        \exp_not:N \tex_the:D \tex_toks:D
-        \int_use:N \l_@@_forth_toks_int \scan_stop:
-      }
-  }
+  { \@@_forth_def_code:x { \@@_forth_recurse: } }
+\cs_new_eq:NN \@@_forth_recurse: ?
 %    \end{macrocode}
+% \end{macro}
 % \end{macro}
 %
 % \subsubsection{Execution words}
@@ -1517,7 +1522,7 @@
 \@@_forth_new_core:nn { EXECUTE }
   {
     \@@_forth_pop_int:N \l_@@_tmpa_int
-    \tex_the:D \tex_toks:D \l_@@_tmpa_int
+    \@@_forth_execute:n { \l_@@_tmpa_int }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -2505,9 +2510,8 @@
       {
         \@@_forth_def_code:x
           {
-            \@@_forth_push:n
+            \@@_forth_push:nn
               { \int_use:N \l_@@_forth_data_text_int }
-            \@@_forth_push:n
               { \int_use:N \l_@@_tmpa_int }
           }
         \int_set_eq:NN \l_@@_tmpb_int \l_@@_forth_data_text_int
@@ -2847,7 +2851,7 @@
         \tl_set_eq:NN \l_@@_tmpa_tl \l_@@_forth_def_code_tl
         \seq_pop:NN \l_@@_forth_def_seq \l_@@_forth_def_code_tl
         \@@_forth_def_code:x
-          { \@@_forth_compiled_do:n { \exp_not:V \l_@@_tmpa_tl } }
+          { \@@_forth_compiled_do:n { \l_@@_tmpa_tl } }
       }
       { \msg_error:nnn { runner/forth } { misplaced } { LOOP } }
   }
@@ -2882,30 +2886,22 @@
 % \end{macro}
 %
 % \begin{macro}[int]{I, J}
+% \begin{macro}[aux]{\@@_forth_ij:N}
 %    \begin{macrocode}
 \@@_forth_new_compilation_core:nn { I }
-  {
-    \@@_forth_def_code:n
-      {
-        \@@_forth_push:n
-          {
-            \@@_array_item:Nn \g_@@_forth_array
-              { \l_@@_forth_return_here_int - 1 }
-          }
-      }
-  }
+  { \@@_forth_def_code:x { \@@_forth_ij:N 1 } }
 \@@_forth_new_compilation_core:nn { J }
+  { \@@_forth_def_code:x { \@@_forth_ij:N 3 } }
+\cs_new_protected:Npn \@@_forth_ij:N #1
   {
-    \@@_forth_def_code:n
+    \@@_forth_push:n
       {
-        \@@_forth_push:n
-          {
-            \@@_array_item:Nn \g_@@_forth_array
-              { \l_@@_forth_return_here_int - 3 }
-          }
+        \@@_array_item:Nn \g_@@_forth_array
+          { \l_@@_forth_return_here_int - #1 }
       }
   }
 %    \end{macrocode}
+% \end{macro}
 % \end{macro}
 %
 % \begin{macro}[int]{LEAVE}
@@ -2913,17 +2909,18 @@
 %   control parameters from the return stack.
 %    \begin{macrocode}
 \@@_forth_new_compilation_core:nn { LEAVE }
-  { \@@_forth_def_code:n { \@@_break:n { } } }
+  { \@@_forth_def_code:x { \@@_break_protected:n { } } }
 %    \end{macrocode}
 % \end{macro}
 %
 % ^^A todo: bug UNLOOP should not be allowed in interpretation mode.
+% ^^A todo: test.
 % \begin{macro}[int]{UNLOOP}
 %   Drop the loop control parameters from the return stack.
 %    \begin{macrocode}
 \@@_forth_new_core:nn { UNLOOP }
   {
-    \@@_forth_def_code:n
+    \@@_forth_def_code:x
       {
         \@@_forth_return_pop_int:N \l_@@_tmpa_int
         \@@_forth_return_pop_int:N \l_@@_tmpb_int
@@ -3135,8 +3132,8 @@
   {
     \prop_get:NnNTF \l_@@_forth_words_prop {#1} \l_@@_tmpa_tl
       {
-        \tex_the:D \tex_toks:D
-          \exp_after:wN \use_none:n \l_@@_tmpa_tl \scan_stop:
+        \@@_forth_execute:n
+          { \exp_after:wN \use_none:n \l_@@_tmpa_tl }
       }
       {
         \@@_forth_get_number:nNTF {#1} \l_@@_tmpa_tl
@@ -3174,14 +3171,10 @@
   {
     \int_case:nnn {#1}
       {
-        { 1 }
-          {
-            \@@_forth_def_code:n
-              { \tex_the:D \tex_toks:D #2 \scan_stop: }
-          }
-        { 2 } { \tex_the:D \tex_toks:D #2 \scan_stop: }
+        { 1 } { \@@_forth_def_code:x { \@@_forth_execute:n {#2} } }
+        { 2 } { \@@_forth_execute:n {#2} }
       }
-      { \tex_the:D \tex_toks:D \int_eval:n { #2 + 1 } \scan_stop: }
+      { \@@_forth_execute:n { \int_eval:n { #2 + 1 } } }
   }
 %    \end{macrocode}
 % \end{macro}
