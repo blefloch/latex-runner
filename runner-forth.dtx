@@ -39,9 +39,8 @@
 %
 % The aim is to make of this \plang{forth} interpreter a ``Standard
 % System'' as defined by the ANS Forth 1994 specification.  This is not
-% yet the case.  The following words are not implemented: |CREATE|,
-% |DOES>|, |>BODY|, |+LOOP|, |>IN|, |ACCEPT|, |EVALUATE|, |KEY|,
-% |>NUMBER|.
+% yet the case.  The following words are not implemented: |DOES>|,
+% |+LOOP|, |>IN|, |ACCEPT|, |EVALUATE|, |KEY|, |>NUMBER|.
 %
 % The following environment variables are not implemented:
 % |/COUNTED-STRING|.
@@ -184,10 +183,11 @@
 %
 % \subsection{Generic helpers}
 %
-% Two useful variants.
+% Useful variants.
 %    \begin{macrocode}
 \cs_generate_variant:Nn \prop_gput:Nnn { Nx }
 \cs_generate_variant:Nn \prop_get:NnNTF { Nx }
+\cs_generate_variant:Nn \tl_item:nn { o }
 %    \end{macrocode}
 %
 % ^^A todo: try to only put the marker on actual definitions.
@@ -1353,22 +1353,48 @@
 %    \end{macrocode}
 % \end{macro}
 %
+% \begin{macro}[int]{CREATE}
+%    \begin{macrocode}
+\@@_forth_new_core:nn { CREATE }
+  {
+    \@@_forth_input_word:
+    \@@_forth_set_word:ox \l_@@_forth_input_word_str
+      {
+        \@@_forth_push:n
+          { \int_use:N \l_@@_forth_data_here_int }
+      }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int]{>BODY}
+%   Pop execution token from the stack.  Hope that it has the form built
+%   by |CREATE|: then the second item of its code (as a token list) is
+%   an address, which we put onto the stack.  This is very fragile.
+%    \begin{macrocode}
+\@@_forth_new_core:nn { >BODY }
+  {
+    \@@_forth_pop_int:N \l_@@_tmpa_int
+    \@@_forth_push:n
+      { \tl_item:on { \tex_the:D \tex_toks:D \l_@@_tmpa_int } { 2 } }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
 % \begin{macro}[int]{VARIABLE}
+%   See code for |CREATE|.  Then reserve one cell by putting |0| there
+%   (actually putting a fixed value is unnecessary, but that's the
+%   available auxiliary).
 %    \begin{macrocode}
 \@@_forth_new_core:nn { VARIABLE }
   {
     \@@_forth_input_word:
-    \int_compare:nNnTF
-      \l_@@_forth_data_here_int < \l_@@_forth_data_text_int
+    \@@_forth_set_word:ox \l_@@_forth_input_word_str
       {
-        \@@_forth_set_word:ox \l_@@_forth_input_word_str
-          {
-            \@@_forth_push:n
-              { \int_use:N \l_@@_forth_data_here_int }
-          }
-        \int_incr:N \l_@@_forth_data_here_int
+        \@@_forth_push:n
+          { \int_use:N \l_@@_forth_data_here_int }
       }
-      { \msg_error:nn { runner/forth } { out-of-memory } }
+    \@@_forth_put_here:n { 0 }
   }
 %    \end{macrocode}
 % \end{macro}

@@ -23,6 +23,7 @@
 %% -----------------------------------------------------------------------
 \cs_generate_variant:Nn \prop_gput:Nnn { Nx }
 \cs_generate_variant:Nn \prop_get:NnNTF { Nx }
+\cs_generate_variant:Nn \tl_item:nn { o }
 \cs_new_protected:Npn \__runner_forth_exit:
   #1 \__runner_forth_exit_point: { }
 \cs_new_eq:NN \__runner_forth_exit_point: \scan_stop:
@@ -527,20 +528,30 @@
     \__runner_forth_set_word:ox \l__runner_forth_input_word_str
       { \__runner_forth_push:n { \int_use:N \l__runner_tmpa_int } }
   }
+\__runner_forth_new_core:nn { CREATE }
+  {
+    \__runner_forth_input_word:
+    \__runner_forth_set_word:ox \l__runner_forth_input_word_str
+      {
+        \__runner_forth_push:n
+          { \int_use:N \l__runner_forth_data_here_int }
+      }
+  }
+\__runner_forth_new_core:nn { >BODY }
+  {
+    \__runner_forth_pop_int:N \l__runner_tmpa_int
+    \__runner_forth_push:n
+      { \tl_item:on { \tex_the:D \tex_toks:D \l__runner_tmpa_int } { 2 } }
+  }
 \__runner_forth_new_core:nn { VARIABLE }
   {
     \__runner_forth_input_word:
-    \int_compare:nNnTF
-      \l__runner_forth_data_here_int < \l__runner_forth_data_text_int
+    \__runner_forth_set_word:ox \l__runner_forth_input_word_str
       {
-        \__runner_forth_set_word:ox \l__runner_forth_input_word_str
-          {
-            \__runner_forth_push:n
-              { \int_use:N \l__runner_forth_data_here_int }
-          }
-        \int_incr:N \l__runner_forth_data_here_int
+        \__runner_forth_push:n
+          { \int_use:N \l__runner_forth_data_here_int }
       }
-      { \msg_error:nn { runner/forth } { out-of-memory } }
+    \__runner_forth_put_here:n { 0 }
   }
 \__runner_forth_new_core:nn { : }
   {

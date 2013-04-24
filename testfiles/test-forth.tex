@@ -165,6 +165,16 @@
 ||Boom 3 4 + .|
 \typeout{\result}
 
+\runner{forth}[output = \result]|
+  CREATE table 0 , 2 , 3 , 5 , 7 , 11 ,
+  : th-prime CELLS table + @ ;
+||
+  1 th-prime .
+  2 th-prime .
+  2 th-prime th-prime .
+|
+\typeout{\result}
+
 \stop
 
 \runner{forth}[output = \result]|
