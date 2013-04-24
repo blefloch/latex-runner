@@ -105,6 +105,59 @@
 % ^^A todo: ensure that picnum buffer is >= 127 cells wide.
 % ^^A todo: ensure that input buffer and pad are >= 128 cells wide.
 %
+% Behaviour upon encountering ambiguous conditions.
+% \begin{itemize}
+% \item A name is neither a valid definition name nor a valid number
+%   during text interpretation triggers a \TeX{} error.
+% \item There is no maximum on the length of a definition name.
+% \item Addressing a region outside data space can yield arbitrary data.
+% \item No type checking is performed.
+% \item The execution token obtained when applying |'| or |FIND| to a
+%   word with undefined interpretation semantics is a valid token, whose
+%   code triggers a \TeX{} error.
+% \item Dividing by zero in |*/|, |*/MOD|, |/|, |/MOD|, |FM/MOD|, |MOD|,
+%   |SM/REM|, |UM/MOD|, |M*/| triggers a \TeX{} error, and the
+%   corresponding division yields \(0\) or the largest allowed integer,
+%   depending on the operation.
+% \item Stack overflow or underflow triggers a \TeX{} error, and the
+%   stack pointer is not updated.  This includes the case of
+%   insufficient data-stack space or return-stack space, insufficient
+%   space for loop-control parameters, and overflow of the pictured
+%   numeric output.  This also includes reading from an empty data stack
+%   or return stack.
+% \item Insufficient space for new words crashes \TeX{}.
+% \item Interpreting a word with undefined interpretation semantics
+%   triggers a \TeX{} error, and the word is ignored.
+% \item Modifying the contents of the input buffer or a string literal
+%   is harmless.
+% \item Parsed string overflow: ?
+% \item Arithmetic that produces out of range results yields the correct
+%   result modulo \(2^{24}\) (size of the cell).
+% \item Unexpected end of input buffer, resulting in an attempt to use a
+%   zero-length string as a name: ?
+% \item |>IN| greater than size of input buffer: ?
+% \item |RECURSE| appears after |DOES>|: ?
+% \item Argument input source different than current input source for
+%   |RESTORE-INPUT|: ?
+% \item Data space containing definitions can never be de-allocated, since
+%   it is inaccessible.
+% \item Data space read/write with incorrect alignment cannot happen,
+%   since all addresses are aligned.
+% \item Less than \(u+2\) stack items for |PICK| or |ROLL|.
+% \item Loop-control parameters are not available for |+LOOP|, |I|, |J|,
+%   |LEAVE|, |LOOP|, |UNLOOP|: ?
+% \item Most recent definition does not have a name for |IMMEDIATE|: ?
+% \item Name not defined by |VALUE| used by |TO|: ?
+% \item Name not found |'|, |POSTPONE|, |[']|, |[COMPILE]|: ?
+% \item |POSTPONE| or |[COMPILE]| applied to |TO|: ?
+% \item String longer than a counted string returned by |WORD|: ?
+% \item |LSHIFT| or |RSHIFT| with \(u \geq 24\): ?
+% \item Using |>BODY| or |DOES>| for a word not defined via |CREATE|: ?
+% \item Using |#|, |#S|, |HOLD| or |SIGN| improperly outside |<#| and
+%   |#>| correctly places data into the pictured numeric buffer, but
+%   this is later ignored.
+% \end{itemize}
+%
 % Here is a list of data types and their sizes in this implementation.
 % \begin{center}
 %   \begin{tabular}{ccc}
