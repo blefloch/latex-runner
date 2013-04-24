@@ -40,7 +40,7 @@
 % The aim is to make of this \plang{forth} interpreter a ``Standard
 % System'' as defined by the ANS Forth 1994 specification.  This is not
 % yet the case.  The following words are not implemented: |DOES>|,
-% |+LOOP|, |>IN|, |ACCEPT|, |EVALUATE|, |KEY|, |>NUMBER|.
+% |>IN|, |ACCEPT|, |EVALUATE|, |KEY|, |>NUMBER|.
 %
 % The following environment variables are not implemented:
 % |/COUNTED-STRING|.
@@ -2940,6 +2940,12 @@
 %
 % \subsubsection{Do-loop words}
 %
+% \begin{variable}{\l_@@_forth_loop_bool}
+%    \begin{macrocode}
+\bool_new:N \l_@@_forth_loop_bool
+%    \end{macrocode}
+% \end{variable}
+%
 % \begin{macro}[int]{DO}
 %   Save the definition-so-far, and empty the variable, then push to the
 %   control-flow stack a flag indicating that a |DO| is unresolved
@@ -2954,43 +2960,67 @@
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[int]{LOOP}
+% ^^A todo: redoc
+% \begin{macro}[int]{LOOP, +LOOP}
+% \begin{macro}[aux]{\@@_forth_compile_loop:n}
 %   Save the code of the loop body as \texttt{tmpa}, then restore the
 %   definition as it was before the matching |DO|.  Finally, append to
-%   the definition \cs{@@_forth_compiled_do:n}, with the loop body as
-%   its argument.
+%   the definition \cs{@@_forth_compiled_do:nn}, with the loop body as
+%   its first argument, and incrementing the loop counter as its second.
 %    \begin{macrocode}
 \@@_forth_new_compilation_core:nn { LOOP }
+  {
+    \@@_forth_compile_loop:n
+      { \int_set:Nn \l_@@_tmpc_int { \l_@@_tmpb_int + 1 } }
+  }
+\@@_forth_new_compilation_core:nn { +LOOP }
+  {
+    \@@_forth_compile_loop:n
+      {
+        \@@_forth_pop_int:N \l_@@_tmpd_int
+        \int_set:Nn \l_@@_tmpc_int
+          { \l_@@_tmpb_int + \l_@@_tmpd_int }
+      }
+  }
+\cs_new_protected:Npn \@@_forth_compile_loop:n #1
   {
     \@@_forth_control_close:nTF { 3 }
       {
         \tl_set_eq:NN \l_@@_tmpa_tl \l_@@_forth_def_code_tl
         \seq_pop:NN \l_@@_forth_def_seq \l_@@_forth_def_code_tl
         \@@_forth_def_code:x
-          { \@@_forth_compiled_do:n { \l_@@_tmpa_tl } }
+          { \@@_forth_compiled_do:nn { \l_@@_tmpa_tl } {#1} }
       }
       { \msg_error:nnn { runner/forth } { misplaced } { LOOP } }
   }
 %    \end{macrocode}
 % \end{macro}
+% \end{macro}
 %
 % ^^A todo: optimize
 % ^^A todo: now, this fails for i=-1, lim=0.
-% \begin{macro}[int]{\@@_forth_compiled_do:n}
+% ^^A todo: bug, with overflow of negative numbers.
+% \begin{macro}[int]{\@@_forth_compiled_do:nn}
 %    \begin{macrocode}
-\cs_new_protected:Npn \@@_forth_compiled_do:n #1
+\cs_new_protected:Npn \@@_forth_compiled_do:nn #1#2
   {
     \@@_forth_pop_int:NN \l_@@_tmpa_int \l_@@_tmpb_int
     \@@_forth_return_push:n { \l_@@_tmpa_int } % ^^A limit
     \@@_forth_return_push:n { \l_@@_tmpb_int } % ^^A index
-    \int_do_until:nNnn \l_@@_tmpb_int = \l_@@_tmpa_int
+    \bool_set_true:N \l_@@_forth_loop_bool
+    \bool_do_while:Nn \l_@@_forth_loop_bool
       {
         #1
         \@@_forth_return_pop_int:N \l_@@_tmpb_int
-        \int_incr:N \l_@@_tmpb_int
         \@@_forth_return_pop_int:N \l_@@_tmpa_int
+        #2
+        \int_compare:nNnTF \l_@@_tmpb_int < \l_@@_tmpa_int
+          { \int_compare:nNnF }
+          { \int_compare:nNnT }
+              \l_@@_tmpc_int < \l_@@_tmpa_int
+              { \bool_set_false:N \l_@@_forth_loop_bool }
         \@@_forth_return_push:n { \l_@@_tmpa_int }
-        \@@_forth_return_push:n { \l_@@_tmpb_int }
+        \@@_forth_return_push:n { \l_@@_tmpc_int }
       }
     \@@_break_point:n
       {

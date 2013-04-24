@@ -43,6 +43,10 @@
 \typeout{\result}
 
 \runner{forth}[output = \result]|
+  : x 1500 1 DO I . I +LOOP ;||x|
+\typeout{\result}
+
+\runner{forth}[output = \result]|
   : REP-FACTORIAL ( +n1 -- +n2)
   DUP 2 < IF DROP 1 EXIT THEN
   DUP 1- RECURSE *
