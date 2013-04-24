@@ -994,9 +994,8 @@
 % \end{variable}
 %
 % \begin{variable}{\l_@@_forth_input_str}
-%   When running Forth, no distinction is made between the program and
-%   the input arguments to \cs{runner}, so those are combined into a
-%   single string.
+%   Store the part of the input string provided by \cs{@@_get_line:NTF}
+%   that did not fit into the input buffer.
 %    \begin{macrocode}
 \str_new:N \l_@@_forth_input_str
 %    \end{macrocode}
@@ -1024,16 +1023,18 @@
 % \end{macro}
 %
 % \begin{macro}[int, TF]{\@@_forth_input_line:}
-% \begin{macro}[aux]{\@@_forth_input_line_aux:w}
+% \begin{macro}[aux]{\@@_forth_input_line_aux:}
 %   This refills the input buffer, and returns \texttt{true} if
 %   successful and \texttt{false} otherwise.  Empty the input buffer.
-%   If the input string is empty, we are done.  Otherwise, split it at
-%   the first new line character (|^^J|).  If that first line is longer
-%   than the size \texttt{tmpa} of the input buffer (computed only once
-%   to make code more readable), then keep a part of length the size of
-%   the buffer in the buffer, and leave the rest in the input string.
-%   Otherwise, put the line (with its newline character) in the buffer,
-%   and leave the rest in the input string.
+%   If the \texttt{forth_input} is non-empty (\ie, the buffer was too
+%   short to hold the full line previously), call an auxiliary for the
+%   transfer; otherwise, ask for more input using \cs{@@_get_line:NTF}
+%   (adding |^^J|), before calling the transfer function.  Note that
+%   even if \texttt{get_line} fails, we call it back until the
+%   \texttt{sources_seq} is exhausted: this concatenates program and
+%   input sources.  The transfer starts by splitting the string if it is
+%   too long, then going through the first part one character at a time,
+%   filling the input buffer with the character codes.
 %    \begin{macrocode}
 \prg_new_protected_conditional:Npnn \@@_forth_input_line: { TF }
   {
@@ -1042,28 +1043,35 @@
     \int_set_eq:NN \l_@@_forth_input_end_int
       \g_@@_forth_input_min_int
     \tl_if_empty:NTF \l_@@_forth_input_str
-      { \prg_return_false: }
+      { \@@_forth_input_line_get: }
+      { \@@_forth_input_line_transfer: }
+  }
+\cs_new_protected_nopar:Npn \@@_forth_input_line_get:
+  {
+    \@@_get_line:NTF \l_@@_forth_input_str
       {
-        \exp_after:wN \@@_forth_input_line_aux:w
-          \l_@@_forth_input_str \q_stop
-        \prg_return_true:
+        \str_put_right:Nn \l_@@_forth_input_str { ^^J }
+        \@@_forth_input_line_transfer:
+      }
+      {
+        \seq_if_empty:NTF \l_@@_sources_seq
+          { \prg_return_false: }
+          { \@@_forth_input_line_get: }
       }
   }
-\cs_new_protected:Npn \@@_forth_input_line_aux:w #1 ^^J #2 \q_stop
+\cs_new_protected_nopar:Npn \@@_forth_input_line_transfer:
   {
     \int_set:Nn \l_@@_tmpa_int
       { \g_@@_forth_input_max_int - \g_@@_forth_input_min_int }
-    \int_compare:nNnTF
-      { \str_count:n { #1 ^^J } } > \l_@@_tmpa_int
+    \tl_set:Nx \l_@@_tmpb_tl
       {
-        \tl_set:Nx \l_@@_tmpb_tl
-          { \str_range:nnn {#1} { 1 } { \l_@@_tmpa_int } }
-        \tl_set:Nx \l_@@_forth_input_str
-          { \str_range:nnn {#1} { \l_@@_tmpa_int + 1 } { -1 } ^^J #2 }
+        \str_range:Nnn \l_@@_forth_input_str
+          { 1 } { \l_@@_tmpa_int }
       }
+    \tl_set:Nx \l_@@_forth_input_str
       {
-        \tl_set:Nx \l_@@_tmpb_tl { #1 ^^J }
-        \tl_set:Nx \l_@@_forth_input_str {#2}
+        \str_range:Nnn \l_@@_forth_input_str
+          { \l_@@_tmpa_int + 1 } { -1 }
       }
     \tl_replace_all:Nnn \l_@@_tmpb_tl { ~ } { {~} }
     \tl_map_inline:Nn \l_@@_tmpb_tl
@@ -1072,6 +1080,7 @@
           { \l_@@_forth_input_end_int } { `##1 }
         \int_incr:N \l_@@_forth_input_end_int
       }
+    \prg_return_true:
   }
 %    \end{macrocode}
 % \end{macro}
@@ -3423,8 +3432,6 @@
       \l_@@_forth_data_here_int
     \@@_forth_put_here:n { 0 }
     \cs_set_eq:NN \@@_forth_perform:n \@@_forth_interpret:n
-    \str_set:Nx \l_@@_forth_input_str
-      { \l_@@_program_str ^^J \l_@@_input_str ^^J }
   }
 %    \end{macrocode}
 % \end{macro}
