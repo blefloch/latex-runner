@@ -192,6 +192,18 @@
   |||
 }
 
+\runner{forth}[output = \result, output-stream = \z@]|
+  : const CREATE , DOES> @ ;
+||7 const SEVEN SEVEN .|
+\typeout{\result}
+
+\runner{forth}[output = \result, output-stream = \z@]|
+  : weird CREATE DOES> ." bip" DEPTH . RECURSE ;
+||
+  weird foobar foobar baz baz bar bar boo
+|
+\typeout{\result}
+
 \stop
 
 \runner{forth}[output = \result]|

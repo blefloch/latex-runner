@@ -23,6 +23,7 @@
 %% -----------------------------------------------------------------------
 \cs_generate_variant:Nn \prop_gput:Nnn { Nx }
 \cs_generate_variant:Nn \prop_get:NnNTF { Nx }
+\cs_generate_variant:Nn \prop_put:Nnn { Nxx }
 \cs_generate_variant:Nn \tl_item:nn { o }
 \cs_new_protected:Npn \__runner_forth_exit:
   #1 \__runner_forth_exit_point: { }
@@ -573,18 +574,62 @@
     \cs_set_eq:NN \__runner_forth_perform:n \__runner_forth_compile:n
     \__runner_forth_control_open:n { 0 }
   }
-\__runner_forth_new_compilation_core:nn { ; }
+\__runner_forth_new_compilation_core:nn { DOES> }
   {
     \__runner_forth_control_close:nTF { 0 }
       {
-        \seq_pop:NN \l__runner_forth_def_seq \l__runner_tmpa_tl
-        \__runner_forth_set_word:ox \l__runner_tmpa_tl { \l__runner_forth_def_code_tl }
-        \seq_pop:NN \l__runner_forth_def_seq \l__runner_forth_def_code_tl
-        \__runner_forth_data_gset:nn
-          { \l__runner_forth_state_address_int } { 0 }
-        \cs_set_eq:NN \__runner_forth_perform:n \__runner_forth_interpret:n
+        \seq_push:NV \l__runner_forth_def_seq \l__runner_forth_def_code_tl
+        \tl_clear:N \l__runner_forth_def_code_tl
+        \__runner_forth_control_open:n { -1 }
       }
-      { \msg_error:nnn { runner/forth } { misplaced } { ; } }
+      { \msg_error:nnn { runner/forth } { misplaced } { DOES> } }
+  }
+\__runner_forth_new_compilation_core:nn { ; }
+  {
+    \__runner_forth_control_close:nTF { 0 }
+      { \__runner_forth_compile_semicolon:x { \l__runner_forth_def_code_tl } }
+      {
+        \__runner_forth_control_close:nTF { -1 }
+          { \__runner_forth_compile_does: }
+          { \msg_error:nnn { runner/forth } { misplaced } { ; } }
+      }
+  }
+\cs_new_protected:Npn \__runner_forth_compile_semicolon:x #1
+  {
+    \seq_pop:NN \l__runner_forth_def_seq \l__runner_tmpa_tl
+    \__runner_forth_set_word:ox \l__runner_tmpa_tl {#1}
+    \seq_pop:NN \l__runner_forth_def_seq \l__runner_forth_def_code_tl
+    \__runner_forth_data_gset:nn
+      { \l__runner_forth_state_address_int } { 0 }
+    \cs_set_eq:NN \__runner_forth_perform:n \__runner_forth_interpret:n
+  }
+\cs_new_protected_nopar:Npn \__runner_forth_compile_does:
+  {
+    \seq_pop:NN \l__runner_forth_def_seq \l__runner_tmpc_tl
+    \__runner_forth_compile_semicolon:x
+      {
+        \l__runner_tmpc_tl
+        \__runner_forth_compiled_does:n
+          { \l__runner_forth_def_code_tl }
+      }
+  }
+\cs_new_protected:Npn \__runner_forth_compiled_does:n #1
+  {
+    \prop_get:NVNTF
+      \l__runner_forth_words_prop
+      \l__runner_forth_def_name_str
+      \l__runner_tmpa_tl
+      {
+        \__runner_forth_set_word:ox \l__runner_forth_def_name_str
+          {
+            \__runner_forth_execute:n { \tl_tail:N \l__runner_tmpa_tl }
+            #1
+          }
+      }
+      {
+        \msg_error:nnx { runner/forth } { unknown-word }
+          { \l__runner_forth_def_name_str }
+      }
   }
 \__runner_forth_new_core:nn { IMMEDIATE }
   {
@@ -593,12 +638,10 @@
       \l__runner_forth_def_name_str
       \l__runner_tmpa_tl
       {
-        \tl_set:Nx \l__runner_tmpa_tl
-          { \int_eval:n { 100000 + \l__runner_tmpa_tl } }
-        \prop_put:NVV
+        \prop_put:Nxx
           \l__runner_forth_words_prop
-          \l__runner_forth_def_name_str
-          \l__runner_tmpa_tl
+          { \l__runner_forth_def_name_str }
+          { 2 \tl_tail:N \l__runner_tmpa_tl }
       }
       {
         \msg_error:nnx { runner/forth } { no-def-immediate }

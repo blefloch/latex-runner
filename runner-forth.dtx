@@ -39,7 +39,7 @@
 %
 % The aim is to make of this \plang{forth} interpreter a ``Standard
 % System'' as defined by the ANS Forth 1994 specification.  This is not
-% yet the case.  The following words are not implemented: |DOES>|,
+% yet the case.  The following words are not implemented:
 % |>NUMBER|, |ACCEPT|, |KEY|, |EVALUATE|, |>IN|.
 %
 % ^^A todo: |QUIT| should have a prompt in interactive mode, |ABORT| not.
@@ -68,9 +68,9 @@
 %   called for, all characters in \([0,32]\) will match.  Even in the
 %   case of |WORD|.
 % \item Format of the control-flow stack: integers, indicating what was
-%   the last control-flow construct used, \(0\) for |:|, \(1\) for |IF|,
-%   \(2\) for |ELSE|, \(3\) for |DO|, \(4\) for |BEGIN|, \(5\) for
-%   |WHILE|.
+%   the last control-flow construct used, \(-1\) for |DOES>|, \(0\) for
+%   |:|, \(1\) for |IF|, \(2\) for |ELSE|, \(3\) for |DO|, \(4\) for
+%   |BEGIN|, \(5\) for |WHILE|.
 % \item Conversion of digits larger than thirty-five: this never arises,
 %   as the base used in conversion is automatically truncated to the
 %   interval \([2, 36]\).
@@ -111,7 +111,8 @@
 % \item Value of |STATE| when true: all bits set.
 % \item Values returned after arithmetic overflow: correct result,
 %   modulo \(2^{24}\).
-% \item Whether the current definition can be found after |DOES>|: ?
+% \item In a |: X ... DOES> ... ;| construction, the definition of |X|
+%   can only be found after the semicolon.
 % \end{itemize}
 % ^^A todo: ensure that picnum buffer is >= 127 cells wide.
 % ^^A todo: ensure that input buffer and pad are >= 128 cells wide.
@@ -147,7 +148,9 @@
 % \item Unexpected end of input buffer, resulting in an attempt to use a
 %   zero-length string as a name: ?
 % \item |>IN| greater than size of input buffer: ?
-% \item |RECURSE| appears after |DOES>|: ?
+% \item If |RECURSE| appears after |DOES>|, it inserts the execution
+%   token of the word defined by~|:| into the code that is added at
+%   run-time to the execution semantics of the last defined word.
 % \item Argument input source different than current input source for
 %   |RESTORE-INPUT|: ?
 % \item Data space containing definitions can never be de-allocated, since
@@ -251,6 +254,7 @@
 %    \begin{macrocode}
 \cs_generate_variant:Nn \prop_gput:Nnn { Nx }
 \cs_generate_variant:Nn \prop_get:NnNTF { Nx }
+\cs_generate_variant:Nn \prop_put:Nnn { Nxx }
 \cs_generate_variant:Nn \tl_item:nn { o }
 %    \end{macrocode}
 %
@@ -1494,30 +1498,109 @@
 %    \end{macrocode}
 % \end{macro}
 %
+% \begin{macro}[int]{DOES>}
+%   Check that the |DOES>| matches a start-of-definition on the control
+%   stack (magic number \(0\)).  Save the code-so-far, and push the
+%   magic number \(-1\) (for |DOES>|) onto the control stack.  Remain in
+%   compilation mode.
+%    \begin{macrocode}
+\@@_forth_new_compilation_core:nn { DOES> }
+  {
+    \@@_forth_control_close:nTF { 0 }
+      {
+        \seq_push:NV \l_@@_forth_def_seq \l_@@_forth_def_code_tl
+        \tl_clear:N \l_@@_forth_def_code_tl
+        \@@_forth_control_open:n { -1 }
+      }
+      { \msg_error:nnn { runner/forth } { misplaced } { DOES> } }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
 % \begin{macro}[int]{;}
-%   Check that the |;| matches a start-of-definition on the control
-%   stack (magic number \(0\)).  Get from the \texttt{def} stack the
-%   name of the word to define, and assign it the definition code.  Then
-%   restore the former value of \cs{l_@@_forth_def_code_tl}, and go back
-%   to interpretation state.
+% \begin{macro}[aux]{\@@_forth_compile_semicolon:x}
+%   If the |;| matches a start-of-definition on the control stack (magic
+%   number \(0\)), then get from the \texttt{def} stack the name of the
+%   word to define, and assign it the definition code.  Then restore the
+%   former value of \cs{l_@@_forth_def_code_tl}, and go back to
+%   interpretation state.  If the |;| matches a |DOES>| (magic number
+%   \(-1\)), then call an auxiliary function, because there is a lot of
+%   work to do.
 %    \begin{macrocode}
 \@@_forth_new_compilation_core:nn { ; }
   {
     \@@_forth_control_close:nTF { 0 }
+      { \@@_forth_compile_semicolon:x { \l_@@_forth_def_code_tl } }
       {
-        \seq_pop:NN \l_@@_forth_def_seq \l_@@_tmpa_tl
-        \@@_forth_set_word:ox \l_@@_tmpa_tl { \l_@@_forth_def_code_tl }
-        \seq_pop:NN \l_@@_forth_def_seq \l_@@_forth_def_code_tl
-        \@@_forth_data_gset:nn
-          { \l_@@_forth_state_address_int } { 0 }
-        \cs_set_eq:NN \@@_forth_perform:n \@@_forth_interpret:n
+        \@@_forth_control_close:nTF { -1 }
+          { \@@_forth_compile_does: }
+          { \msg_error:nnn { runner/forth } { misplaced } { ; } }
       }
-      { \msg_error:nnn { runner/forth } { misplaced } { ; } }
+  }
+\cs_new_protected:Npn \@@_forth_compile_semicolon:x #1
+  {
+    \seq_pop:NN \l_@@_forth_def_seq \l_@@_tmpa_tl
+    \@@_forth_set_word:ox \l_@@_tmpa_tl {#1}
+    \seq_pop:NN \l_@@_forth_def_seq \l_@@_forth_def_code_tl
+    \@@_forth_data_gset:nn
+      { \l_@@_forth_state_address_int } { 0 }
+    \cs_set_eq:NN \@@_forth_perform:n \@@_forth_interpret:n
+  }
+%    \end{macrocode}
+% \end{macro}
+% \end{macro}
+%
+% ^^A todo: can |DOES>| be applied several times to the same word?
+% ^^A : x DOES> 65 EMIT ; CREATE foo x x foo
+% ^^A todo: what if we tick a |CREATE|d word then apply |DOES>|?
+%
+% \begin{macro}[int]{\@@_forth_compile_does:, \@@_forth_compiled_does:n}
+%   The \texttt{compile_does} function is called when compiling a |;|
+%   that closes a |DOES>|.  Retrieve the first part of the definition
+%   from the \texttt{def} stack, then perform the definition of the
+%   current word (the name is stored further down the stack, see the
+%   \texttt{compile_semicolon} function), with the code before |DOES>|
+%   and the \texttt{compiled_does} function, feeding it the code between
+%   |DOES>| and~|;|.  At run-time, \texttt{compiled_does} fetches the
+%   most recent definition, which hopefully was introduced via |CREATE|,
+%   and redefines the word to perform the current execution token of the
+%   word, followed by~|#1|, which is the code that followed |DOES>| in
+%   the original definition.
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \@@_forth_compile_does:
+  {
+    \seq_pop:NN \l_@@_forth_def_seq \l_@@_tmpc_tl
+    \@@_forth_compile_semicolon:x
+      {
+        \l_@@_tmpc_tl
+        \@@_forth_compiled_does:n
+          { \l_@@_forth_def_code_tl }
+      }
+  }
+\cs_new_protected:Npn \@@_forth_compiled_does:n #1
+  {
+    \prop_get:NVNTF
+      \l_@@_forth_words_prop
+      \l_@@_forth_def_name_str
+      \l_@@_tmpa_tl
+      {
+        \@@_forth_set_word:ox \l_@@_forth_def_name_str
+          {
+            \@@_forth_execute:n { \tl_tail:N \l_@@_tmpa_tl }
+            #1
+          }
+      }
+      {
+        \msg_error:nnx { runner/forth } { unknown-word }
+          { \l_@@_forth_def_name_str }
+      }
   }
 %    \end{macrocode}
 % \end{macro}
 %
 % \begin{macro}[int]{IMMEDIATE}
+%   Change to \(2\) (immediate) the flag (\(\in\{1,2,3\}\)) of the last
+%   defined word.
 %    \begin{macrocode}
 \@@_forth_new_core:nn { IMMEDIATE }
   {
@@ -1526,12 +1609,10 @@
       \l_@@_forth_def_name_str
       \l_@@_tmpa_tl
       {
-        \tl_set:Nx \l_@@_tmpa_tl
-          { \int_eval:n { 100000 + \l_@@_tmpa_tl } }
-        \prop_put:NVV
+        \prop_put:Nxx
           \l_@@_forth_words_prop
-          \l_@@_forth_def_name_str
-          \l_@@_tmpa_tl
+          { \l_@@_forth_def_name_str }
+          { 2 \tl_tail:N \l_@@_tmpa_tl }
       }
       {
         \msg_error:nnx { runner/forth } { no-def-immediate }
@@ -1542,6 +1623,8 @@
 % \end{macro}
 %
 % \begin{macro}[int]{LITERAL}
+%   The current top of stack is stored in the current definition: it
+%   will be pushed back onto the stack at run-time.
 %    \begin{macrocode}
 \@@_forth_new_compilation_core:nn { LITERAL }
   {
@@ -1582,13 +1665,14 @@
 % \end{macro}
 % \end{macro}
 %
-% ^^A todo: redoc
 % \begin{macro}[int]{RECURSE}
 % \begin{macro}[aux]{\@@_forth_recurse:}
-%   When the definition is expanded prior to the assignment,
-%   \cs{l_@@_forth_toks_int} is the value of the \tn{toks} register
-%   which will contain the code.  Recursion involves calling this code
-%   from within itself.
+%   The command \cs{@@_forth_recurse:} is non-expandable, and goes
+%   unchanged through all the expansions performed to collect the
+%   definition.  At the very last step, just before storing the
+%   definition into a \tn{toks} register, \cs{@@_forth_recurse:} is
+%   defined to call the appropriate execution token to call the function
+%   itself.
 %    \begin{macrocode}
 \@@_forth_new_compilation_core:nn { RECURSE }
   { \@@_forth_def_code:x { \@@_forth_recurse: } }
