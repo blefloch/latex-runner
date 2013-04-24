@@ -189,25 +189,25 @@
     \tl_clear:N \l__runner_output_str
     \tl_if_empty:NF \l__runner_output_stream_tl
       {
-        \cs_set_protected:Npx \__runner_output_line_unsafe:n ##1
+        \cs_set_protected:Npx \__runner_output_line_unsafe:nn ##1##2
           {
             \str_put_right:Nn
-              \exp_not:N \l__runner_output_str { ##1 ^^J }
+              \exp_not:N \l__runner_output_str { ##2 ##1 }
             \iow_now:Nn
-              \exp_not:V \l__runner_output_stream_tl {##1}
+              \exp_not:V \l__runner_output_stream_tl {##2}
           }
       }
   }
-\cs_new_protected:Npn \__runner_output_line_unsafe:n #1
-  { \str_put_right:Nn \l__runner_output_str { #1 ^^J } }
-\cs_generate_variant:Nn \__runner_output_line_unsafe:n { V }
+\cs_new_protected:Npn \__runner_output_line_unsafe:nn #1#2
+  { \str_put_right:Nn \l__runner_output_str { #2 #1 } }
+\cs_generate_variant:Nn \__runner_output_line_unsafe:nn { nV }
 \group_begin:
   \char_set_catcode_other:N \^^@
   \cs_new_protected:Npn \__runner_output_char:n #1
     {
       \int_compare:nNnTF {#1} = { `^^J }
         {
-          \__runner_output_line_unsafe:V \l__runner_output_line_str
+          \__runner_output_line_unsafe:nV ^^J \l__runner_output_line_str
           \tl_clear:N \l__runner_output_line_str
         }
         {
@@ -225,7 +225,7 @@
   {
     \str_put_right:Nn \l__runner_output_line_str {#1}
     \__runner_split_newline:NnnF \l__runner_output_line_str
-      { \__runner_output_line_unsafe:n }
+      { \__runner_output_line_unsafe:nn ^^J }
       {
         \tl_clear:N \l__runner_output_line_str
         \__runner_output:n
@@ -287,7 +287,7 @@
   }
 \cs_new_protected_nopar:Npn \__runner_finish:
   {
-    \str_put_right:Nx \l__runner_output_str \l__runner_output_line_str
+    \__runner_output_line_unsafe:nV { } \l__runner_output_line_str
     \clist_map_inline:Nn \l__runner_output_file_clist
       {
         \iow_open:Nn \l__runner_iow {##1}

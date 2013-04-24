@@ -659,26 +659,27 @@
     \tl_clear:N \l_@@_output_str
     \tl_if_empty:NF \l_@@_output_stream_tl
       {
-        \cs_set_protected:Npx \@@_output_line_unsafe:n ##1
+        \cs_set_protected:Npx \@@_output_line_unsafe:nn ##1##2
           {
             \str_put_right:Nn
-              \exp_not:N \l_@@_output_str { ##1 ^^J }
+              \exp_not:N \l_@@_output_str { ##2 ##1 }
             \iow_now:Nn
-              \exp_not:V \l_@@_output_stream_tl {##1}
+              \exp_not:V \l_@@_output_stream_tl {##2}
           }
       }
   }
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[int]{\@@_output_line_unsafe:n, \@@_output_line_unsafe:V}
+% \begin{macro}[int]{\@@_output_line_unsafe:nn, \@@_output_line_unsafe:nV}
 %   This function ignores the current contents of the
 %   \cs{l_@@_output_line_str} (but does not affect them).  It sends a
-%   line directly to the output, and to the output stream if any.
+%   line directly to the output, and to the output stream if any.  The
+%   first argument is typically |^^J|.
 %    \begin{macrocode}
-\cs_new_protected:Npn \@@_output_line_unsafe:n #1
-  { \str_put_right:Nn \l_@@_output_str { #1 ^^J } }
-\cs_generate_variant:Nn \@@_output_line_unsafe:n { V }
+\cs_new_protected:Npn \@@_output_line_unsafe:nn #1#2
+  { \str_put_right:Nn \l_@@_output_str { #2 #1 } }
+\cs_generate_variant:Nn \@@_output_line_unsafe:nn { nV }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -693,7 +694,7 @@
     {
       \int_compare:nNnTF {#1} = { `^^J }
         {
-          \@@_output_line_unsafe:V \l_@@_output_line_str
+          \@@_output_line_unsafe:nV ^^J \l_@@_output_line_str
           \tl_clear:N \l_@@_output_line_str
         }
         {
@@ -717,7 +718,7 @@
   {
     \str_put_right:Nn \l_@@_output_line_str {#1}
     \@@_split_newline:NnnF \l_@@_output_line_str
-      { \@@_output_line_unsafe:n }
+      { \@@_output_line_unsafe:nn ^^J }
       {
         \tl_clear:N \l_@@_output_line_str
         \@@_output:n
@@ -835,7 +836,7 @@
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \@@_finish:
   {
-    \str_put_right:Nx \l_@@_output_str \l_@@_output_line_str
+    \@@_output_line_unsafe:nV { } \l_@@_output_line_str
     \clist_map_inline:Nn \l_@@_output_file_clist
       {
         \iow_open:Nn \l_@@_iow {##1}
