@@ -204,6 +204,15 @@
 |
 \typeout{\result}
 
+\runner{forth}[output = \result]|
+  : 2EQ ROT = IF = IF -1 ELSE 0 THEN ELSE 0 THEN ;
+||
+  1234567 2345678 M*
+  0 S>D
+  2OVER <# #S #> >NUMBER
+  2EQ CHAR Y + EMIT
+|
+\typeout{\result}
 \stop
 
 \runner{forth}[output = \result]|

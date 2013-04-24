@@ -40,7 +40,7 @@
 % The aim is to make of this \plang{forth} interpreter a ``Standard
 % System'' as defined by the ANS Forth 1994 specification.  This is not
 % yet the case.  The following words are not implemented:
-% |>NUMBER|, |ACCEPT|, |KEY|, |EVALUATE|, |>IN|.
+% |ACCEPT|, |KEY|, |EVALUATE|, |>IN|.
 %
 % ^^A todo: |QUIT| should have a prompt in interactive mode, |ABORT| not.
 % ^^A Done by redefining
@@ -3005,6 +3005,73 @@
       }
   }
 %    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int]{>NUMBER}
+% \begin{macro}[aux]{\@@_forth_to_number_aux:n}
+%   See also \cs{@@_forth_get_number:nNTF}.  Get a double cell integer
+%   \((a,b)\), an address \(c\) and a length \(d\).  Set \(d\) to the
+%   last address in the string (plus~\(1\)).  Store the base as the
+%   \texttt{tmpb} token list.  Then loop through the string, until the
+%   end is reached.  It turns out that one can safely jump outside the
+%   loop with a \cs{@@_break:n} \ldots{} \cs{@@_break_point:n}
+%   construction (because \cs{int_while_do:nNnn} is expandable, hence
+%   side-effect free).  For each character, store the character code
+%   into the \texttt{tmpa} token list to avoid fetching it multiple
+%   times; if it fits among the \([0,9]\) digits allowed in the base,
+%   update the integers \((a,b)\) using the value \texttt{tmpa} minus
+%   the character code of~|0|; if it fits among the allowed alphabetic
+%   characters, update the integers \((a,b)\) using the appropriate
+%   value for that digit.  Updating is done by an auxiliary, which
+%   multiplies \(a\) by the base, adding the argument~|#1|, multiplies
+%   \(b\) by the base, adding the carry from \(a\), and subtracts the
+%   carry from \(a\).
+%    \begin{macrocode}
+\@@_forth_new_core:nn { >NUMBER }
+  {
+    \@@_forth_pop_int:NNNN
+      \l_@@_tmpa_int \l_@@_tmpb_int
+      \l_@@_tmpc_int \l_@@_tmpd_int
+    \int_add:Nn \l_@@_tmpd_int { \l_@@_tmpc_int }
+    \tl_set:Nx \l_@@_tmpb_tl { \@@_forth_base: }
+    \int_while_do:nNnn \l_@@_tmpc_int < \l_@@_tmpd_int
+      {
+        \tl_set:Nx \l_@@_tmpa_tl
+          { \@@_forth_data_get:n { \l_@@_tmpc_int } }
+        \int_compare:nTF
+          { `0 <= \l_@@_tmpa_tl < `0 + \l_@@_tmpb_tl }
+          { \@@_forth_to_number_aux:n { \l_@@_tmpa_tl - `0 } }
+          {
+            \int_compare:nTF
+              { `A <= \l_@@_tmpa_tl < `A + \l_@@_tmpb_tl - 10 }
+              { \@@_forth_to_number_aux:n { \l_@@_tmpa_tl - `A + 10 } }
+              { \@@_break:n { } }
+          }
+        \int_incr:N \l_@@_tmpc_int
+      }
+    \@@_break_point:n { }
+    \@@_forth_push:nnnn
+      { \l_@@_tmpa_int } { \l_@@_tmpb_int }
+      { \l_@@_tmpc_int } { \l_@@_tmpd_int - \l_@@_tmpc_int }
+  }
+\cs_new_protected:Npn \@@_forth_to_number_aux:n #1
+  {
+    \int_set:Nn \l_@@_tmpa_int
+      {
+        \l_@@_tmpb_tl * \l_@@_tmpa_int
+        + #1
+      }
+    \int_set:Nn \l_@@_tmpb_int
+      {
+        \l_@@_tmpb_tl * \l_@@_tmpb_int
+        + \int_div_truncate:nn
+          { \l_@@_tmpa_int } { \c_@@_forth_mod_int }
+      }
+    \int_set:Nn \l_@@_tmpa_int
+      { \int_mod:nn { \l_@@_tmpa_int } { \c_@@_forth_mod_int } }
+  }
+%    \end{macrocode}
+% \end{macro}
 % \end{macro}
 %
 % \subsubsection{Conditional words}
