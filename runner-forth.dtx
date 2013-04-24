@@ -40,7 +40,18 @@
 % The aim is to make of this \plang{forth} interpreter a ``Standard
 % System'' as defined by the ANS Forth 1994 specification.  This is not
 % yet the case.  The following words are not implemented: |DOES>|,
-% |>IN|, |ACCEPT|, |EVALUATE|, |KEY|, |>NUMBER|.
+% |>NUMBER|, |ACCEPT|, |KEY|, |EVALUATE|, |>IN|.
+%
+% ^^A todo: |QUIT| should have a prompt in interactive mode, |ABORT| not.
+% ^^A Done by redefining
+% ^^A \cs_set_protected:Npn \@@_forth_quit: #1 \@@_forth_quit_point:
+% ^^A   { \tl_if_eq:nnTF {#1} { \@@_forth_exit_point: } { <prompt> } { } }
+% ^^A and adding a dummy token to definition of |ABORT| after do_quit:.
+%
+% ^^A todo: parsing should lead to no data loss (hence no refill).
+% ^^A todo: |EVALUATE| and |>IN| require replacing input_... by
+% ^^A cell values, which also affects |SOURCE|.
+% ^^A todo: |KEY| is unimplementable, |ACCEPT| interactive only?
 %
 % The following environment variables are not implemented:
 % |/COUNTED-STRING|.
