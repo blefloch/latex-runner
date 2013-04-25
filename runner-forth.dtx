@@ -1126,7 +1126,7 @@
 %   the text that did not fit in the buffer is on top, then the values
 %   of \texttt{source_end}, \texttt{source_parsed}, and
 %   \texttt{source_begin}.  Otherwise, ask for more input using
-%   \cs{@@_get_line:NTF} (adding |^^J|), before calling the transfer
+%   \cs{@@_get_line:NTF}, before calling the transfer
 %   function.  Note that even if \texttt{get_line} fails, we call it
 %   back until the \texttt{sources_seq} is exhausted: this concatenates
 %   program and input sources.  The transfer function
@@ -1160,10 +1160,7 @@
       }
       {
         \@@_get_line:NTF \l_@@_forth_input_str
-          {
-            \str_put_right:Nn \l_@@_forth_input_str { ^^J }
-            \@@_forth_term_refill:
-          }
+          { \@@_forth_term_refill: }
           {
             \seq_if_empty:NTF \l_@@_sources_seq
               { \prg_return_false: }

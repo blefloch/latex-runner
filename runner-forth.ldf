@@ -385,10 +385,7 @@
       }
       {
         \__runner_get_line:NTF \l__runner_forth_input_str
-          {
-            \str_put_right:Nn \l__runner_forth_input_str { ^^J }
-            \__runner_forth_term_refill:
-          }
+          { \__runner_forth_term_refill: }
           {
             \seq_if_empty:NTF \l__runner_sources_seq
               { \prg_return_false: }
