@@ -24,16 +24,16 @@
 % \begin{verbatim}
 %   \runner{forth}[output = \result]|
 %     : FACTORIAL ( +n1 -- +n2)
-%     DUP 2 < IF DROP 1 ELSE ( 0! = 1! = 1)
-%     DUP 1- RECURSE * THEN ; ( n1! = n1 * [n1 - 1]!)
+%     DUP 2 < IF DROP 1 EXIT THEN ( 0! = 1! = 1)
+%     DUP 1- RECURSE * ; ( n1! = n1 * [n1 - 1]!)
 %   ||
 %   CR 0 FACTORIAL . ( prints 1)
 %   CR 3 FACTORIAL . ( prints 6)
-%   CR 24 FACTORIAL . ( prints 12582912)|
+%   CR 24 FACTORIAL . ( prints -4194304)|
 %   \typeout{\result}
 % \end{verbatim}
 % This types three lines to the terminal, containing \(1\), \(6\) and
-% \(12582912\).  The last number is incorrect, because the result
+% \(-4194304\).  The last number is incorrect, because the result
 % overflows the size of a single-cell unsigned integer.  We can easily
 % check that it is the correct result modulo \(2^{24}\).
 %
