@@ -448,22 +448,26 @@
 %    \end{macrocode}
 % \end{variable}
 %
-% \begin{variable}{\l_@@_prompt_tl}
-%   The prompt used in interactive mode.  By default this is a question
-%   mark, but interpreters can define language-specific prompts.
+% \begin{variable}[int]{\l_@@_prompt_code_tl}
+% \begin{macro}[int]{\@@_no_next_prompt:}
+%   Code to output the prompt in interactive mode.  By default this is a
+%   question mark, but interpreters can define language-specific
+%   prompts.  Also a command to suppress the next prompt by setting the
+%   \texttt{prompt_code} to redefine itself to its current value.
 %    \begin{macrocode}
-\tl_new:N \l_@@_prompt_tl
-\tl_set:Nn \l_@@_prompt_tl { ? ~ }
-%    \end{macrocode}
-% \end{variable}
-%
-% \begin{macro}[int]{\@@_prompt:}
-%   Code to output the prompt.
-%    \begin{macrocode}
-\cs_new_protected_nopar:Npn \@@_prompt:
-  { \tex_message:D { \l_@@_prompt_tl } }
+\tl_new:N \l_@@_prompt_code_tl
+\tl_set:Nn \l_@@_prompt_code_tl { \tex_message:D { ? ~ } }
+\cs_new_protected:Npn \@@_no_next_prompt:
+  {
+    \tl_set:Nx \l_@@_prompt_code_tl
+      {
+        \exp_not:n { \tl_set:Nn \l_@@_prompt_code_tl }
+          { \exp_not:V \l_@@_prompt_code_tl }
+      }
+  }
 %    \end{macrocode}
 % \end{macro}
+% \end{variable}
 %
 %    \begin{macrocode}
 \cs_generate_variant:Nn \seq_set_split:Nnn { Nnx , Nxn }
@@ -633,21 +637,20 @@
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[int]{\@@_get_user_line:NNTF}
+% \begin{macro}[int]{\@@_get_user_line:NTF}
 %   Analog of \cs{@@_get_ior_line:NNTF}, but this stream cannot be
-%   exhausted.  Also, the first argument is code for the prompt rather
-%   than a stream.  Read one line (as a string), and take the
-%   \texttt{true} branch.
+%   exhausted.  Print the current output string, and the prompt.  Read
+%   one line (as a string), and take the \texttt{true} branch.
 %    \begin{macrocode}
-\cs_new_protected:Npn \@@_get_user_line:NNTF #1#2
+\cs_new_protected:Npn \@@_get_user_line:NTF #1
   {
     \tl_if_empty:NF \l_@@_output_line_str
       {
         \@@_output_line_unsafe:nV { } \l_@@_output_line_str
         \tl_clear:N \l_@@_output_line_str
       }
-    #1
-    \ior_get_str:NN \c_minus_one #2
+    \l_@@_prompt_code_tl
+    \ior_get_str:NN \c_minus_one #1
     \use_i:nn
   }
 %    \end{macrocode}
@@ -664,7 +667,7 @@
 %   namely the |input| key, each |input_file|, and the |input-stream| if
 %   any.  In non-interactive mode, add \cs{use_iii:nnn} to mark the end
 %   of all sources.  In interactive mode, add the unlimited
-%   \cs{@@_get_user_line:NNTF}.
+%   \cs{@@_get_user_line:NTF}.
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \@@_init_sources:
   {
@@ -682,10 +685,7 @@
       \l_@@_input_stream_tl
       \l_@@_input_arg_seq
     \bool_if:NTF \l_@@_interactive_bool
-      {
-        \seq_put_right:Nn \l_@@_sources_seq
-          { \@@_get_user_line:NNTF \@@_prompt: }
-      }
+      { \seq_put_right:Nn \l_@@_sources_seq { \@@_get_user_line:NTF } }
       { \seq_put_right:Nn \l_@@_sources_seq { \use_iii:nnn } }
   }
 \cs_new_protected:Npn \@@_init_sources_aux:NNNN #1#2#3#4

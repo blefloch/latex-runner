@@ -29,7 +29,6 @@
 % Standard System with Environmental Restriction as follows.
 % \begin{itemize}
 % \item The core word |KEY| is not implemented.
-% \item The prompt is incorrect after |ABORT|.
 % \item The environment variable |/COUNTED-STRING| is not recognized.
 % \end{itemize}
 % In non-interactive mode, the interpreter does not have a prompt, but
@@ -54,12 +53,6 @@
 % check that it is the correct result modulo \(2^{24}\).
 %
 % ^^A todo: doc that |STOP| can be used in interactive mode.
-%
-% ^^A todo: |QUIT| should have a prompt in interactive mode, |ABORT| not.
-% ^^A Done by redefining
-% ^^A \cs_set_protected:Npn \@@_forth_quit: #1 \@@_forth_quit_point:
-% ^^A   { \tl_if_eq:nnTF {#1} { \@@_forth_exit_point: } { <prompt> } { } }
-% ^^A and adding a dummy token to definition of |ABORT| after do_quit:.
 %
 % ^^A todo: clarify what to do with character code points >= 256.
 %
@@ -2763,8 +2756,8 @@
 \@@_forth_new_core:nn { ACCEPT }
   {
     \@@_forth_pop_int:NN \l_@@_tmpa_int \l_@@_tmpc_int
-    \@@_get_user_line:NNTF
-      \prg_do_nothing: \l_@@_tmpb_tl { } { }
+    \@@_no_next_prompt:
+    \@@_get_user_line:NTF \l_@@_tmpb_tl { } { }
     \tl_set:Nx \l_@@_tmpa_tl
       { \str_range:Nnn \l_@@_tmpb_tl { 1 } { \l_@@_tmpc_int } }
     \tl_set:Nx \l_@@_tmpb_tl
@@ -3498,11 +3491,12 @@
 % \begin{macro}[aux]{\@@_forth_do_quit:}
 %   Empty the return stack and enter interpretation state, then flush
 %   all code being run, by jumping to the \texttt{quit_point}.  |ABORT|
-%   additionally empties the data stack.
+%   additionally empties the data stack, and it suppresses the prompt.
 %    \begin{macrocode}
 \@@_forth_new_core:nn { QUIT } { \@@_forth_do_quit: }
 \@@_forth_new_core:nn { ABORT }
   {
+    \@@_no_next_prompt:
     \int_set_eq:NN \l_@@_forth_stack_here_int
       \g_@@_forth_stack_min_int
     \@@_forth_do_quit:
@@ -3760,7 +3754,8 @@
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \@@_forth_init:
   {
-    \tl_set:Nn \l_@@_prompt_tl { ok ~ }
+    \tl_set:Nn \l_@@_prompt_code_tl
+      { \tex_message:D { ok ~ } }
     \@@_forth_init_data:
     \tl_use:N \g_@@_forth_init_toks_tl
     \int_set_eq:NN

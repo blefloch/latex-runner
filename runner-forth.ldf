@@ -1269,8 +1269,8 @@
 \__runner_forth_new_core:nn { ACCEPT }
   {
     \__runner_forth_pop_int:NN \l__runner_tmpa_int \l__runner_tmpc_int
-    \__runner_get_user_line:NNTF
-      \prg_do_nothing: \l__runner_tmpb_tl { } { }
+    \__runner_no_next_prompt:
+    \__runner_get_user_line:NTF \l__runner_tmpb_tl { } { }
     \tl_set:Nx \l__runner_tmpa_tl
       { \str_range:Nnn \l__runner_tmpb_tl { 1 } { \l__runner_tmpc_int } }
     \tl_set:Nx \l__runner_tmpb_tl
@@ -1681,6 +1681,7 @@
 \__runner_forth_new_core:nn { QUIT } { \__runner_forth_do_quit: }
 \__runner_forth_new_core:nn { ABORT }
   {
+    \__runner_no_next_prompt:
     \int_set_eq:NN \l__runner_forth_stack_here_int
       \g__runner_forth_stack_min_int
     \__runner_forth_do_quit:
@@ -1831,7 +1832,8 @@
   }
 \cs_new_protected_nopar:Npn \__runner_forth_init:
   {
-    \tl_set:Nn \l__runner_prompt_tl { ok ~ }
+    \tl_set:Nn \l__runner_prompt_code_tl
+      { \tex_message:D { ok ~ } }
     \__runner_forth_init_data:
     \tl_use:N \g__runner_forth_init_toks_tl
     \int_set_eq:NN
