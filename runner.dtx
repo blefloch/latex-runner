@@ -457,6 +457,14 @@
 %    \end{macrocode}
 % \end{variable}
 %
+% \begin{macro}[int]{\@@_prompt:}
+%   Code to output the prompt.
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \@@_prompt:
+  { \tex_message:D { \l_@@_prompt_tl } }
+%    \end{macrocode}
+% \end{macro}
+%
 %    \begin{macrocode}
 \cs_generate_variant:Nn \seq_set_split:Nnn { Nnx , Nxn }
 %    \end{macrocode}
@@ -625,20 +633,21 @@
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[int]{\@@_get_user_line:NTF}
+% \begin{macro}[int]{\@@_get_user_line:NNTF}
 %   Analog of \cs{@@_get_ior_line:NNTF}, but this stream cannot be
-%   exhausted.  Read one line (as a string), and take the \texttt{true}
-%   branch.
+%   exhausted.  Also, the first argument is code for the prompt rather
+%   than a stream.  Read one line (as a string), and take the
+%   \texttt{true} branch.
 %    \begin{macrocode}
-\cs_new_protected:Npn \@@_get_user_line:NTF #1
+\cs_new_protected:Npn \@@_get_user_line:NNTF #1#2
   {
     \tl_if_empty:NF \l_@@_output_line_str
       {
         \@@_output_line_unsafe:nV { } \l_@@_output_line_str
         \tl_clear:N \l_@@_output_line_str
       }
-    \tex_message:D { \l_@@_prompt_tl }
-    \ior_get_str:NN \c_minus_one #1
+    #1
+    \ior_get_str:NN \c_minus_one #2
     \use_i:nn
   }
 %    \end{macrocode}
@@ -655,7 +664,7 @@
 %   namely the |input| key, each |input_file|, and the |input-stream| if
 %   any.  In non-interactive mode, add \cs{use_iii:nnn} to mark the end
 %   of all sources.  In interactive mode, add the unlimited
-%   \cs{@@_get_user_line:NTF}.
+%   \cs{@@_get_user_line:NNTF}.
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \@@_init_sources:
   {
@@ -673,7 +682,10 @@
       \l_@@_input_stream_tl
       \l_@@_input_arg_seq
     \bool_if:NTF \l_@@_interactive_bool
-      { \seq_put_right:Nn \l_@@_sources_seq { \@@_get_user_line:NTF } }
+      {
+        \seq_put_right:Nn \l_@@_sources_seq
+          { \@@_get_user_line:NNTF \@@_prompt: }
+      }
       { \seq_put_right:Nn \l_@@_sources_seq { \use_iii:nnn } }
   }
 \cs_new_protected:Npn \@@_init_sources_aux:NNNN #1#2#3#4

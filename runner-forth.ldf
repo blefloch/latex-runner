@@ -1269,7 +1269,8 @@
 \__runner_forth_new_core:nn { ACCEPT }
   {
     \__runner_forth_pop_int:NN \l__runner_tmpa_int \l__runner_tmpc_int
-    \__runner_get_user_line:NTF \l__runner_tmpb_tl { } { }
+    \__runner_get_user_line:NNTF
+      \prg_do_nothing: \l__runner_tmpb_tl { } { }
     \tl_set:Nx \l__runner_tmpa_tl
       { \str_range:Nnn \l__runner_tmpb_tl { 1 } { \l__runner_tmpc_int } }
     \tl_set:Nx \l__runner_tmpb_tl

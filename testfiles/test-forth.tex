@@ -5,10 +5,10 @@
 \makeatletter
 
 % \runner{forth}[interactive]||||
-% \runner{forth}[output = \result]|
+% \runner{forth}[interactive, output = \result]|
 %   : echo DUP HERE DUP ROT DUP ALLOT ACCEPT
 %   [ CHAR " ] LITERAL EMIT TYPE [ CHAR " ] LITERAL EMIT NEGATE ALLOT ;
-% ||6 echo 9 echo DEPTH .|
+% ||6 echo 9 echo DEPTH . STOP|
 % \typeout{\result}
 
 \runner{forth}[output = \result]|5 6 + 7 8 + * .|||
