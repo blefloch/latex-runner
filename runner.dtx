@@ -79,10 +79,10 @@
 %     surrounding the program).
 %   \end{enumerate}
 %   The program code is interpreted in the given language, and is given
-%   the last argument as its input.  For instance, since the brainfuck
-%   program ``\texttt{,+[-.>,+]}'' outputs its input,
+%   the last argument as its input.  For instance, since the
+%   \plang{forth} program ``\texttt{SOURCE TYPE}'' outputs its input,
 %   \begin{verbatim}
-%     \runner{brainfuck}@,+[-.>,+]@@some input@
+%     \runner{forth}|SOURCE TYPE||some input|
 %   \end{verbatim}
 %   will yield ``\texttt{some input}''.  This text will be left to be
 %   processed by \TeX{} (as if it were typed directly in the document).
@@ -93,9 +93,9 @@
 % \begin{function}{\NewRunner, \RenewRunner, \DeclareRunner}
 %   \textcolor{red}{Not implemented.}
 %   \begin{verbatim}
-%     \NewRunner{\bfcopy}{brainfuck}@,+[-.>,+]@
-%     \bfcopy @some input@
-%     \bfcopy[output = \result]@other input@
+%     \NewRunner{\forthcopy}{forth}|SOURCE TYPE|
+%     \forthcopy |some input|
+%     \forthcopy[output = \result]|other input|
 %   \end{verbatim}
 %   will leave ``\texttt{some input}'' to be processed by \TeX{}, then
 %   store ``\texttt{other input}'' in the macro \cs{result}.
