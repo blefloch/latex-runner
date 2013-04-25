@@ -1701,7 +1701,7 @@
       {
         \msg_term:n { ABORT~( \int_use:N \l__runner_tmpa_int ): ~ #1 }
         \int_set_eq:NN \l__runner_forth_stack_here_int
-        \g__runner_forth_stack_min_int
+          \g__runner_forth_stack_min_int
         \__runner_forth_do_quit:
       }
   }

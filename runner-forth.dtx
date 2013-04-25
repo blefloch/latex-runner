@@ -48,9 +48,6 @@
 % ^^A   { \tl_if_eq:nnTF {#1} { \@@_forth_exit_point: } { <prompt> } { } }
 % ^^A and adding a dummy token to definition of |ABORT| after do_quit:.
 %
-% ^^A todo: parsing should lead to no data loss (hence no refill).
-% ^^A todo: |EVALUATE| and |>IN| require replacing input_... by
-% ^^A cell values, which also affects |SOURCE|.
 % ^^A todo: |KEY| is unimplementable, |ACCEPT| interactive only?
 %
 % The following environment variables are not implemented:
@@ -3502,7 +3499,7 @@
       {
         \msg_term:n { ABORT~( \int_use:N \l_@@_tmpa_int ): ~ #1 }
         \int_set_eq:NN \l_@@_forth_stack_here_int
-        \g_@@_forth_stack_min_int
+          \g_@@_forth_stack_min_int
         \@@_forth_do_quit:
       }
   }
