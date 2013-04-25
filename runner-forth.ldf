@@ -1330,7 +1330,7 @@
   {
     \__runner_forth_push:n { \l__runner_forth_source_begin_int }
     \__runner_forth_push:n
-      { \l__runner_forth_source_end_int - \g__runner_forth_source_min_int }
+      { \l__runner_forth_source_end_int - \l__runner_forth_source_begin_int }
   }
 \__runner_forth_new_core:nn { CHAR }
   {
