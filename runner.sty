@@ -52,6 +52,7 @@
 \str_new:N \l__runner_output_line_str
 \str_new:N \l__runner_output_str
 \tl_new:N \g__runner_output_tl
+\bool_new:N \l__runner_interactive_bool
 \tl_new:N \l__runner_tmpa_tl
 \tl_new:N \l__runner_tmpb_tl
 \tl_new:N \l__runner_tmpc_tl
@@ -64,6 +65,8 @@
 \bool_new:N \l__runner_tmpa_bool
 \cs_new_eq:NN \__runner_tmp:w ?
 \int_new:N \g__runner_array_font_size_int
+\tl_new:N \l__runner_prompt_tl
+\tl_set:Nn \l__runner_prompt_tl { ? ~ }
 \cs_generate_variant:Nn \seq_set_split:Nnn { Nnx , Nxn }
 \keys_define:nn { runner }
   {
@@ -89,6 +92,7 @@
     output         .default:n = { } ,
     output-file    .clist_set:N = \l__runner_output_file_clist  ,
     output-stream  .tl_set:N    = \l__runner_output_stream_tl   ,
+    interactive .bool_set:N = \l__runner_interactive_bool
   }
 \cs_new_protected:Npn \__runner_get_line_next_source:NTF #1
   {
@@ -144,6 +148,17 @@
         \use_i:nn
       }
   }
+\cs_new_protected:Npn \__runner_get_user_line:NTF #1
+  {
+    \tl_if_empty:NF \l__runner_output_line_str
+      {
+        \__runner_output_line_unsafe:nV { } \l__runner_output_line_str
+        \tl_clear:N \l__runner_output_line_str
+      }
+    \tex_message:D { \l__runner_prompt_tl }
+    \ior_get_str:NN \c_minus_one #1
+    \use_i:nn
+  }
 \cs_new_protected_nopar:Npn \__runner_init_sources:
   {
     \cs_set_eq:NN \__runner_get_line:NTF \__runner_get_line_next_source:NTF
@@ -159,7 +174,9 @@
       \l__runner_input_file_clist
       \l__runner_input_stream_tl
       \l__runner_input_arg_seq
-    \seq_put_right:Nn \l__runner_sources_seq { \use_iii:nnn }
+    \bool_if:NTF \l__runner_interactive_bool
+      { \seq_put_right:Nn \l__runner_sources_seq { \__runner_get_user_line:NTF } }
+      { \seq_put_right:Nn \l__runner_sources_seq { \use_iii:nnn } }
   }
 \cs_new_protected:Npn \__runner_init_sources_aux:NNNN #1#2#3#4
   {
@@ -195,6 +212,21 @@
               \exp_not:N \l__runner_output_str { ##2 ##1 }
             \iow_now:Nn
               \exp_not:V \l__runner_output_stream_tl {##2}
+          }
+      }
+    \bool_if:NT \l__runner_interactive_bool
+      {
+        \bool_set_false:N \l__runner_output_use_bool
+        \tl_if_empty:NF \l__runner_output_stream_tl
+          {
+            \msg_error:nnnn { runner } { incompatible-options }
+              { interactive } { output-stream }
+          }
+        \cs_set_protected:Npn \__runner_output_line_unsafe:nn ##1##2
+          {
+            \str_put_right:Nn \l__runner_output_str { ##2 ##1 }
+            \tl_if_empty:nF { ##2 ##1 }
+              { \tex_message:D { ##2 ##1 } }
           }
       }
   }
@@ -446,6 +478,8 @@
     This~is~probably~an~internal~error~in~the~runner~package.~
     Please~report~it.
   }
+\msg_new:nnn { runner } { incompatible-options }
+  { The~keys~'#1'~and~'#2'~are~incompatible. }
 %% 
 %%
 %% End of file `runner.sty'.

@@ -1793,6 +1793,13 @@
 \group_end:
 \__runner_forth_new_immediate_core:nn (
   { \__runner_forth_input_until:n { `) } }
+\__runner_forth_new_core:nn { STOP }
+  {
+    \bool_set_true:N \l__runner_forth_stop_bool
+    \int_set_eq:NN \l__runner_forth_stack_here_int
+      \g__runner_forth_stack_min_int
+    \__runner_forth_do_quit:
+  }
 \cs_new_protected_nopar:Npn \__runner_forth_run:
   {
     \__runner_forth_init:
@@ -1818,6 +1825,7 @@
   }
 \cs_new_protected_nopar:Npn \__runner_forth_init:
   {
+    \tl_set:Nn \l__runner_prompt_tl { ok ~ }
     \__runner_forth_init_data:
     \tl_use:N \g__runner_forth_init_toks_tl
     \int_set_eq:NN

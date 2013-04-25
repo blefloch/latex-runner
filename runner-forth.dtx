@@ -20,7 +20,24 @@
 % This is not the place for an introduction to Forth, many can be found
 % online.  ^^A todo: add a bunch of refs
 %
-% For instance, one can define the factorial function as follows.
+% The \plang{forth} interpreter can be called in interactive or in
+% non-interactive mode.  In interactive mode, invoked with the command
+% \begin{verbatim}
+%   \runner{forth}[interactive]||||
+% \end{verbatim}
+% the interpreter follows the ANS Forth 1994 specification: it is a
+% Standard System with Environmental Restriction as follows.
+% \begin{itemize}
+% \item The core word |KEY| is not implemented.
+% \item The core word |ACCEPT| is not implemented.
+% \item The prompt is incorrect after |ABORT|.
+% \item The environment variable |/COUNTED-STRING| is not recognized.
+% \end{itemize}
+% In non-interactive mode, the interpreter does not have a prompt, but
+% otherwise behaves as a standard system, subject to the environmental
+% restrictions above.
+%
+% For example, one can define the factorial function as follows.
 % \begin{verbatim}
 %   \runner{forth}[output = \result]|
 %     : FACTORIAL ( +n1 -- +n2)
@@ -37,10 +54,7 @@
 % overflows the size of a single-cell unsigned integer.  We can easily
 % check that it is the correct result modulo \(2^{24}\).
 %
-% The aim is to make of this \plang{forth} interpreter a ``Standard
-% System'' as defined by the ANS Forth 1994 specification.  This is not
-% yet the case.  The following words are not implemented:
-% |ACCEPT|, |KEY|.
+% ^^A todo: doc that |STOP| can be used in interactive mode.
 %
 % ^^A todo: |QUIT| should have a prompt in interactive mode, |ABORT| not.
 % ^^A Done by redefining
@@ -48,10 +62,7 @@
 % ^^A   { \tl_if_eq:nnTF {#1} { \@@_forth_exit_point: } { <prompt> } { } }
 % ^^A and adding a dummy token to definition of |ABORT| after do_quit:.
 %
-% ^^A todo: |KEY| is unimplementable, |ACCEPT| interactive only?
-%
-% The following environment variables are not implemented:
-% |/COUNTED-STRING|.
+% ^^A todo: clarify what to do with character code points >= 256.
 %
 % Implementation specificities are as follows.
 % \begin{itemize}
@@ -3662,6 +3673,22 @@
 %    \end{macrocode}
 % \end{macro}
 %
+% \subsection{Additionnal words}
+%
+% \begin{macro}[int]{STOP}
+%   Set the \texttt{forth_stop} boolean to stop the interpreter loop.
+%   Perform the action of |ABORT|.
+%    \begin{macrocode}
+\@@_forth_new_core:nn { STOP }
+  {
+    \bool_set_true:N \l_@@_forth_stop_bool
+    \int_set_eq:NN \l_@@_forth_stack_here_int
+      \g_@@_forth_stack_min_int
+    \@@_forth_do_quit:
+  }
+%    \end{macrocode}
+% \end{macro}
+%
 % \subsection{Running the interpreter}
 %
 % \begin{macro}[int]{\@@_forth_run:}
@@ -3708,6 +3735,7 @@
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \@@_forth_init:
   {
+    \tl_set:Nn \l_@@_prompt_tl { ok ~ }
     \@@_forth_init_data:
     \tl_use:N \g_@@_forth_init_toks_tl
     \int_set_eq:NN
