@@ -1,5 +1,5 @@
 JOB_NAMES = runner
-AUX_EXT = 4ct 4tc aux blg dvi glo gls idv idx ilg ind lg log nav out snm spl tmp toc xref
+AUX_EXT = 4ct 4tc aux blg dvi glo gls hd idv idx ilg ind lg log nav out snm spl tmp toc xref
 ALL_EXT = $(AUX_EXT) pdf bbl
 
 all: package documentation
@@ -20,7 +20,6 @@ clean:
 			fi;\
 		done;\
 	done`
-	-rm README.txt
 
 cleanall:
 	@rm `\
@@ -31,4 +30,3 @@ cleanall:
 			fi;\
 		done;\
 	done`
-	-rm README.txt
