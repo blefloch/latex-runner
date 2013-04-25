@@ -3,6 +3,9 @@
 %%% Tests.
 \newcommand{\result}{}
 \makeatletter
+\newwrite \outfile
+\immediate\openout\outfile \jobname.out
+\RunnerOptions{output-stream = \outfile}
 
 % \runner{forth}[interactive]||||
 % \stop
