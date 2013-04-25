@@ -181,7 +181,11 @@
   1234567 3456789 M* <# #S #> TYPE|||
 \typeout{\result}
 
-\runner{forth}[output = \result]|CHAR \ WORD '\ FIND . DUP EXECUTE ' . .|||
+\runner{forth}[output = \result]|
+  : test-eq = IF ELSE ." error" THEN ;
+||
+  CHAR \ WORD '\ FIND . DUP EXECUTE ' test-eq
+|
 \typeout{\result}
 
 \runner{forth}[output = \result]|
