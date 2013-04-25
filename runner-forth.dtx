@@ -2514,12 +2514,14 @@
 % \end{macro}
 %
 % \begin{macro}[int]{ALLOT}
-%   Shift the data pointer by the value at the top of the stack
+%   Shift the data pointer by the (signed) value at the top of the
+%   stack, then make sure that the pointer is within memory bounds.
 %    \begin{macrocode}
 \@@_forth_new_core:nn { ALLOT }
   {
     \@@_forth_pop_int:N \l_@@_tmpa_int
-    \int_add:Nn \l_@@_forth_data_here_int \l_@@_tmpa_int
+    \int_add:Nn \l_@@_forth_data_here_int
+      { \@@_forth_signed:N \l_@@_tmpa_int }
     \int_compare:nNnTF
       \l_@@_forth_data_here_int < \g_@@_forth_data_min_int
       {
