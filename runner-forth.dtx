@@ -29,7 +29,6 @@
 % Standard System with Environmental Restriction as follows.
 % \begin{itemize}
 % \item The core word |KEY| is not implemented.
-% \item The core word |ACCEPT| is not implemented.
 % \item The prompt is incorrect after |ABORT|.
 % \item The environment variable |/COUNTED-STRING| is not recognized.
 % \end{itemize}
@@ -1195,13 +1194,7 @@
       }
     \int_set_eq:NN \l_@@_forth_term_end_int
       \g_@@_forth_term_min_int
-    \tl_replace_all:Nnn \l_@@_tmpb_tl { ~ } { {~} }
-    \tl_map_inline:Nn \l_@@_tmpb_tl
-      {
-        \@@_array_gset:Nnn \g_@@_forth_array
-          { \l_@@_forth_term_end_int } { `##1 }
-        \int_incr:N \l_@@_forth_term_end_int
-      }
+    \@@_forth_store_str:NN \l_@@_tmpb_tl \l_@@_forth_term_end_int
     \int_set_eq:NN \l_@@_forth_source_begin_int
       \g_@@_forth_term_min_int
     \@@_forth_data_gset:nn { \l_@@_forth_in_address_int } { 0 }
@@ -1426,6 +1419,23 @@
 \int_new:N \l_@@_forth_state_address_int
 %    \end{macrocode}
 % \end{variable}
+%
+% \begin{macro}[int]{\@@_forth_store_str:NN}
+%   Store the string |#1| in the \texttt{forth_array} starting at
+%   position |#2|.  Afterwards, |#2| is at the first cell after the
+%   string, and |#1| is modified.
+%    \begin{macrocode}
+\cs_new_protected:Npn \@@_forth_store_str:NN #1#2
+  {
+    \tl_replace_all:Nnn #1 { ~ } { {~} }
+    \tl_map_inline:Nn #1
+      {
+        \@@_array_gset:Nnn \g_@@_forth_array {#2} { `##1 }
+        \int_incr:N #2
+      }
+  }
+%    \end{macrocode}
+% \end{macro}
 %
 % \subsection{Core words}
 %
@@ -2740,6 +2750,29 @@
 %    \end{macrocode}
 % \end{macro}
 %
+% ^^A todo: what to do with the extra text \l_@@_tmpb_tl ?
+% ^^A todo: should this happen in non-interactive mode ?
+% \begin{macro}[int]{ACCEPT}
+%   Pop an address \(a\) and a length \(c\) from the stack.  Get a line
+%   from the user.  Split the line into a part \texttt{tmpa} with \(c\)
+%   characters, and the remaining part \texttt{tmpb}.  Then store the
+%   string, using \(b\) (starts at \(a\)) as the loop variable.
+%    \begin{macrocode}
+\@@_forth_new_core:nn { ACCEPT }
+  {
+    \@@_forth_pop_int:NN \l_@@_tmpa_int \l_@@_tmpc_int
+    \@@_get_user_line:NTF \l_@@_tmpb_tl { } { }
+    \tl_set:Nx \l_@@_tmpa_tl
+      { \str_range:Nnn \l_@@_tmpb_tl { 1 } { \l_@@_tmpc_int } }
+    \tl_set:Nx \l_@@_tmpb_tl
+      { \str_range:Nnn \l_@@_tmpb_tl { \l_@@_tmpc_int + 1 } { -1 } }
+    \int_set_eq:NN \l_@@_tmpb_int \l_@@_tmpa_int
+    \@@_forth_store_str:NN \l_@@_tmpa_tl \l_@@_tmpb_int
+    \@@_forth_push:n { \l_@@_tmpb_int - \l_@@_tmpa_int }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
 % \begin{macro}[int]{BL}
 %    \begin{macrocode}
 \@@_forth_new_core:nn { BL }
@@ -2868,12 +2901,7 @@
           }
         \int_set_eq:NN \l_@@_tmpb_int \l_@@_forth_data_text_int
         \tl_set_eq:NN \l_@@_tmpa_tl \l_@@_forth_input_word_str
-        \tl_replace_all:Nnn \l_@@_tmpa_tl { ~ } { \ }
-        \tl_map_inline:Nn \l_@@_tmpa_tl
-          {
-            \@@_forth_data_gset:nn { \l_@@_tmpb_int } { `#1 }
-            \int_incr:N \l_@@_tmpb_int
-          }
+        \@@_forth_store_str:NN \l_@@_tmpa_tl \l_@@_tmpb_int
       }
   }
 %    \end{macrocode}
@@ -2938,17 +2966,11 @@
     \int_set_eq:NN \l_@@_forth_data_word_int
       \l_@@_forth_data_here_int
     \tl_set_eq:NN \l_@@_tmpb_tl \l_@@_forth_input_word_str
-    \tl_replace_all:Nnn \l_@@_tmpb_tl { ~ } { \  }
-    \tl_map_inline:Nn \l_@@_tmpb_tl
-      {
-        \int_incr:N \l_@@_forth_data_word_int
-        \@@_forth_data_gset:nn
-          { \l_@@_forth_data_word_int } { `#1 }
-      }
+    \int_incr:N \l_@@_forth_data_word_int
+    \@@_forth_store_str:NN \l_@@_tmpb_tl \l_@@_forth_data_word_int
     \@@_forth_data_gset:nn
       { \l_@@_forth_data_here_int }
-      { \l_@@_forth_data_word_int - \l_@@_forth_data_here_int }
-    \int_incr:N \l_@@_forth_data_word_int
+      { \l_@@_forth_data_word_int - \l_@@_forth_data_here_int - 1 }
     \int_compare:nNnT
       \l_@@_forth_data_word_int > \l_@@_forth_data_text_int
       { \msg_error:nn { runner/forth } { out-of-memory } }
