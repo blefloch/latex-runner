@@ -50,6 +50,14 @@
 \typeout{\result}
 
 \runner{forth}[output = \result]|
+  : x 10 1 DO
+  DUP I < IF ." break" UNLOOP EXIT THEN
+  I .
+  LOOP ." through" ;
+||2 x CR 14 x|
+\typeout{\result}
+
+\runner{forth}[output = \result]|
   : REP-FACTORIAL ( +n1 -- +n2)
   DUP 2 < IF DROP 1 EXIT THEN
   DUP 1- RECURSE *

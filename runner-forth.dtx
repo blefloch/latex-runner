@@ -3337,18 +3337,14 @@
 %    \end{macrocode}
 % \end{macro}
 %
-% ^^A todo: bug UNLOOP should not be allowed in interpretation mode.
-% ^^A todo: test.
+% ^^A todo: doc that UNLOOP is allowed in interpretation mode.
 % \begin{macro}[int]{UNLOOP}
 %   Drop the loop control parameters from the return stack.
 %    \begin{macrocode}
 \@@_forth_new_core:nn { UNLOOP }
   {
-    \@@_forth_def_code:x
-      {
-        \@@_forth_return_pop_int:N \l_@@_tmpa_int
-        \@@_forth_return_pop_int:N \l_@@_tmpb_int
-      }
+    \@@_forth_return_pop_int:N \l_@@_tmpa_int
+    \@@_forth_return_pop_int:N \l_@@_tmpb_int
   }
 %    \end{macrocode}
 % \end{macro}
@@ -3454,7 +3450,7 @@
 %
 % \subsubsection{Ending words}
 %
-% ^^A todo: bug, EXIT should not have interpretation semantics.
+% ^^A todo: doc that EXIT is allowed in interpretation mode.
 % \begin{macro}[int]{EXIT}
 %   Leave the current definition.  See \cs{@@_forth_exit:} and
 %   \cs{@@_forth_exit_point:}.  The \cs{use_i:nn} is a bit of a hack, to
