@@ -469,6 +469,24 @@
 % \end{macro}
 % \end{variable}
 %
+% \begin{variable}[int]{\l_@@_internal_tl}
+%   Token list used for internal (temporary) purposes.
+%    \begin{macrocode}
+\tl_new:N \l_@@_internal_tl
+%    \end{macrocode}
+% \end{variable}
+%
+% \begin{variable}[int]{\l_@@_program_str, \l_@@_input_str}
+%   Some language interpreters lack interactive mode, and load the whole
+%   program source and the whole input source before starting to
+%   process.  The function \cs{@@_collect_sources:n} stores the program
+%   and input in these two variables.
+%    \begin{macrocode}
+\tl_new:N \l_@@_program_str
+\tl_new:N \l_@@_input_str
+%    \end{macrocode}
+% \end{variable}
+%
 %    \begin{macrocode}
 \cs_generate_variant:Nn \seq_set_split:Nnn { Nnx , Nxn }
 %    \end{macrocode}
@@ -656,6 +674,69 @@
 %    \end{macrocode}
 % \end{macro}
 %
+% \begin{macro}[int]{\@@_get_no_line:NTF}
+%   After the program sources, the \texttt{get_line} function gets set
+%   very temporarily equal to this function by
+%   \texttt{get_line_next_source}.  It is then immediately called,
+%   followed by the string variable to fill, two irrelevant arguments,
+%   and the \texttt{true} and \texttt{false} branches of the
+%   \texttt{get_line_next_source} function (hence of an earlier
+%   \texttt{get_line} call).  We take the \texttt{false} branch, to
+%   indicate that all sources for that target (program, or input) are
+%   exhausted.
+%    \begin{macrocode}
+\cs_new_protected:Npn \@@_get_no_line:NTF #1#2#3#4#5
+  {
+    \cs_set_eq:NN \@@_get_line:NTF \@@_get_line_next_source:NTF
+    #5
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int]{\@@_collect_lines:N}
+%   Get lines until the end of either the program sources or the input
+%   sources.  Note that for the input sources, this loops in interactive
+%   mode: use with care.  Note also that |#1| is not emptied before
+%   collecting lines: this allows interpreters to gather both program
+%   and input sources by two calls to the function.
+%    \begin{macrocode}
+\cs_new_protected:Npn \@@_collect_lines:N #1
+  {
+    \@@_get_line:NTF \l_@@_internal_tl
+      {
+        \tl_put_right:NV #1 \l_@@_internal_tl
+        \@@_collect_lines:N #1
+      }
+      { }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int]{\@@_collect_sources:n}
+%   This function expects the name of a language (for error-reporting
+%   purposes).  It collects all of the program source into
+%   \cs{l_@@_program_str}, and all of the input source into
+%   \cs{l_@@_input_str}.  If in interactive mode, complain that the given
+%   interpreter has no interactive mode, and omit the last item in
+%   \cs{l_@@_sources_seq}, which would prompt the user for input
+%   indefinitely.
+%    \begin{macrocode}
+\cs_new_protected:Npn \@@_collect_sources:n #1
+  {
+    \bool_if:NT \l_@@_interactive_bool
+      {
+        \seq_pop_right:Nn \l_@@_sources_seq \l_@@_internal_tl
+        \bool_set_false:N \l_@@_interactive_bool
+        \msg_error:nnn { runner } { no-interactive } {#1}
+      }
+    \tl_clear:N \l_@@_program_str
+    \@@_collect_lines:N \l_@@_program_str
+    \tl_clear:N \l_@@_input_str
+    \@@_collect_lines:N \l_@@_input_str
+  }
+%    \end{macrocode}
+% \end{macro}
+%
 % \begin{macro}[int]{\@@_init_sources:}
 % \begin{macro}[aux]{\@@_init_sources_aux:NNNN}
 %   The first time \texttt{get_line} is run, it should find the
@@ -678,7 +759,7 @@
       \l_@@_program_file_clist
       \l_@@_program_stream_tl
       \l_@@_program_arg_seq
-    \seq_put_right:Nn \l_@@_sources_seq { \use_iii:nnn }
+    \seq_put_right:Nn \l_@@_sources_seq { \@@_get_no_line:NTF }
     \@@_init_sources_aux:NNNN
       \l_@@_input_key_seq
       \l_@@_input_file_clist
@@ -686,7 +767,7 @@
       \l_@@_input_arg_seq
     \bool_if:NTF \l_@@_interactive_bool
       { \seq_put_right:Nn \l_@@_sources_seq { \@@_get_user_line:NTF } }
-      { \seq_put_right:Nn \l_@@_sources_seq { \use_iii:nnn } }
+      { \seq_put_right:Nn \l_@@_sources_seq { \@@_get_no_line:NTF } }
   }
 \cs_new_protected:Npn \@@_init_sources_aux:NNNN #1#2#3#4
   {
@@ -1170,6 +1251,8 @@
   }
 \msg_new:nnn { runner } { incompatible-options }
   { The~keys~'#1'~and~'#2'~are~incompatible. }
+\msg_new:nnn { runner } { no-interactive }
+  { The~#1~interpreter~offers~no~interactive~mode. }
 %    \end{macrocode}
 %
 % \runnerDisableDoc

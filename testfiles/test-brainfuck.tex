@@ -2,6 +2,10 @@
 \RequirePackage{runner}
 %%% Tests.
 \newcommand{\result}{}
+\makeatletter
+\newwrite \outfile
+\immediate\openout\outfile \jobname.out
+\RunnerOptions{output-stream = \outfile}
 
 \runner{brainfuck}[output = \result]@,+[-.>,+]@@some input@
 \typeout{\result}

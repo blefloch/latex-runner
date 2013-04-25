@@ -15,23 +15,22 @@
 %
 % \section{The \plang{brainfuck} language}
 %
-% This \plang{brainfuck} implementation has an unbounded array, both on
-% the left and right, and each cell can hold arbitrary integer
-% values.\footnote{More precisely, the size of the array is limited to
-%   the range $[-2^{31}+1,2^{31}-1]$, like other \TeX{} integers, and
-%   the number of non-zero cells must be at most \(30000\) or so.} The
-% brainfuck language has eight language commands.
+% This \plang{brainfuck} implementation has an array, with cells
+% numbered within \([-32768, 32767]\), and each cell can hold arbitrary
+% integer values (in the range \([-2^{31}+1, 2^{31}-1]\). The brainfuck
+% language has eight language commands.
 % \begin{itemize}\def\makelabel#1{\hss\llap{\ttfamily#1}}
 % \item[>] Increment the cell pointer.
 % \item[<] Decrement the cell pointer.
 % \item[+] Increment the value stored in the current cell.
 % \item[-] Decrement the value stored in the current cell.
 % \item[.] Output the ascii character corresponding to the value at the
-%   pointer. Values outside the range of available characters ($[0,255]$
-%   or $[0,1114111]$) raise an error.
+%   pointer. Values outside the range of available characters
+%   (\([0,255]\) or \([0,1114111]\) depending on the engine) raise an
+%   error.
 % \item[,] Read the first character of the input and store its character
 %   code in the current cell. The end of the input string is marked by
-%   the value $-1$.
+%   the value \(-1\).
 % \item[{[}] If the value at the current cell is zero, jump to the
 %   matching \texttt{]}
 % \item[{]}] If the value at the current cell is non-zero, jump to the
@@ -76,263 +75,270 @@
 %
 % \subsection{Variables}
 %
-% \begin{variable}{\l_@@_brainfuck_cell_int, \l_@@_brainfuck_instr_int}
-%   Pointers to the current cell, and to the current instruction
-%   in the program.
+% \begin{variable}{\g_@@_brainfuck_array}
+%   The array used by \plang{brainfuck}, and the cell number.
+%    \begin{macrocode}
+\@@_array_new:Nn \g_@@_brainfuck_array { 65536 }
+%    \end{macrocode}
+% \end{variable}
+%
+% \begin{variable}
+%   {
+%     \l_@@_brainfuck_cell_int,
+%     \l_@@_brainfuck_min_cell_int,
+%     \l_@@_brainfuck_max_cell_int
+%   }
+%   The current cell number, and the minimal and maximal cell numbers
+%   reached while running the program.  Those extrema must be known to
+%   clear the (global) array for further \plang{brainfuck} programs.
 %    \begin{macrocode}
 \int_new:N \l_@@_brainfuck_cell_int
-\int_new:N \l_@@_brainfuck_instr_int
+\int_new:N \l_@@_brainfuck_min_cell_int
+\int_new:N \l_@@_brainfuck_max_cell_int
 %    \end{macrocode}
 % \end{variable}
-%
-% \begin{variable}{\l_@@_brainfuck_match_prop, \l_@@_brainfuck_match_seq}
-%   The \texttt{[} and \texttt{]} commands jump between various
-%   program instructions. The property list holds the matches
-%   (back and forth). When building the property list, we keep
-%   track of a stack with the positions of each \texttt{[}. ^^A]
-%    \begin{macrocode}
-\prop_new:N \l_@@_brainfuck_match_prop
-\seq_new:N \l_@@_brainfuck_match_seq
-%    \end{macrocode}
-% \end{variable}
-%
-% \begin{variable}{\l_@@_brainfuck_length_int}
-%   Length of the program, once stripped of all comments.
-%    \begin{macrocode}
-\int_new:N \l_@@_brainfuck_length_int
-%    \end{macrocode}
-% \end{variable}
-%
-% \subsection{Current cell}
-%
-% \begin{macro}[int]{\@@_brainfuck_current_name:}
-%   Shorthand for the name of the integer holding
-%   the value at the current cell.
-%    \begin{macrocode}
-\cs_new_nopar:Npn \@@_brainfuck_current_name:
-  { l_@@_brainfuck_\int_use:N \l_@@_brainfuck_cell_int _int }
-%    \end{macrocode}
-% \end{macro}
-%
-% \begin{macro}[int]{\@@_brainfuck_current_provide:}
-%   The first time the value at a cell is changed
-%   (from its initial value of $0$), an integer
-%   register is automatically created.
-%    \begin{macrocode}
-\cs_new_protected_nopar:Npn \@@_brainfuck_current_provide:
-  {
-    \cs_if_exist:cF { \@@_brainfuck_current_name: }
-      { \int_new:c { \@@_brainfuck_current_name: } }
-  }
-%    \end{macrocode}
-% \end{macro}
 %
 % \begin{macro}[int]{\@@_brainfuck_current_value:}
-%   When the current cell's integer doesn't exist yet,
-%   the value is zero.
+%   The value at the current cell.  This macro is protected, but can be
+%   used within integer expressions.
 %    \begin{macrocode}
-\cs_new_nopar:Npn \@@_brainfuck_current_value:
+\cs_new_protected:Npn \@@_brainfuck_current_value:
   {
-    \cs_if_exist:cTF { \@@_brainfuck_current_name: }
-      { \int_use:c { \@@_brainfuck_current_name: } }
-      { 0 }
+    \@@_array_item:NN \g_@@_brainfuck_array
+      \l_@@_brainfuck_cell_int
   }
 %    \end{macrocode}
 % \end{macro}
 %
-% \subsection{Structure to run the code}
+% \subsection{Running the code}
 %
 % \begin{macro}[int]{\@@_brainfuck_run:}
+%   For simplicity, and because no one in their right mind would wish
+%   for it, we balk at interactive mode.  This lets us collect all lines
+%   of program and all lines of input once and for all.  Then check the
+%   syntax, exiting in case of error.  Then ``compile'' the brainfuck
+%   program to \TeX{} code, and run that code.
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \@@_brainfuck_run:
   {
-    \@@_brainfuck_clean:
-    \@@_brainfuck_matches:
-    \@@_brainfuck_execute:
-  }
-%    \end{macrocode}
-% \end{macro}
-%
-% \begin{macro}[int]{\@@_brainfuck_clean:}
-% \begin{macro}[aux, EXP]{\@@_brainfuck_clean_aux:n}
-%   The first step is to remove all comments, by keeping only characters
-%   that are meaningful in brainfuck.  Then measure the length of the
-%   resulting program.
-%    \begin{macrocode}
-\cs_new_protected_nopar:Npn \@@_brainfuck_clean:
-  {
-    \tl_set:Nx \l_@@_program_str
+    \@@_brainfuck_init:
+    \@@_collect_sources:n { brainfuck }
+    \@@_brainfuck_check_syntax:T
       {
-        \tl_map_function:NN
-          \l_@@_program_str
-          \@@_brainfuck_clean_aux:n
-      }
-    \int_set:Nn \l_@@_brainfuck_length_int
-      { \tl_count:N \l_@@_program_str }
-  }
-\cs_new:Npn \@@_brainfuck_clean_aux:n #1
-  { \cs_if_exist:cT { @@_brainfuck_#1: } {#1} }
-%    \end{macrocode}
-% \end{macro}
-% \end{macro}
-%
-% \begin{macro}[int]{\@@_brainfuck_matches:}
-% \begin{macro}[aux]{@@_brainfuck_matches_[:, @@_brainfuck_matches_]:}
-%   The second step is to go through the program and find how
-%   left and right brackets match.
-%    \begin{macrocode}
-\cs_new_protected_nopar:Npn \@@_brainfuck_matches:
-  {
-    \int_set:Nn \l_@@_brainfuck_instr_int { 1 }
-    \tl_map_inline:Nn \l_@@_program_str
-      {
-        \cs_if_exist_use:c { @@_brainfuck_matches_##1: }
-        \int_incr:N \l_@@_brainfuck_instr_int
-      }
-  }
-\cs_new_protected_nopar:cpn { @@_brainfuck_matches_[: }
-  {
-    \seq_push:No \l_@@_brainfuck_match_seq
-      { \int_use:N \l_@@_brainfuck_instr_int }
-  }
-\cs_new_protected_nopar:cpn { @@_brainfuck_matches_]: }
-  {
-    \seq_pop:NN \l_@@_brainfuck_match_seq \l_@@_tmpa_tl
-    \prop_put:NVV
-      \l_@@_brainfuck_match_prop
-      \l_@@_tmpa_tl
-      \l_@@_brainfuck_instr_int
-    \prop_put:NVV
-      \l_@@_brainfuck_match_prop
-      \l_@@_brainfuck_instr_int
-      \l_@@_tmpa_tl
-  }
-%    \end{macrocode}
-% \end{macro}
-% \end{macro}
-%
-% \begin{macro}[int]{\@@_brainfuck_execute:}
-%   Finally, run the program.  Each iteration of the
-%   \cs{int_while_do:nn} loop goes through the instructions one by one
-%   (with \cs{tl_map_inline:nn}), starting at instruction
-%   \cs{l_@@_brainfuck_instr_int}, and for each instruction performs the
-%   corresponding function |\use:c { @@_brainfuck_##1: }|.  In the
-%   absence of \texttt{[} or \texttt{]}, the loop reaches the end of the
-%   program, and the \texttt{while} loop ends there. On the other hand,
-%   \texttt{[} and \texttt{]} may break the \cs{tl_map_inline:nn} loop,
-%   and set \cs{l_@@_brainfuck_instr_int} to some value.  Then the
-%   \texttt{while} loop repeats its body, and we start reading
-%   instructions again at \cs{l_@@_brainfuck_instr_int}.
-%    \begin{macrocode}
-\cs_new_protected_nopar:Npn \@@_brainfuck_execute:
-  {
-    \int_set:Nn \l_@@_brainfuck_instr_int { 1 }
-    \int_until_do:nn
-      { \l_@@_brainfuck_instr_int > \l_@@_brainfuck_length_int }
-      {
-        \exp_args:Nf \tl_map_inline:nn
-          {
-            \str_range:Nnn \l_@@_program_str
-              { \l_@@_brainfuck_instr_int }
-              { -1 }
-          }
-          {
-            \use:c { @@_brainfuck_##1: }
-            \int_incr:N \l_@@_brainfuck_instr_int
-          }
+        \@@_brainfuck_compile_run:
+        \@@_brainfuck_cleanup:
       }
   }
 %    \end{macrocode}
 % \end{macro}
 %
-% \subsection{The eight language commands}
-%
-% \begin{macro}[int]{\@@_brainfuck_>:, \@@_brainfuck_<:}
-%   Moving to the right or left.
+% \begin{macro}[int]{\@@_brainfuck_init:}
+%   The brainfuck run starts at a cell in the middle of the array, and
+%   the minimum and maximum cells visited are identical to that number
+%   initially.
 %    \begin{macrocode}
-\cs_new_protected_nopar:cpn { @@_brainfuck_>: }
-  { \int_incr:N \l_@@_brainfuck_cell_int }
-\cs_new_protected_nopar:cpn { @@_brainfuck_<: }
-  { \int_decr:N \l_@@_brainfuck_cell_int }
-%    \end{macrocode}
-% \end{macro}
-%
-% \begin{macro}[int]{\@@_brainfuck_+:, \@@_brainfuck_-:}
-%   Increasing or decreasing the current value, after
-%   ensuring that the corresponding integer exists.
-%    \begin{macrocode}
-\cs_new_protected_nopar:cpn { @@_brainfuck_+: }
+\cs_new_protected_nopar:Npn \@@_brainfuck_init:
   {
-    \@@_brainfuck_current_provide:
-    \int_incr:c { \@@_brainfuck_current_name: }
-  }
-\cs_new_protected_nopar:cpn { @@_brainfuck_-: }
-  {
-    \@@_brainfuck_current_provide:
-    \int_decr:c { \@@_brainfuck_current_name: }
+    \int_set:Nn \l_@@_brainfuck_cell_int { 32769 }
+    \int_set:Nn \l_@@_brainfuck_min_cell_int { 32769 }
+    \int_set:Nn \l_@@_brainfuck_max_cell_int { 32769 }
   }
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[int]{\@@_brainfuck_.:}
+% \subsection{Syntax checking}
+%
+% \begin{macro}[int, TF]{\@@_brainfuck_check_syntax:}
+% \begin{macro}[aux]
+%   {
+%     \@@_brainfuck_syntax_aux:w,
+%     \@@_brainfuck_syntax_auxii:nnn,
+%     \@@_brainfuck_syntax_auxiii:nnn
+%   }
+%   Progressively replace pairs of |[| and |]| with letter tokens with
+%   the same character codes (to get nice error messages).
+%    \begin{macrocode}
+\prg_new_protected_conditional:Npnn \@@_brainfuck_check_syntax: { T }
+  {
+    \exp_after:wN \@@_brainfuck_syntax_aux:w \l_@@_program_str
+      \q_mark \@@_brainfuck_syntax_auxii:nnn [ ]
+      \q_mark \@@_brainfuck_syntax_auxiii:nnn \q_stop
+  }
+\cs_new_protected:Npn \@@_brainfuck_syntax_aux:w
+    #1 [ #2 ] #3 \q_mark #4
+  { #4 {#1} {#2} {#3} }
+\group_begin:
+  \char_set_lccode:nn { `C } { `[ }
+  \char_set_lccode:nn { `D } { `] }
+  \tex_lowercase:D
+    {
+      \cs_new_protected:Npn \@@_brainfuck_syntax_auxii:nnn #1#2#3
+        { % [
+          \tl_if_in:nnTF {#1} { ] }
+            {
+              \msg_error:nnnn
+                { runner/brainfuck } { unmatched } { D } {#1}
+              \use_i_delimit_by_q_stop:nw { \prg_return_false: }
+            }
+            {
+              \@@_brainfuck_syntax_aux:w C #2 D #3
+                \q_mark \@@_brainfuck_syntax_aux:w
+            }
+        }
+      \cs_new_protected:Npn \@@_brainfuck_syntax_auxiii:nnn #1#2#3
+        {
+          \tl_if_empty:nTF {#2}
+            { \use_i_delimit_by_q_stop:nw { \prg_return_true: } }
+            {
+              \msg_error:nnnn
+                { runner/brainfuck } { unmatched } { C } { #1 C }
+              \use_i_delimit_by_q_stop:nw { \prg_return_false: }
+            }
+        }
+    }
+\group_end:
+%    \end{macrocode}
+% \end{macro}
+% \end{macro}
+%
+% \subsection{Compilation}
+%
+% \begin{macro}[int]{\@@_brainfuck_compile_run:}
+% \begin{macro}[int, EXP]{\@@_brainfuck_compile_aux:N}
+%   Within an \texttt{x}-expansion, go through the program string one
+%   character at a time, converting the known characters to the
+%   appropriate code.  The |[| and |]| characters will be converted to
+%   code involving unmatched begin-group and end-group tokens,
+%   respectively, hence it is important that syntax has been checked
+%   beforehand.
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \@@_brainfuck_compile_run:
+  {
+    \use:x
+      {
+        \tl_map_function:NN \l_@@_program_str
+          \@@_brainfuck_compile_aux:N
+      }
+  }
+\cs_new:Npn \@@_brainfuck_compile_aux:N #1
+  { \cs_if_exist_use:c { @@_brainfuck_#1_code: } }
+%    \end{macrocode}
+% \end{macro}
+% \end{macro}
+%
+% \begin{macro}[int, EXP]{\@@_brainfuck_>_code:, \@@_brainfuck_<_code:}
+% \begin{macro}[aux]{\@@_brainfuck_shift:NN}
+%   Moving to the right or left.  We must keep track of the minimum and
+%   maximum cells reached, hence the code is not simply to increment or
+%   decrement the cell position.
+%    \begin{macrocode}
+\cs_new_nopar:cpn { @@_brainfuck_>_code: }
+  {
+    \@@_brainfuck_shift:NN
+      \int_incr:N \l_@@_brainfuck_max_cell_int
+  }
+\cs_new_nopar:cpn { @@_brainfuck_<_code: }
+  {
+    \@@_brainfuck_shift:NN
+      \int_decr:N \l_@@_brainfuck_min_cell_int
+  }
+\cs_new_protected:Npn \@@_brainfuck_shift:NN #1#2
+  {
+    \int_compare:nNnT #2 = \l_@@_brainfuck_cell_int { #1 #2 }
+    #1 \l_@@_brainfuck_cell_int
+  }
+%    \end{macrocode}
+% \end{macro}
+% \end{macro}
+%
+% \begin{macro}[int, EXP]{\@@_brainfuck_+_code:, \@@_brainfuck_-_code:}
+% \begin{macro}[int]{\@@_brainfuck_pm:N}
+%   Incrementing or decrementing the current value, after ensuring that
+%   the corresponding integer exists.
+%    \begin{macrocode}
+\cs_new_nopar:cpn { @@_brainfuck_+_code: }
+  { \@@_brainfuck_pm:N + }
+\cs_new_nopar:cpn { @@_brainfuck_-_code: }
+  { \@@_brainfuck_pm:N - }
+\cs_new_protected:Npn \@@_brainfuck_pm:N #1
+  {
+    \@@_array_gset:Nnn \g_@@_brainfuck_array
+      \l_@@_brainfuck_cell_int
+      { \@@_brainfuck_current_value: #1 1 }
+  }
+%    \end{macrocode}
+% \end{macro}
+% \end{macro}
+%
+% \begin{macro}[int, EXP]{\@@_brainfuck_._code:}
 %   Output the character corresponding to the value at the current cell.
 %    \begin{macrocode}
-\cs_new_protected_nopar:cpn { @@_brainfuck_.: }
-  { \@@_output_char:n { \@@_brainfuck_current_value: } }
+\cs_new_nopar:cpn { @@_brainfuck_._code: }
+  { \@@_output_char:n \@@_brainfuck_current_value: }
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[int]+\@@_brainfuck_,:+
+% \begin{macro}[int, EXP]+\@@_brainfuck_,:+
+% \begin{macro}[int]{\@@_brainfuck_comma:}
 %   Read off one character from the input string, and store its
-%   character code in the current cell. As usual, ensure that
-%   the cell's integer is defined.
+%   character code in the current cell, or \(-1\) if the input has
+%   ended.
 %    \begin{macrocode}
-\cs_new_protected_nopar:cpn { @@_brainfuck_,: }
+\cs_new_nopar:cpn { @@_brainfuck_,_code: }
+  { \@@_brainfuck_comma: }
+\cs_new_protected_nopar:Npn \@@_brainfuck_comma:
   {
-    \@@_brainfuck_current_provide:
     \tl_if_empty:NTF \l_@@_input_str
-      { \int_set_eq:cN { \@@_brainfuck_current_name: } \c_minus_one }
+      {
+        \@@_array_gset:Nnn \g_@@_brainfuck_array
+          \l_@@_brainfuck_cell_int \c_minus_one
+      }
       {
         \tl_set:Nx \l_@@_tmpa_tl
           { \str_head:N \l_@@_input_str }
         \tl_set:Nx \l_@@_input_str
           { \str_tail:N \l_@@_input_str }
-        \int_set:cn { \@@_brainfuck_current_name: }
+        \@@_array_gset:Nnn \g_@@_brainfuck_array
+          \l_@@_brainfuck_cell_int
           { \exp_after:wN ` \l_@@_tmpa_tl }
       }
   }
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[int]{\@@_brainfuck_[:, \@@_brainfuck_]:}
-% \begin{macro}[aux]{\@@_brainfuck_jump:N}
-%   The \texttt{[} and \texttt{]} operators have opposite logics.
-%   Both compare the value stored at the current cell to zero,
-%   and may jump to the matching instruction as defined by
-%   \cs{l_@@_brainfuck_match_prop}. In case of a jump, we break the
-%   current loop through program instructions.
+% \begin{macro}[int, EXP]{\@@_brainfuck_[_code:, \@@_brainfuck_]_code:}
+% \begin{macro}[aux]{\@@_brainfuck_loop:n}
+%   We already checked that |[| and |]| are correctly nested.  Convert
+%   |[| to the \texttt{brainfuck_loop} function and a single |{|, and
+%     convert |]| to a single |}|.  \TeX{} will take care of the
+%   matching for us, and the argument of \cs{@@_brainfuck_loop:n} at run
+%   time is the code corresponding to everything between |[| and the
+%   matching~|]|.
 %    \begin{macrocode}
-\cs_new_protected_nopar:cpn { @@_brainfuck_[: }
-  {
-    \int_compare:nNnT \@@_brainfuck_current_value: = \c_zero
-      { \@@_brainfuck_jump: }
-  }
-\cs_new_protected_nopar:cpn { @@_brainfuck_]: }
-  {
-    \int_compare:nNnF \@@_brainfuck_current_value: = \c_zero
-      { \@@_brainfuck_jump: }
-  }
-\cs_new_protected_nopar:Npn \@@_brainfuck_jump:
-  {
-    \prop_get:NVN
-      \l_@@_brainfuck_match_prop
-      \l_@@_brainfuck_instr_int
-      \l_@@_tmpa_tl
-    \int_set:Nn \l_@@_brainfuck_instr_int { \l_@@_tmpa_tl }
-    \tl_map_break:
-  }
+\cs_new_nopar:cpn { @@_brainfuck_[_code: }
+  { \@@_brainfuck_loop:n { \if_false: } \fi: }
+\cs_new_nopar:cpn { @@_brainfuck_]_code: }
+  { \if_false: { \fi: } }
+\cs_new_protected_nopar:Npn \@@_brainfuck_loop:n
+  { \int_until_do:nNnn \@@_brainfuck_current_value: = \c_zero }
 %    \end{macrocode}
 % \end{macro}
+% \end{macro}
+%
+% \subsection{Ending code}
+%
+% \begin{macro}[int]{\@@_brainfuck_cleanup:}
+%   After the run, set all cells to zero.
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \@@_brainfuck_cleanup:
+  {
+    \int_step_inline:nnnn
+      \l_@@_brainfuck_min_cell_int
+      \c_one
+      \l_@@_brainfuck_max_cell_int
+      { \@@_array_gset:Nnn \g_@@_brainfuck_array {##1} { 0 } }
+  }
+%    \end{macrocode}
 % \end{macro}
 %
 % \end{runner-implementation}
