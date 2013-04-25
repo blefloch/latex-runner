@@ -34,10 +34,14 @@
 \int_new:N \g__runner_forth_picnum_min_int
 \int_new:N \l__runner_forth_picnum_here_int
 \int_new:N \g__runner_forth_picnum_max_int
-\int_new:N \g__runner_forth_input_min_int
-\int_new:N \l__runner_forth_input_parsed_int
-\int_new:N \l__runner_forth_input_end_int
-\int_new:N \g__runner_forth_input_max_int
+\int_new:N \g__runner_forth_term_min_int
+\int_new:N \l__runner_forth_term_end_int
+\int_new:N \g__runner_forth_term_max_int
+\int_new:N \l__runner_forth_source_begin_int
+\int_new:N \l__runner_forth_source_parsed_int
+\int_new:N \l__runner_forth_source_end_int
+\int_new:N \l__runner_forth_in_address_int
+\seq_new:N \l__runner_forth_sources_seq
 \int_new:N \g__runner_forth_pad_min_int
 \int_new:N \g__runner_forth_pad_max_int
 \int_new:N \g__runner_forth_data_min_int
@@ -58,10 +62,15 @@
   {
     \int_set_eq:NN \l__runner_forth_picnum_here_int
       \g__runner_forth_picnum_max_int
-    \int_set_eq:NN \l__runner_forth_input_parsed_int
-      \g__runner_forth_input_min_int
-    \int_set_eq:NN \l__runner_forth_input_end_int
-      \g__runner_forth_input_min_int
+    \int_set_eq:NN \l__runner_forth_term_end_int
+      \g__runner_forth_term_min_int
+    \int_set_eq:NN \l__runner_forth_source_begin_int
+      \g__runner_forth_term_min_int
+    \int_set_eq:NN \l__runner_forth_source_parsed_int
+      \g__runner_forth_term_min_int
+    \int_set_eq:NN \l__runner_forth_source_end_int
+      \g__runner_forth_term_min_int
+    \seq_clear:N \l__runner_forth_sources_seq
     \int_set_eq:NN \l__runner_forth_data_here_int
       \g__runner_forth_data_min_int
     \int_set_eq:NN \l__runner_forth_data_word_int
@@ -77,8 +86,8 @@
   }
 \int_gset:Nn \g__runner_forth_picnum_min_int { 1 }
 \int_gset:Nn \g__runner_forth_picnum_max_int { 128 }
-\int_gset:Nn \g__runner_forth_input_min_int { 128 }
-\int_gset:Nn \g__runner_forth_input_max_int { 256 }
+\int_gset:Nn \g__runner_forth_term_min_int { 128 }
+\int_gset:Nn \g__runner_forth_term_max_int { 256 }
 \int_gset:Nn \g__runner_forth_pad_min_int { 256 }
 \int_gset:Nn \g__runner_forth_pad_max_int { 384 }
 \int_gset:Nn \g__runner_forth_data_min_int { 384 }
@@ -354,33 +363,43 @@
           }
     }
 \group_end:
-\prg_new_protected_conditional:Npnn \__runner_forth_input_line: { TF }
+\prg_new_protected_conditional:Npnn \__runner_forth_input_refill: { TF }
   {
-    \int_set_eq:NN \l__runner_forth_input_parsed_int
-      \g__runner_forth_input_min_int
-    \int_set_eq:NN \l__runner_forth_input_end_int
-      \g__runner_forth_input_min_int
     \tl_if_empty:NTF \l__runner_forth_input_str
-      { \__runner_forth_input_line_get: }
-      { \__runner_forth_input_line_transfer: }
+      { \__runner_forth_input_refill_get: }
+      { \__runner_forth_term_refill: }
   }
-\cs_new_protected_nopar:Npn \__runner_forth_input_line_get:
+\cs_new_protected_nopar:Npn \__runner_forth_input_refill_get:
   {
-    \__runner_get_line:NTF \l__runner_forth_input_str
+    \seq_pop:NNTF \l__runner_forth_sources_seq \l__runner_forth_input_str
       {
-        \str_put_right:Nn \l__runner_forth_input_str { ^^J }
-        \__runner_forth_input_line_transfer:
+        \seq_pop:NN \l__runner_forth_sources_seq \l__runner_tmpc_tl
+        \seq_pop:NN \l__runner_forth_sources_seq \l__runner_tmpb_tl
+        \seq_pop:NN \l__runner_forth_sources_seq \l__runner_tmpa_tl
+        \int_set:Nn \l__runner_forth_source_begin_int { \l__runner_tmpa_tl }
+        \__runner_forth_data_gset:nn
+          { \l__runner_forth_in_address_int }
+          { \l__runner_tmpb_tl }
+        \int_set:Nn \l__runner_forth_source_end_int { \l__runner_tmpc_tl }
+        \prg_return_true:
       }
       {
-        \seq_if_empty:NTF \l__runner_sources_seq
-          { \prg_return_false: }
-          { \__runner_forth_input_line_get: }
+        \__runner_get_line:NTF \l__runner_forth_input_str
+          {
+            \str_put_right:Nn \l__runner_forth_input_str { ^^J }
+            \__runner_forth_term_refill:
+          }
+          {
+            \seq_if_empty:NTF \l__runner_sources_seq
+              { \prg_return_false: }
+              { \__runner_forth_input_refill_get: }
+          }
       }
   }
-\cs_new_protected_nopar:Npn \__runner_forth_input_line_transfer:
+\cs_new_protected_nopar:Npn \__runner_forth_term_refill:
   {
     \int_set:Nn \l__runner_tmpa_int
-      { \g__runner_forth_input_max_int - \g__runner_forth_input_min_int }
+      { \g__runner_forth_term_max_int - \g__runner_forth_term_min_int }
     \tl_set:Nx \l__runner_tmpb_tl
       {
         \str_range:Nnn \l__runner_forth_input_str
@@ -391,78 +410,81 @@
         \str_range:Nnn \l__runner_forth_input_str
           { \l__runner_tmpa_int + 1 } { -1 }
       }
+    \int_set_eq:NN \l__runner_forth_term_end_int
+      \g__runner_forth_term_min_int
     \tl_replace_all:Nnn \l__runner_tmpb_tl { ~ } { {~} }
     \tl_map_inline:Nn \l__runner_tmpb_tl
       {
         \__runner_array_gset:Nnn \g__runner_forth_array
-          { \l__runner_forth_input_end_int } { `##1 }
-        \int_incr:N \l__runner_forth_input_end_int
+          { \l__runner_forth_term_end_int } { `##1 }
+        \int_incr:N \l__runner_forth_term_end_int
       }
+    \int_set_eq:NN \l__runner_forth_source_begin_int
+      \g__runner_forth_term_min_int
+    \__runner_forth_data_gset:nn { \l__runner_forth_in_address_int } { 0 }
+    \int_set_eq:NN \l__runner_forth_source_end_int
+      \l__runner_forth_term_end_int
     \prg_return_true:
   }
-\prg_new_protected_conditional:Npnn \__runner_forth_input_char:N #1 { TF }
+\prg_new_protected_conditional:Npnn \__runner_forth_read_char:N #1 { TF }
   {
     \int_compare:nNnTF
-      \l__runner_forth_input_parsed_int < \l__runner_forth_input_end_int
-      { \__runner_forth_input_char_aux:N #1 }
+      \l__runner_forth_source_parsed_int < \l__runner_forth_source_end_int
       {
-        \__runner_forth_input_line:TF
-          { \__runner_forth_input_char_aux:N #1 }
-          { \prg_return_false: }
-      }
-  }
-\cs_new_protected:Npn \__runner_forth_input_char_aux:N #1
-  {
-    \int_set:Nn #1
-      {
-        \__runner_array_item:NN \g__runner_forth_array
-          \l__runner_forth_input_parsed_int
-      }
-    \prg_return_true:
-  }
-\cs_new_protected:Npn \__runner_forth_input_discard:n #1
-  {
-    \int_compare:nNnTF {#1} = { 32 }
-      { \__runner_forth_input_discard_aux:Nn < { 33 } }
-      { \__runner_forth_input_discard_aux:Nn = {#1} }
-  }
-\cs_new_protected:Npn \__runner_forth_input_discard_aux:Nn #1#2
-  {
-    \bool_set_true:N \l__runner_tmpa_bool
-    \bool_while_do:Nn \l__runner_tmpa_bool
-      {
-        \__runner_forth_input_char:NTF \l__runner_tmpc_int
+        \int_set:Nn #1
           {
-            \int_compare:nNnTF \l__runner_tmpc_int #1 {#2}
-              { \int_incr:N \l__runner_forth_input_parsed_int }
-              { \bool_set_false:N \l__runner_tmpa_bool }
+            \__runner_array_item:NN \g__runner_forth_array
+              \l__runner_forth_source_parsed_int
           }
-          { \bool_set_false:N \l__runner_tmpa_bool }
+        \prg_return_true:
       }
+      { \prg_return_false: }
   }
-\cs_new_protected:Npn \__runner_forth_input_until:n #1
+\cs_new_protected_nopar:Npn \__runner_forth_input_discard:n
   {
-    \int_compare:nNnTF {#1} = { 32 }
-      { \__runner_forth_input_until_aux:Nn < { 33 } }
-      { \__runner_forth_input_until_aux:Nn = {#1} }
+    \__runner_forth_input_discard_aux:TFn
+      { \int_incr:N \l__runner_forth_source_parsed_int }
+      { \bool_set_false:N \l__runner_tmpa_bool }
   }
-\cs_new_protected:Npn \__runner_forth_input_until_aux:Nn #1#2
+\cs_new_protected_nopar:Npn \__runner_forth_input_until:n
   {
     \tl_clear:N \l__runner_forth_input_word_str
+    \__runner_forth_input_discard_aux:TFn
+      {
+        \bool_set_false:N \l__runner_tmpa_bool
+        \int_incr:N \l__runner_forth_source_parsed_int
+      }
+      {
+        \__runner_forth_str_put_char:Nn \l__runner_forth_input_word_str
+          { \l__runner_tmpc_int }
+          \int_incr:N \l__runner_forth_source_parsed_int
+      }
+  }
+\cs_new_protected:Npn \__runner_forth_input_discard_aux:TFn #1#2#3
+  {
+    \int_compare:nNnTF {#3} = { 32 }
+      { \__runner_forth_input_discard_aux:NnTF < { 33 } }
+      { \__runner_forth_input_discard_aux:NnTF = {#3} }
+          {#1} {#2}
+  }
+\cs_new_protected:Npn \__runner_forth_input_discard_aux:NnTF #1#2#3#4
+  {
+    \int_set:Nn \l__runner_forth_source_parsed_int
+      {
+        \l__runner_forth_source_begin_int
+        + \__runner_forth_data_get:n { \l__runner_forth_in_address_int }
+      }
     \bool_set_true:N \l__runner_tmpa_bool
     \bool_while_do:Nn \l__runner_tmpa_bool
       {
-        \__runner_forth_input_char:NTF \l__runner_tmpc_int
-          {
-            \int_compare:nNnTF \l__runner_tmpc_int #1 {#2}
-              { \bool_set_false:N \l__runner_tmpa_bool }
-              {
-                \__runner_forth_str_put_char:Nn \l__runner_forth_input_word_str
-                  { \l__runner_tmpc_int }
-              }
-            \int_incr:N \l__runner_forth_input_parsed_int
-          }
+        \__runner_forth_read_char:NTF \l__runner_tmpc_int
+          { \int_compare:nNnTF \l__runner_tmpc_int #1 {#2} {#3} {#4} }
           { \bool_set_false:N \l__runner_tmpa_bool }
+      }
+    \__runner_forth_data_gset:nn { \l__runner_forth_in_address_int }
+      {
+        \l__runner_forth_source_parsed_int
+        - \l__runner_forth_source_begin_int
       }
   }
 \cs_new_protected_nopar:Npn \__runner_forth_input_word:
@@ -1271,6 +1293,22 @@
     \__runner_forth_pop_int:N \l__runner_tmpa_int
     \__runner_output_char:n { \l__runner_tmpa_int }
   }
+\__runner_forth_new_core:nn { EVALUATE }
+  {
+    \seq_push:NV \l__runner_forth_sources_seq
+      \l__runner_forth_source_begin_int
+    \seq_push:Nx \l__runner_forth_sources_seq
+      { \__runner_forth_data_get:n { \l__runner_forth_in_address_int } }
+    \seq_push:NV \l__runner_forth_sources_seq
+      \l__runner_forth_source_end_int
+    \seq_push:NV \l__runner_forth_sources_seq \l__runner_forth_input_str
+    \__runner_forth_pop_int:NN
+      \l__runner_forth_source_begin_int \l__runner_tmpa_int
+    \int_set:Nn \l__runner_forth_source_end_int
+      { \l__runner_forth_source_begin_int + \l__runner_tmpa_int }
+    \tl_clear:N \l__runner_forth_input_str
+    \__runner_forth_data_gset:nn \l__runner_forth_in_address_int { 0 }
+  }
 \__runner_forth_new_compilation_core:nn { S" }
   {
     \__runner_forth_input_until:n { `" }
@@ -1299,12 +1337,6 @@
             \int_incr:N \l__runner_tmpb_int
           }
       }
-  }
-\__runner_forth_new_core:nn { SOURCE }
-  {
-    \__runner_forth_push:n { \g__runner_forth_input_min_int }
-    \__runner_forth_push:n
-      { \l__runner_forth_input_end_int - \g__runner_forth_input_min_int }
   }
 \__runner_forth_new_core:nn { SPACE }
   { \__runner_output:n { ~ } }
@@ -1642,8 +1674,6 @@
         \__runner_forth_compiled_repeat:nn {#1} {#2}
       }
   }
-\__runner_forth_new_immediate_core:nn { }
-  { \bool_set_true:N \l__runner_forth_stop_bool }
 \__runner_forth_new_core:nn { EXIT } { \use_i:nn \__runner_forth_exit: }
 \__runner_forth_new_core:nn { QUIT } { \__runner_forth_do_quit: }
 \__runner_forth_new_core:nn { ABORT }
@@ -1680,6 +1710,14 @@
   }
 \__runner_forth_new_core:nn { BASE }
   { \__runner_forth_push:n { \l__runner_forth_base_address_int } }
+\__runner_forth_new_core:nn { >IN }
+  { \__runner_forth_push:n { \l__runner_forth_in_address_int } }
+\__runner_forth_new_core:nn { SOURCE }
+  {
+    \__runner_forth_push:n { \l__runner_forth_source_begin_int }
+    \__runner_forth_push:n
+      { \l__runner_forth_source_end_int - \g__runner_forth_source_min_int }
+  }
 \__runner_forth_new_core:nn { STATE }
   { \__runner_forth_push:n { \l__runner_forth_state_address_int } }
 \__runner_forth_new_core:nn { ENVIRONMENT? }
@@ -1764,10 +1802,22 @@
     \bool_set_false:N \l__runner_forth_stop_bool
     \bool_until_do:Nn \l__runner_forth_stop_bool
       {
-        \__runner_forth_input_word:
-        \__runner_forth_perform:V \l__runner_forth_input_word_str
+        \__runner_forth_run_aux:TF
+          { \__runner_forth_perform:V \l__runner_forth_input_word_str }
+          { \bool_set_true:N \l__runner_forth_stop_bool }
         \__runner_forth_quit_point:
       }
+  }
+\cs_new_protected_nopar:Npn \__runner_forth_run_aux:TF
+  {
+    \__runner_forth_input_word:
+    \tl_if_empty:NTF \l__runner_forth_input_word_str
+      {
+        \__runner_forth_input_refill:TF
+          { \__runner_forth_run_aux:TF }
+          { \use_ii:nn }
+      }
+      { \use_i:nn }
   }
 \cs_new_protected_nopar:Npn \__runner_forth_init:
   {
@@ -1783,6 +1833,9 @@
       \l__runner_forth_data_here_int
     \__runner_forth_put_here:n { 10 }
     \int_set_eq:NN \l__runner_forth_state_address_int
+      \l__runner_forth_data_here_int
+    \__runner_forth_put_here:n { 0 }
+    \int_set_eq:NN \l__runner_forth_in_address_int
       \l__runner_forth_data_here_int
     \__runner_forth_put_here:n { 0 }
     \cs_set_eq:NN \__runner_forth_perform:n \__runner_forth_interpret:n
@@ -1825,8 +1878,8 @@
   {
     Summary~of~memory~use.\\\\
     Input~buffer: \
-      \int_use:N \g__runner_forth_input_min_int \ to \
-      \int_use:N \g__runner_forth_input_max_int . \\
+      \int_use:N \l__runner_forth_source_begin_int \ to \
+      \int_use:N \l__runner_forth_source_end_int . \\
     Pad: \
       \int_use:N \g__runner_forth_pad_min_int \ to \
       \int_use:N \g__runner_forth_pad_max_int .\\

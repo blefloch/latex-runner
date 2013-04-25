@@ -1,8 +1,10 @@
-\RequirePackage[check-declarations]{expl3}
+%\RequirePackage[check-declarations]{expl3}
 \RequirePackage{runner}
 %%% Tests.
 \newcommand{\result}{}
 \makeatletter
+
+\runner{forth}||||
 
 \runner{forth}[output = \result]|5 6 + 7 8 + * .|||
 \typeout{\result}
@@ -85,8 +87,8 @@
 \typeout{\result}
 
 \runner{forth}[output = \result]|
-  : x POSTPONE * ; IMMEDIATE :
-  four 2 2 x ;
+  : x POSTPONE * ; IMMEDIATE
+  : four 2 2 x ;
 ||four . |
 \typeout{\result}
 
@@ -212,6 +214,16 @@
   2OVER <# #S #> >NUMBER
   2EQ CHAR Y + EMIT
 |
+
+\runner{forth}[output = \result]|
+  : X 0 S" 1 ." EVALUATE . ;
+||X 2 .|
+\typeout{\result}
+
+\runner{forth}[output = \result]|
+  : x ." foobar
+  ; x|||
+\typeout{\result}
 
 \stop
 
