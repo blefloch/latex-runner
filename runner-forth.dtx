@@ -209,7 +209,6 @@
 % The following words of the Core extension word set are not implemented:
 % \begin{itemize}
 % \item Case: |CASE|, |ENDCASE|, |OF|, |ENDOF|
-% \item Defi: |COMPILE,|,
 % \item Inpu: |EXPECT|, |QUERY|, |RESTORE-INPUT|, |SAVE-INPUT|, |SPAN|
 % \end{itemize}
 %
@@ -996,7 +995,9 @@
 % \begin{macro}[int]{\@@_forth_execute:n}
 %   Run the code saved in the \tn{toks} with number~|#1|.  This is
 %   protected, which simplifies handling of expansion.  The trailing
-%   space terminates the number returned by \cs{int_eval:n}.
+%   \texttt{exit_point} (equal to \cs{scan_stop:}) terminates the number
+%   returned by \cs{int_eval:n}, and serves as a marker to which |EXIT|
+%   can jump.
 %    \begin{macrocode}
 \cs_new_protected:Npn \@@_forth_execute:n #1
   { \tex_the:D \tex_toks:D \int_eval:n {#1} \@@_forth_exit_point: }
@@ -2227,7 +2228,8 @@
 %
 % This section defines the words |CONSTANT|, |CREATE|, |VARIABLE|,
 % |>BODY|, |VALUE|, |TO|, |:NONAME|, |:|, |DOES>|, |;|, |IMMEDIATE|,
-% |LITERAL|, |MARKER|, |POSTPONE|, |RECURSE|, |STATE|, |[|, |]|.
+% |LITERAL|, |MARKER|, |POSTPONE|, |[COMPILE]|, |RECURSE|, |COMPILE,|,
+% |STATE|, |[|, |]|.
 %
 % \begin{variable}{\l_@@_forth_def_token_int, \l_@@_forth_def_code_tl}
 %   The execution token whose definition is being built, and the
@@ -2660,6 +2662,19 @@
         \@@_forth_execute:n
           { \int_use:N \l_@@_forth_def_token_int }
       }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int]+COMPILE,+
+%   The execution token~\(a\) found on the stack is added to the current
+%   definition.
+%    \begin{macrocode}
+\@@_forth_new_core:nn { COMPILE, }
+  {
+    \@@_forth_pop_int:N \l_@@_tmpa_int
+    \@@_forth_def_code:x
+      { \@@_forth_execute:n { \int_use:N \l_@@_tmpa_int } }
   }
 %    \end{macrocode}
 % \end{macro}

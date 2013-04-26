@@ -1219,6 +1219,12 @@
           { \int_use:N \l__runner_forth_def_token_int }
       }
   }
+\__runner_forth_new_core:nn { COMPILE, }
+  {
+    \__runner_forth_pop_int:N \l__runner_tmpa_int
+    \__runner_forth_def_code:x
+      { \__runner_forth_execute:n { \int_use:N \l__runner_tmpa_int } }
+  }
 \__runner_forth_new_core:nn { STATE }
   { \__runner_forth_push:n { \l__runner_forth_state_address_int } }
 \__runner_forth_new_compilation_core:nn { [ }

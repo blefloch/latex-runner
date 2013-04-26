@@ -140,6 +140,11 @@
 \typeout{\result}
 
 \runner{forth}[output = \result]|
+  : x 12 ; ' x
+  : x [ COMPILE, ] 23 + ; x .|||
+\typeout{\result}
+
+\runner{forth}[output = \result]|
   3 : x LITERAL ; DEPTH . x .|||
 \typeout{\result}
 
