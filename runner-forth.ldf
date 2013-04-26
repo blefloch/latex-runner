@@ -371,7 +371,10 @@
   {
     \tl_if_empty:NTF \l__runner_forth_input_str
       { \__runner_forth_input_refill_get: }
-      { \__runner_forth_term_refill: }
+      {
+        \__runner_forth_term_refill:
+        \prg_return_true:
+      }
   }
 \cs_new_protected_nopar:Npn \__runner_forth_input_refill_get:
   {
@@ -389,7 +392,10 @@
       }
       {
         \__runner_get_line:NTF \l__runner_forth_input_str
-          { \__runner_forth_term_refill: }
+          {
+            \__runner_forth_term_refill:
+            \prg_return_true:
+          }
           {
             \seq_if_empty:NTF \l__runner_sources_seq
               { \prg_return_false: }
@@ -419,7 +425,6 @@
     \__runner_forth_data_gset:nn { \l__runner_forth_in_address_int } { 0 }
     \int_set_eq:NN \l__runner_forth_source_end_int
       \l__runner_forth_term_end_int
-    \prg_return_true:
   }
 \prg_new_protected_conditional:Npnn \__runner_forth_read_char:N #1 { TF }
   {
@@ -1568,6 +1573,32 @@
     \int_set_eq:NN \l__runner_tmpb_int \l__runner_tmpa_int
     \__runner_forth_store_str:NN \l__runner_tmpa_tl \l__runner_tmpb_int
     \__runner_forth_push:n { \l__runner_tmpb_int - \l__runner_tmpa_int }
+  }
+\__runner_forth_new_core:nn { SOURCE-ID }
+  {
+    \seq_if_empty:NTF \l__runner_forth_sources_seq
+      { \__runner_forth_push_false: }
+      { \__runner_forth_push_true: }
+  }
+\__runner_forth_new_core:nn { REFILL }
+  {
+    \seq_if_empty:NTF \l__runner_forth_sources_seq
+      {
+        \__runner_get_line:NTF \l__runner_forth_input_str
+          {
+            \__runner_forth_term_refill:
+            \__runner_forth_push_true:
+          }
+          {
+            \seq_if_empty:NTF \l__runner_sources_seq
+              { \__runner_forth_push_false: }
+              {
+                \__runner_forth_term_refill:
+                \__runner_forth_push_true:
+              }
+          }
+      }
+      { \__runner_forth_push_false: }
   }
 \__runner_forth_new_core:nn { ALIGN } { }
 \__runner_forth_new_core:nn { ALIGNED }

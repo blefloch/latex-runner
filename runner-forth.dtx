@@ -211,8 +211,7 @@
 % \item Case: |CASE|, |ENDCASE|, |OF|, |ENDOF|
 % \item Defi: |COMPILE,|,
 % \item Do l: |?DO|
-% \item Inpu: |EXPECT|, |QUERY|, |REFILL|, |RESTORE-INPUT|,
-%   |SAVE-INPUT|, |SOURCE-ID|, |SPAN|
+% \item Inpu: |EXPECT|, |QUERY|, |RESTORE-INPUT|, |SAVE-INPUT|, |SPAN|
 % \end{itemize}
 %
 % \end{runner-documentation}
@@ -1166,7 +1165,10 @@
   {
     \tl_if_empty:NTF \l_@@_forth_input_str
       { \@@_forth_input_refill_get: }
-      { \@@_forth_term_refill: }
+      {
+        \@@_forth_term_refill:
+        \prg_return_true:
+      }
   }
 \cs_new_protected_nopar:Npn \@@_forth_input_refill_get:
   {
@@ -1184,7 +1186,10 @@
       }
       {
         \@@_get_line:NTF \l_@@_forth_input_str
-          { \@@_forth_term_refill: }
+          {
+            \@@_forth_term_refill:
+            \prg_return_true:
+          }
           {
             \seq_if_empty:NTF \l_@@_sources_seq
               { \prg_return_false: }
@@ -1214,7 +1219,6 @@
     \@@_forth_data_gset:nn { \l_@@_forth_in_address_int } { 0 }
     \int_set_eq:NN \l_@@_forth_source_end_int
       \l_@@_forth_term_end_int
-    \prg_return_true:
   }
 %    \end{macrocode}
 % \end{macro}
@@ -3039,7 +3043,8 @@
 % \subsubsection{Input}
 %
 % This section defines |>IN|, |SOURCE|, |TIB|, |#TIB|, |CHAR|, |[CHAR]|,
-% |(|, |\|, |PARSE|, |WORD|, |COUNT|, |S"|, |EVALUATE|, |ACCEPT|.  ^^A)
+% |(|, |\|, |PARSE|, |WORD|, |COUNT|, |S"|, |EVALUATE|, |ACCEPT|,
+% |SOURCE-ID|, |REFILL|.  ^^A)
 %
 % \begin{macro}[int]{>IN}
 %   Push the address where the input buffer offset is stored.
@@ -3297,6 +3302,52 @@
     \int_set_eq:NN \l_@@_tmpb_int \l_@@_tmpa_int
     \@@_forth_store_str:NN \l_@@_tmpa_tl \l_@@_tmpb_int
     \@@_forth_push:n { \l_@@_tmpb_int - \l_@@_tmpa_int }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int]{SOURCE-ID}
+%   If reading from the input given to \TeX{} (through a file, a stream,
+%   and so on), push \texttt{false}: this is seen by checking that no
+%   sources weree saved (that would imply a call to |EVALUATE|).
+%    \begin{macrocode}
+\@@_forth_new_core:nn { SOURCE-ID }
+  {
+    \seq_if_empty:NTF \l_@@_forth_sources_seq
+      { \@@_forth_push_false: }
+      { \@@_forth_push_true: }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% ^^A todo: make runner omit the separation of program/input for Forth.
+% \begin{macro}[int]{REFILL}
+%   If we are not reading from an |EVALUATE|d string, request a line
+%   from \pkg{runner}, and store it to the terminal.  Otherwise, it may
+%   mean that we reached the end of the program source, but there is
+%   still the input source, or we could have reached the very end.  In
+%   cases where the terminal was refilled, push \texttt{true}, otherwise
+%   \texttt{false}.
+%    \begin{macrocode}
+\@@_forth_new_core:nn { REFILL }
+  {
+    \seq_if_empty:NTF \l_@@_forth_sources_seq
+      {
+        \@@_get_line:NTF \l_@@_forth_input_str
+          {
+            \@@_forth_term_refill:
+            \@@_forth_push_true:
+          }
+          {
+            \seq_if_empty:NTF \l_@@_sources_seq
+              { \@@_forth_push_false: }
+              {
+                \@@_forth_term_refill:
+                \@@_forth_push_true:
+              }
+          }
+      }
+      { \@@_forth_push_false: }
   }
 %    \end{macrocode}
 % \end{macro}
