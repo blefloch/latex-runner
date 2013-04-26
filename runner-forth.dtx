@@ -216,7 +216,6 @@
 %   |SAVE-INPUT|, |SOURCE-ID|, |SPAN|, |#TIB|
 % \item Memo: |UNUSED|
 % \item Nume: |CONVERT|
-% \item Whil: |AGAIN|
 % \end{itemize}
 %
 % \end{runner-documentation}
@@ -4050,7 +4049,8 @@
 %
 % \subsubsection{While loops}
 %
-% This section defines the words |BEGIN|, |UNTIL|, |WHILE|, |REPEAT|.
+% This section defines the words |BEGIN|, |AGAIN|, |UNTIL|, |WHILE|,
+% |REPEAT|.
 %
 % \begin{macro}[int]{BEGIN}
 %   Similar to |IF|.  Save the definition-so-far in the \texttt{def}
@@ -4067,25 +4067,38 @@
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[int]{UNTIL}
-% \begin{macro}[aux]{\@@_forth_compiled_until:n}
-%   This must follow |BEGIN| (magic number \(4\)).  Save the code of the
-%   loop body as \texttt{tmpa}, and restore the previous
-%   \texttt{def_code}, then append \cs{@@_forth_compiled_until:n} with
-%   the loop body code as its argument.  At run-time, this function runs
-%   its argument, then pops the data stack: if that is zero, repeat,
-%   otherwise, stop.
+% ^^A todo: factor out common part with UNTIL
+% \begin{macro}[int]{AGAIN, UNTIL}
+% \begin{macro}[int]{\@@_forth_again:Nn}
+% \begin{macro}[aux]{\@@_forth_compiled_again:n, \@@_forth_compiled_until:n}
+%   The words |AGAIN| and |UNTIL| must follow |BEGIN| (magic number
+%   \(4\)).  Save the code of the loop body as \texttt{tmpa}, and
+%   restore the previous \texttt{def_code}, then append the
+%   \texttt{compiled_again} or \texttt{compiled_until} with the loop
+%   body code as its argument.  At run-time, the \texttt{compiled_again}
+%   function runs its argument then calls itself again with no test.
+%   This endless loop can be exited with~|EXIT|.  The
+%   \texttt{compiled_until} function runs its argument, then pops the
+%   data stack: if that is zero, repeat, otherwise, stop.
 %    \begin{macrocode}
+\@@_forth_new_compilation_core:nn { AGAIN }
+  { \@@_forth_again:Nn \@@_forth_compiled_again:n { AGAIN } }
 \@@_forth_new_compilation_core:nn { UNTIL }
+  { \@@_forth_again:Nn \@@_forth_compiled_until:n { UNTIL } }
+\cs_new_protected:Npn \@@_forth_compile_again:Nn #1#2
   {
     \@@_forth_control_close:nTF { 4 }
       {
         \tl_set_eq:NN \l_@@_tmpa_tl \l_@@_forth_def_code_tl
         \seq_pop:NN \l_@@_forth_def_seq \l_@@_forth_def_code_tl
-        \@@_forth_def_code:x
-          { \@@_forth_compiled_until:n { \l_@@_tmpa_tl } }
+        \@@_forth_def_code:x { #1 { \l_@@_tmpa_tl } }
       }
-      { \msg_error:nnn { runner/forth } { misplaced } { UNTIL } }
+      { \msg_error:nnn { runner/forth } { misplaced } {#2} }
+  }
+\cs_new_protected:Npn \@@_forth_compiled_again:n #1
+  {
+    #1
+    \@@_forth_compiled_again:n {#1}
   }
 \cs_new_protected:Npn \@@_forth_compiled_until:n #1
   {
@@ -4096,6 +4109,7 @@
       }
   }
 %    \end{macrocode}
+% \end{macro}
 % \end{macro}
 % \end{macro}
 %

@@ -1993,16 +1993,24 @@
     \tl_clear:N \l__runner_forth_def_code_tl
     \__runner_forth_control_open:n { 4 }
   }
+\__runner_forth_new_compilation_core:nn { AGAIN }
+  { \__runner_forth_again:Nn \__runner_forth_compiled_again:n { AGAIN } }
 \__runner_forth_new_compilation_core:nn { UNTIL }
+  { \__runner_forth_again:Nn \__runner_forth_compiled_until:n { UNTIL } }
+\cs_new_protected:Npn \__runner_forth_compile_again:Nn #1#2
   {
     \__runner_forth_control_close:nTF { 4 }
       {
         \tl_set_eq:NN \l__runner_tmpa_tl \l__runner_forth_def_code_tl
         \seq_pop:NN \l__runner_forth_def_seq \l__runner_forth_def_code_tl
-        \__runner_forth_def_code:x
-          { \__runner_forth_compiled_until:n { \l__runner_tmpa_tl } }
+        \__runner_forth_def_code:x { #1 { \l__runner_tmpa_tl } }
       }
-      { \msg_error:nnn { runner/forth } { misplaced } { UNTIL } }
+      { \msg_error:nnn { runner/forth } { misplaced } {#2} }
+  }
+\cs_new_protected:Npn \__runner_forth_compiled_again:n #1
+  {
+    #1
+    \__runner_forth_compiled_again:n {#1}
   }
 \cs_new_protected:Npn \__runner_forth_compiled_until:n #1
   {
