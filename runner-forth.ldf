@@ -1877,7 +1877,7 @@
         \__runner_forth_compiled_repeat:nn {#1} {#2}
       }
   }
-\__runner_forth_new_core:nn { STOP }
+\__runner_forth_new_core:nn { BYE }
   {
     \bool_set_true:N \l__runner_forth_stop_bool
     \int_set_eq:NN \l__runner_forth_stack_here_int

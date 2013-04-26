@@ -52,7 +52,7 @@
 % overflows the size of a single-cell unsigned integer.  We can easily
 % check that it is the correct result modulo \(2^{24}\).
 %
-% ^^A todo: doc that |STOP| can be used in interactive mode.
+% ^^A todo: doc that |BYE| can be used to end the run.
 %
 % ^^A todo: clarify what to do with character code points >= 256.
 %
@@ -3872,11 +3872,11 @@
 %
 % \subsection{Additionnal words}
 %
-% \begin{macro}[int]{STOP}
+% \begin{macro}[int]{BYE}
 %   Set the \texttt{forth_stop} boolean to stop the interpreter loop.
 %   Perform the action of |ABORT|.
 %    \begin{macrocode}
-\@@_forth_new_core:nn { STOP }
+\@@_forth_new_core:nn { BYE }
   {
     \bool_set_true:N \l_@@_forth_stop_bool
     \int_set_eq:NN \l_@@_forth_stack_here_int
