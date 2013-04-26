@@ -339,18 +339,19 @@
     \prop_get:NnN \g__runner_forth_core_words_prop {#2} \l__runner_tmpa_tl
     \prop_gput:NnV \g__runner_forth_core_words_prop {#1} \l__runner_tmpa_tl
   }
-\cs_new_protected:Npn \__runner_forth_set_word:nn #1#2
+\cs_new_protected:Npn \__runner_forth_set_word_token:nn #1#2
   {
     \str_set:Nn \l__runner_forth_def_name_str {#1}
-    \cs_set_nopar:Npx \__runner_forth_recurse:
-      { \__runner_forth_execute:n { \int_use:N \l__runner_forth_toks_int } }
-    \use:x { \tex_toks:D \l__runner_forth_toks_int {#2} }
-    \cs_set_eq:NN \__runner_forth_recurse: ?
     \prop_put:Nnx \l__runner_forth_words_prop {#1}
-      { \int_eval:n { 100000 + \l__runner_forth_toks_int } }
+      { \int_eval:n { 100000 + #2 } }
+  }
+\cs_new_protected:Npn \__runner_forth_set_word:nn #1#2
+  {
+    \use:x { \tex_toks:D \l__runner_forth_toks_int {#2} }
+    \__runner_forth_set_word_token:nn {#1} \l__runner_forth_toks_int
     \int_incr:N \l__runner_forth_toks_int
   }
-\cs_generate_variant:Nn \__runner_forth_set_word:nn { nx , ox }
+\cs_generate_variant:Nn \__runner_forth_set_word:nn { ox }
 \str_new:N \l__runner_forth_input_word_str
 \str_new:N \l__runner_forth_input_str
 \group_begin:
@@ -540,6 +541,7 @@
       }
   }
 \int_new:N \l__runner_forth_state_address_int
+\int_new:N \l__runner_forth_tib_size_address_int
 \cs_new_protected:Npn \__runner_forth_store_str:NN #1#2
   {
     \tl_replace_all:Nnn #1 { ~ } { {~} }
@@ -587,10 +589,13 @@
     \int_set_eq:NN \l__runner_forth_base_address_int
       \l__runner_forth_data_here_int
     \__runner_forth_put_here:n { 10 }
+    \int_set_eq:NN \l__runner_forth_in_address_int
+      \l__runner_forth_data_here_int
+    \__runner_forth_put_here:n { 0 }
     \int_set_eq:NN \l__runner_forth_state_address_int
       \l__runner_forth_data_here_int
     \__runner_forth_put_here:n { 0 }
-    \int_set_eq:NN \l__runner_forth_in_address_int
+    \int_set_eq:NN \l__runner_forth_tib_size_address_int
       \l__runner_forth_data_here_int
     \__runner_forth_put_here:n { 0 }
     \cs_set_eq:NN \__runner_forth_perform:n \__runner_forth_interpret:n
@@ -967,7 +972,7 @@
     \int_compare:nNnTF \l__runner_tmpa_int = \c_zero
       { \prg_return_false: } { \prg_return_true: }
   }
-\str_new:N \l__runner_forth_def_word_str
+\int_new:N \l__runner_forth_def_token_int
 \tl_new:N \l__runner_forth_def_code_tl
 \seq_new:N \l__runner_forth_def_seq
 \cs_new_protected:Npn \__runner_forth_def_code:x #1
@@ -1051,12 +1056,29 @@
     \__runner_forth_pop_int:N \l__runner_tmpa_int
     \__runner_forth_data_gset:nn {#1} { \l__runner_tmpa_int }
   }
+\__runner_forth_new_core:nn { :NONAME }
+  {
+    \__runner_forth_colon:n
+      { \__runner_forth_push:n { \l__runner_forth_def_token_int } }
+  }
 \__runner_forth_new_core:nn { : }
   {
+    \__runner_forth_input_word:
+    \exp_args:Nx \__runner_forth_colon:n
+      {
+        \__runner_forth_set_word_token:nn
+          { \l__runner_forth_input_word_str }
+          { \l__runner_forth_def_token_int }
+      }
+  }
+\cs_new_protected:Npn \__runner_forth_colon:n #1
+  {
+    \seq_push:NV \l__runner_forth_def_seq \l__runner_forth_def_token_int
+    \int_set_eq:NN \l__runner_forth_def_token_int \l__runner_forth_toks_int
+    \int_incr:N \l__runner_forth_toks_int
     \seq_push:NV \l__runner_forth_def_seq \l__runner_forth_def_code_tl
     \tl_clear:N \l__runner_forth_def_code_tl
-    \__runner_forth_input_word:
-    \seq_push:NV \l__runner_forth_def_seq \l__runner_forth_input_word_str
+    \seq_push:Nn \l__runner_forth_def_seq {#1}
     \__runner_forth_data_gset:nn
       { \l__runner_forth_state_address_int }
       { \c__runner_forth_mod_int - \c_one }
@@ -1085,9 +1107,12 @@
   }
 \cs_new_protected:Npn \__runner_forth_compile_semicolon:x #1
   {
+    \use:x { \tex_toks:D \l__runner_forth_def_token_int {#1} }
     \seq_pop:NN \l__runner_forth_def_seq \l__runner_tmpa_tl
-    \__runner_forth_set_word:ox \l__runner_tmpa_tl {#1}
+    \l__runner_tmpa_tl
     \seq_pop:NN \l__runner_forth_def_seq \l__runner_forth_def_code_tl
+    \seq_pop:NN \l__runner_forth_def_seq \l__runner_tmpa_tl
+    \int_set:Nn \l__runner_forth_def_token_int { \l__runner_tmpa_tl }
     \__runner_forth_data_gset:nn
       { \l__runner_forth_state_address_int } { 0 }
     \cs_set_eq:NN \__runner_forth_perform:n \__runner_forth_interpret:n
@@ -1111,7 +1136,8 @@
       {
         \__runner_forth_set_word:ox \l__runner_forth_def_name_str
           {
-            \__runner_forth_execute:n { \tl_tail:N \l__runner_tmpa_tl }
+            \tex_the:D \tex_toks:D
+              \tl_tail:N \l__runner_tmpa_tl \c_space_tl
             #1
           }
       }
@@ -1167,8 +1193,13 @@
       { \__runner_forth_execute:n { \int_eval:n { #2 + 1 } } }
   }
 \__runner_forth_new_compilation_core:nn { RECURSE }
-  { \__runner_forth_def_code:x { \__runner_forth_recurse: } }
-\cs_new_eq:NN \__runner_forth_recurse: ?
+  {
+    \__runner_forth_def_code:x
+      {
+        \__runner_forth_execute:n
+          { \int_use:N \l__runner_forth_def_token_int }
+      }
+  }
 \__runner_forth_new_core:nn { STATE }
   { \__runner_forth_push:n { \l__runner_forth_state_address_int } }
 \__runner_forth_new_compilation_core:nn { [ }
@@ -1398,6 +1429,13 @@
   }
 \__runner_forth_new_core:nn { TIB }
   { \__runner_forth_push:n { \g__runner_forth_term_min_int } }
+\exp_args:Nx \__runner_forth_new_core:nn { \iow_char:N \# TIB }
+  {
+    \__runner_forth_data_gset:nn
+      { \l__runner_forth_tib_size_address_int }
+      { \l__runner_forth_term_end_int - \g__runner_forth_term_min_int }
+    \__runner_forth_push:n { \l__runner_forth_tib_size_address_int }
+  }
 \__runner_forth_new_core:nn { CHAR }
   {
     \__runner_forth_input_word:

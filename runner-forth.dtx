@@ -209,10 +209,10 @@
 % The following words of the Core extension word set are not implemented:
 % \begin{itemize}
 % \item Case: |CASE|, |ENDCASE|, |OF|, |ENDOF|
-% \item Defi: |:NONAME|, |COMPILE,|, |[COMPILE]|, |MARKER|,
+% \item Defi: |COMPILE,|, |[COMPILE]|, |MARKER|,
 % \item Do l: |?DO|
 % \item Inpu: |C"|, |EXPECT|, |PARSE|, |QUERY|, |REFILL|, |RESTORE-INPUT|,
-%   |SAVE-INPUT|, |SOURCE-ID|, |SPAN|, |#TIB|
+%   |SAVE-INPUT|, |SOURCE-ID|, |SPAN|
 % \item Memo: |UNUSED|
 % \item Nume: |CONVERT|
 % \end{itemize}
@@ -1069,26 +1069,32 @@
 %    \end{macrocode}
 % \end{macro}
 %
+% \begin{macro}[int]{\@@_forth_set_word_token:nn}
+%   The name |#1| is stored (for |IMMEDIATE|).
+%    \begin{macrocode}
+\cs_new_protected:Npn \@@_forth_set_word_token:nn #1#2
+  {
+    \str_set:Nn \l_@@_forth_def_name_str {#1}
+    \prop_put:Nnx \l_@@_forth_words_prop {#1}
+      { \int_eval:n { 100000 + #2 } }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
 % \begin{macro}[int]
 %   {
 %     \@@_forth_set_word:nn,
-%     \@@_forth_set_word:nx,
 %     \@@_forth_set_word:ox
 %   }
 %   The name |#1| is stored (for |IMMEDIATE|).
 %    \begin{macrocode}
 \cs_new_protected:Npn \@@_forth_set_word:nn #1#2
   {
-    \str_set:Nn \l_@@_forth_def_name_str {#1}
-    \cs_set_nopar:Npx \@@_forth_recurse:
-      { \@@_forth_execute:n { \int_use:N \l_@@_forth_toks_int } }
     \use:x { \tex_toks:D \l_@@_forth_toks_int {#2} }
-    \cs_set_eq:NN \@@_forth_recurse: ?
-    \prop_put:Nnx \l_@@_forth_words_prop {#1}
-      { \int_eval:n { 100000 + \l_@@_forth_toks_int } }
+    \@@_forth_set_word_token:nn {#1} \l_@@_forth_toks_int
     \int_incr:N \l_@@_forth_toks_int
   }
-\cs_generate_variant:Nn \@@_forth_set_word:nn { nx , ox }
+\cs_generate_variant:Nn \@@_forth_set_word:nn { ox }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -1422,11 +1428,17 @@
 % \end{macro}
 % \end{variable}
 %
-% \begin{variable}{\l_@@_forth_state_address_int}
+% \begin{variable}
+%   {
+%     \l_@@_forth_state_address_int,
+%     \l_@@_forth_tib_size_address_int
+%   }
 %   Address of the |STATE| flag, \(0\) during interpretation,
-%   \(2^{24}-1\) during compilation.
+%   \(2^{24}-1\) during compilation.  Address where the terminal input
+%   buffer's size is stored when |#TIB| is called.
 %    \begin{macrocode}
 \int_new:N \l_@@_forth_state_address_int
+\int_new:N \l_@@_forth_tib_size_address_int
 %    \end{macrocode}
 % \end{variable}
 %
@@ -1486,10 +1498,10 @@
 % ^^A todo: normalize newlines?
 % \begin{macro}[int]{\@@_forth_init:}
 %   Initialize the data space.  Initialize the code space.  Initialize
-%   the name space.  Store a |BASE| of \(10\) and a |STATE| flag of
-%   \texttt{false} (0), starting interpretation.  Concatenate the
-%   program string and the input string, with a newline in between and
-%   at the end.
+%   the name space.  Store a |BASE| of \(10\) and an |>IN| value of
+%   \(0\), a |STATE| flag of \texttt{false} (0), and a |#TIB| of \(0\),
+%   starting interpretation.  Concatenate the program string and the
+%   input string, with a newline in between and at the end.
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \@@_forth_init:
   {
@@ -1506,10 +1518,13 @@
     \int_set_eq:NN \l_@@_forth_base_address_int
       \l_@@_forth_data_here_int
     \@@_forth_put_here:n { 10 }
+    \int_set_eq:NN \l_@@_forth_in_address_int
+      \l_@@_forth_data_here_int
+    \@@_forth_put_here:n { 0 }
     \int_set_eq:NN \l_@@_forth_state_address_int
       \l_@@_forth_data_here_int
     \@@_forth_put_here:n { 0 }
-    \int_set_eq:NN \l_@@_forth_in_address_int
+    \int_set_eq:NN \l_@@_forth_tib_size_address_int
       \l_@@_forth_data_here_int
     \@@_forth_put_here:n { 0 }
     \cs_set_eq:NN \@@_forth_perform:n \@@_forth_interpret:n
@@ -2191,6 +2206,7 @@
       { \@@_forth_compiled_if:TF {#1} {#2} }
   }
 %    \end{macrocode}
+% ^^A todo: rename ...compile_then:nn to :TF.
 % \end{macro}
 % \end{macro}
 %
@@ -2208,25 +2224,27 @@
 % \subsubsection{Defining words}
 %
 % This section defines the words |CONSTANT|, |CREATE|, |VARIABLE|,
-% |>BODY|, |VALUE|, |TO|, |:|, |DOES>|, |;|, |IMMEDIATE|, |LITERAL|,
-% |POSTPONE|, |RECURSE|, |STATE|, |[|, |]|.
+% |>BODY|, |VALUE|, |TO|, |:NONAME|, |:|, |DOES>|, |;|, |IMMEDIATE|,
+% |LITERAL|, |POSTPONE|, |RECURSE|, |STATE|, |[|, |]|.
 %
-% \begin{variable}{\l_@@_forth_def_word_str, \l_@@_forth_def_code_tl}
-%   The word whose definition is being built (empty for, \eg, |:NONAME|
-%   definitions), and the definition code.
+% \begin{variable}{\l_@@_forth_def_token_int, \l_@@_forth_def_code_tl}
+%   The execution token whose definition is being built, and the
+%   definition code.
 %    \begin{macrocode}
-\str_new:N \l_@@_forth_def_word_str
+\int_new:N \l_@@_forth_def_token_int
 \tl_new:N \l_@@_forth_def_code_tl
 %    \end{macrocode}
 % \end{variable}
 %
 % \begin{variable}{\l_@@_forth_def_seq}
 %   A sequence holding information used when ending a definition.  Items
-%   are of two types: words, and their partial definition.  When a
-%   control-flow word is encountered, the partial definition is stored.
-%   Once a definition finishes, the variables
-%   \cs{l_@@_forth_def_word_str} and \cs{l_@@_forth_def_code_tl} are
-%   restored to the values given at the top of the sequence.
+%   are of three types: execution tokens, their partial definition, and
+%   code to tie those execution tokens to words (or push the execution
+%   token onto the stack, for |:NONAME|).  When a control-flow word is
+%   encountered, the partial definition is stored.  Once a definition
+%   finishes, the variables \cs{l_@@_forth_def_token_int} and
+%   \cs{l_@@_forth_def_code_tl} are restored to the values given at the
+%   top of the sequence.
 %    \begin{macrocode}
 \seq_new:N \l_@@_forth_def_seq
 %    \end{macrocode}
@@ -2385,18 +2403,44 @@
 % \end{macro}
 %
 % ^^A todo: what is the compilation semantics of the colon word?
-% \begin{macro}[int]{:}
-%   Store the definition built previously in the \texttt{def} sequence
-%   (to restore it once we are done).  Read a word and store it.  Then
-%   switch to compiling state, and indicate in the control-flow stack
-%   that a definition is in progress (magic number \(0\)).
+% \begin{macro}[int]{:NONAME, :}
+% \begin{macro}[aux]{\@@_forth_colon:n}
+%   The words |:| have a lot of code in common, but the code performed
+%   at the end of the definition is different: namely, |:NONAME| pushes
+%   the execution token just defined onto the stack, while |:| stores it
+%   as the new meaning of a word, read from the input when |:| is
+%   executed.  The common auxiliary goes as follows.  Store in the
+%   \texttt{def} sequence the value of the execution token which is
+%   being defined (if any), and set this variable to a newly provided
+%   execution token.  Store the definition built previously (to restore
+%   it once we are done), and empty the variable.  Store the code to be
+%   performed at the matching |;|.  Then switch to compiling state, and
+%   indicate in the control-flow stack that a definition is in progress
+%   (magic number \(0\)).
 %    \begin{macrocode}
+\@@_forth_new_core:nn { :NONAME }
+  {
+    \@@_forth_colon:n
+      { \@@_forth_push:n { \l_@@_forth_def_token_int } }
+  }
 \@@_forth_new_core:nn { : }
   {
+    \@@_forth_input_word:
+    \exp_args:Nx \@@_forth_colon:n
+      {
+        \@@_forth_set_word_token:nn
+          { \l_@@_forth_input_word_str }
+          { \l_@@_forth_def_token_int }
+      }
+  }
+\cs_new_protected:Npn \@@_forth_colon:n #1
+  {
+    \seq_push:NV \l_@@_forth_def_seq \l_@@_forth_def_token_int
+    \int_set_eq:NN \l_@@_forth_def_token_int \l_@@_forth_toks_int
+    \int_incr:N \l_@@_forth_toks_int
     \seq_push:NV \l_@@_forth_def_seq \l_@@_forth_def_code_tl
     \tl_clear:N \l_@@_forth_def_code_tl
-    \@@_forth_input_word:
-    \seq_push:NV \l_@@_forth_def_seq \l_@@_forth_input_word_str
+    \seq_push:Nn \l_@@_forth_def_seq {#1}
     \@@_forth_data_gset:nn
       { \l_@@_forth_state_address_int }
       { \c_@@_forth_mod_int - \c_one }
@@ -2404,6 +2448,8 @@
     \@@_forth_control_open:n { 0 }
   }
 %    \end{macrocode}
+% ^^A todo: introduce state-switching auxiliaries.
+% \end{macro}
 % \end{macro}
 %
 % \begin{macro}[int]{DOES>}
@@ -2428,12 +2474,13 @@
 % \begin{macro}[int]{;}
 % \begin{macro}[aux]{\@@_forth_compile_semicolon:x}
 %   If the |;| matches a start-of-definition on the control stack (magic
-%   number \(0\)), then get from the \texttt{def} stack the name of the
-%   word to define, and assign it the definition code.  Then restore the
-%   former value of \cs{l_@@_forth_def_code_tl}, and go back to
-%   interpretation state.  If the |;| matches a |DOES>| (magic number
-%   \(-1\)), then call an auxiliary function, because there is a lot of
-%   work to do.
+%   number \(0\)), then define the \texttt{def_token} to perform the
+%   \texttt{def_code} that we collected, and perform the end-definition
+%   code stored in the \texttt{def} stack (either push the token to the
+%   stack, or store it in a word).  Afterwards, restore the former
+%   values of \texttt{def_code} and the \texttt{def_token} integer, and
+%   go back to interpreting.  If the |;| matches a |DOES>| (magic number
+%   \(-1\)), there is a bit more work.
 %    \begin{macrocode}
 \@@_forth_new_compilation_core:nn { ; }
   {
@@ -2447,9 +2494,12 @@
   }
 \cs_new_protected:Npn \@@_forth_compile_semicolon:x #1
   {
+    \use:x { \tex_toks:D \l_@@_forth_def_token_int {#1} }
     \seq_pop:NN \l_@@_forth_def_seq \l_@@_tmpa_tl
-    \@@_forth_set_word:ox \l_@@_tmpa_tl {#1}
+    \l_@@_tmpa_tl
     \seq_pop:NN \l_@@_forth_def_seq \l_@@_forth_def_code_tl
+    \seq_pop:NN \l_@@_forth_def_seq \l_@@_tmpa_tl
+    \int_set:Nn \l_@@_forth_def_token_int { \l_@@_tmpa_tl }
     \@@_forth_data_gset:nn
       { \l_@@_forth_state_address_int } { 0 }
     \cs_set_eq:NN \@@_forth_perform:n \@@_forth_interpret:n
@@ -2465,15 +2515,15 @@
 % \begin{macro}[int]{\@@_forth_compile_does:, \@@_forth_compiled_does:n}
 %   The \texttt{compile_does} function is called when compiling a |;|
 %   that closes a |DOES>|.  Retrieve the first part of the definition
-%   from the \texttt{def} stack, then perform the definition of the
-%   current word (the name is stored further down the stack, see the
-%   \texttt{compile_semicolon} function), with the code before |DOES>|
-%   and the \texttt{compiled_does} function, feeding it the code between
-%   |DOES>| and~|;|.  At run-time, \texttt{compiled_does} fetches the
-%   most recent definition, which hopefully was introduced via |CREATE|,
-%   and redefines the word to perform the current execution token of the
-%   word, followed by~|#1|, which is the code that followed |DOES>| in
-%   the original definition.
+%   from the \texttt{def} stack, then perform the definition as for
+%   definitions which do not contain |DOES>|.  The code is obtained as
+%   the code \texttt{tmpc} collected before |DOES>|, then the
+%   \texttt{compiled_does} function, applied to the code collected
+%   between |DOES>| and~|;|.  At run-time, \texttt{compiled_does}
+%   fetches the most recent definition, which hopefully was introduced
+%   via |CREATE|, and redefines the word to perform the current
+%   execution token of the word, followed by~|#1|, which is the code
+%   that followed |DOES>| in the original definition.
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \@@_forth_compile_does:
   {
@@ -2494,7 +2544,8 @@
       {
         \@@_forth_set_word:ox \l_@@_forth_def_name_str
           {
-            \@@_forth_execute:n { \tl_tail:N \l_@@_tmpa_tl }
+            \tex_the:D \tex_toks:D
+              \tl_tail:N \l_@@_tmpa_tl \c_space_tl
             #1
           }
       }
@@ -2577,19 +2628,18 @@
 % \end{macro}
 %
 % \begin{macro}[int]{RECURSE}
-% \begin{macro}[aux]{\@@_forth_recurse:}
-%   The command \cs{@@_forth_recurse:} is non-expandable, and goes
-%   unchanged through all the expansions performed to collect the
-%   definition.  At the very last step, just before storing the
-%   definition into a \tn{toks} register, \cs{@@_forth_recurse:} is
-%   defined to call the appropriate execution token to call the function
-%   itself.
+%   Insert in the definition code that runs the execution token
+%   \texttt{def_token} being defined.
 %    \begin{macrocode}
 \@@_forth_new_compilation_core:nn { RECURSE }
-  { \@@_forth_def_code:x { \@@_forth_recurse: } }
-\cs_new_eq:NN \@@_forth_recurse: ?
+  {
+    \@@_forth_def_code:x
+      {
+        \@@_forth_execute:n
+          { \int_use:N \l_@@_forth_def_token_int }
+      }
+  }
 %    \end{macrocode}
-% \end{macro}
 % \end{macro}
 %
 % \begin{macro}[int]{STATE}
@@ -2969,8 +3019,8 @@
 %
 % \subsubsection{Input}
 %
-% This section defines |>IN|, |SOURCE|, |TIB|, |CHAR|, |[CHAR]|, |(|,
-% |\|, |WORD|, |COUNT|, |S"|, |EVALUATE|, |ACCEPT|.  ^^A)
+% This section defines |>IN|, |SOURCE|, |TIB|, |#TIB|, |CHAR|, |[CHAR]|,
+% |(|, |\|, |WORD|, |COUNT|, |S"|, |EVALUATE|, |ACCEPT|.  ^^A)
 %
 % \begin{macro}[int]{>IN}
 %   Push the address where the input buffer offset is stored.
@@ -2998,6 +3048,20 @@
 %    \begin{macrocode}
 \@@_forth_new_core:nn { TIB }
   { \@@_forth_push:n { \g_@@_forth_term_min_int } }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int]+#TIB+
+%   Store the size of the terminal input buffer into a designated cell
+%   \texttt{tib_size_address}, then push this address onto the stack.
+%    \begin{macrocode}
+\exp_args:Nx \@@_forth_new_core:nn { \iow_char:N \# TIB }
+  {
+    \@@_forth_data_gset:nn
+      { \l_@@_forth_tib_size_address_int }
+      { \l_@@_forth_term_end_int - \g_@@_forth_term_min_int }
+    \@@_forth_push:n { \l_@@_forth_tib_size_address_int }
+  }
 %    \end{macrocode}
 % \end{macro}
 %
