@@ -1261,6 +1261,8 @@
     \__runner_forth_return_pop_int:N \l__runner_tmpa_int
     \__runner_forth_return_pop_int:N \l__runner_tmpb_int
   }
+\__runner_forth_new_core:nn { PAD }
+  { \__runner_forth_push:n { \g__runner_forth_pad_min_int } }
 \__runner_forth_new_core:nn { ENVIRONMENT? }
   {
     \__runner_forth_pop_int:NN \l__runner_tmpa_int \l__runner_tmpb_int

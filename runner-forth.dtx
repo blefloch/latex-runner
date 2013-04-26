@@ -211,7 +211,6 @@
 % \item Case: |CASE|, |ENDCASE|, |OF|, |ENDOF|
 % \item Defi: |:NONAME|, |COMPILE,|, |[COMPILE]|, |MARKER|,
 % \item Do l: |?DO|
-% \item Envi: |PAD|
 % \item Inpu: |C"|, |EXPECT|, |PARSE|, |QUERY|, |REFILL|, |RESTORE-INPUT|,
 %   |SAVE-INPUT|, |SOURCE-ID|, |SPAN|, |#TIB|
 % \item Memo: |UNUSED|
@@ -2759,7 +2758,16 @@
 %
 % \subsubsection{Environmental queries}
 %
-% This section defines the word |ENVIRONMENT?| and its associated data.
+% This section defines the words |PAD|, |ENVIRONMENT?|, and its
+% associated data.
+%
+% \begin{macro}[int]{PAD}
+%   Pushes on top of the stack the address of the pad area.
+%    \begin{macrocode}
+\@@_forth_new_core:nn { PAD }
+  { \@@_forth_push:n { \g_@@_forth_pad_min_int } }
+%    \end{macrocode}
+% \end{macro}
 %
 % \begin{macro}[int]{ENVIRONMENT?}
 % \begin{macro}[aux]{\@@_forth_environment_aux:n}
