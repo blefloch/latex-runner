@@ -213,6 +213,13 @@
   \runner{forth}[output, output-stream = \z@]|
     564 . 453 . boom CR boom 897 .
   |||
+
+  \runner{forth}[output, output-stream = \z@]|
+    : x 0 . ;
+    MARKER revert
+    : x 1 . ;
+    : y 2 . ;
+  ||x y revert x y revert|
 }
 
 \runner{forth}[output = \result, output-stream = \z@]|

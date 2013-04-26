@@ -347,7 +347,7 @@
   }
 \cs_new_protected:Npn \__runner_forth_set_word:nn #1#2
   {
-    \use:x { \tex_toks:D \l__runner_forth_toks_int {#2} }
+    \tex_toks:D \l__runner_forth_toks_int {#2}
     \__runner_forth_set_word_token:nn {#1} \l__runner_forth_toks_int
     \int_incr:N \l__runner_forth_toks_int
   }
@@ -1168,6 +1168,17 @@
     \__runner_forth_pop_int:N \l__runner_tmpa_int
     \__runner_forth_def_code:x
       { \__runner_forth_push:n { \int_use:N \l__runner_tmpa_int } }
+  }
+\__runner_forth_new_core:nn { MARKER }
+  {
+    \__runner_forth_input_word:
+    \__runner_forth_set_word:ox \l__runner_forth_input_word_str
+      {
+        \int_set:Nn \l__runner_forth_toks_int
+          { \int_use:N \l__runner_forth_toks_int }
+        \tl_set:Nn \exp_not:N \l__runner_forth_words_prop
+          { \exp_not:V \l__runner_forth_words_prop }
+      }
   }
 \__runner_forth_new_compilation_core:nn { POSTPONE }
   {

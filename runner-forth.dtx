@@ -209,7 +209,7 @@
 % The following words of the Core extension word set are not implemented:
 % \begin{itemize}
 % \item Case: |CASE|, |ENDCASE|, |OF|, |ENDOF|
-% \item Defi: |COMPILE,|, |[COMPILE]|, |MARKER|,
+% \item Defi: |COMPILE,|, |[COMPILE]|,
 % \item Do l: |?DO|
 % \item Inpu: |C"|, |EXPECT|, |PARSE|, |QUERY|, |REFILL|, |RESTORE-INPUT|,
 %   |SAVE-INPUT|, |SOURCE-ID|, |SPAN|
@@ -1090,7 +1090,7 @@
 %    \begin{macrocode}
 \cs_new_protected:Npn \@@_forth_set_word:nn #1#2
   {
-    \use:x { \tex_toks:D \l_@@_forth_toks_int {#2} }
+    \tex_toks:D \l_@@_forth_toks_int {#2}
     \@@_forth_set_word_token:nn {#1} \l_@@_forth_toks_int
     \int_incr:N \l_@@_forth_toks_int
   }
@@ -2225,7 +2225,7 @@
 %
 % This section defines the words |CONSTANT|, |CREATE|, |VARIABLE|,
 % |>BODY|, |VALUE|, |TO|, |:NONAME|, |:|, |DOES>|, |;|, |IMMEDIATE|,
-% |LITERAL|, |POSTPONE|, |RECURSE|, |STATE|, |[|, |]|.
+% |LITERAL|, |MARKER|, |POSTPONE|, |RECURSE|, |STATE|, |[|, |]|.
 %
 % \begin{variable}{\l_@@_forth_def_token_int, \l_@@_forth_def_code_tl}
 %   The execution token whose definition is being built, and the
@@ -2590,6 +2590,23 @@
     \@@_forth_pop_int:N \l_@@_tmpa_int
     \@@_forth_def_code:x
       { \@@_forth_push:n { \int_use:N \l_@@_tmpa_int } }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% ^^A todo: document use of LaTeX3 prop implementation quirk.
+% \begin{macro}[int]{MARKER}
+%    \begin{macrocode}
+\@@_forth_new_core:nn { MARKER }
+  {
+    \@@_forth_input_word:
+    \@@_forth_set_word:ox \l_@@_forth_input_word_str
+      {
+        \int_set:Nn \l_@@_forth_toks_int
+          { \int_use:N \l_@@_forth_toks_int }
+        \tl_set:Nn \exp_not:N \l_@@_forth_words_prop
+          { \exp_not:V \l_@@_forth_words_prop }
+      }
   }
 %    \end{macrocode}
 % \end{macro}
