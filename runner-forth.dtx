@@ -211,7 +211,7 @@
 % \item Case: |CASE|, |ENDCASE|, |OF|, |ENDOF|
 % \item Defi: |COMPILE,|, |[COMPILE]|,
 % \item Do l: |?DO|
-% \item Inpu: |C"|, |EXPECT|, |QUERY|, |REFILL|, |RESTORE-INPUT|,
+% \item Inpu: |EXPECT|, |QUERY|, |REFILL|, |RESTORE-INPUT|,
 %   |SAVE-INPUT|, |SOURCE-ID|, |SPAN|
 % \item Nume: |CONVERT|
 % \end{itemize}
@@ -3195,21 +3195,39 @@
 % \end{macro}
 %
 % ^^A todo: is S" allowed to overlap with the region of WORD or #> ?
-% \begin{macro}[int]+S"+ Read a double-quoted string and measure its
-%   length \texttt{tmpa}.  Try to allocate that much space for a text
-%   literal, decreasing the \texttt{data_text} integer.  If this enters
-%   the allotted region, complain, and forget the string.  Otherwise,
-%   the string will start at the address \texttt{data_text} (new) and
-%   have length \texttt{tmpa}, so we add to the current definition code
-%   that pushes those onto the stack.  Finally, store the string, by
-%   looping over it (spaces are first protected to avoid losing them),
-%   keeping track of the address of each character using \texttt{tmpb}.
+% \begin{macro}[int]+S"+
+% \begin{macro}[int]+C"+
+% \begin{macro}[aux]{\@@_forth_squote:nnn}
+%   Read a double-quoted string and measure its length \texttt{tmpa}.
+%   Try to allocate that much space (plus \(1\) for |C"| to include the
+%   string size) for a text literal, decreasing the \texttt{data_text}
+%   integer.  If this enters the allotted region, complain.  Otherwise,
+%   the (counted) string will start at the new address
+%   \texttt{data_text} and have length \texttt{tmpa}, so we add to the
+%   current definition code that pushes the appropriate data onto the
+%   stack.  Finally, store the string, keeping track of the address of
+%   each character using \texttt{tmpb}.  In the case of |C"|, store the
+%   length before the string.
 %    \begin{macrocode}
 \@@_forth_new_compilation_core:nn { S" }
   {
+    \@@_forth_squote:nnn { }
+      { \@@_forth_push:n { \int_use:N \l_@@_tmpa_int } } { }
+  }
+\@@_forth_new_compilation_core:nn { C" }
+  {
+    \@@_forth_squote:nnn { + 1 } { }
+      {
+        \@@_forth_data_gset:nn \l_@@_tmpb_int \l_@@_tmpa_int
+        \int_incr:N \l_@@_tmpb_int
+      }
+  }
+\cs_new_protected:Npn \@@_forth_squote:nnn #1#2#3
+  {
     \@@_forth_input_until:n { `" }
-    \int_set:Nn \l_@@_tmpa_int { \str_count:N \l_@@_forth_input_word_str }
-    \int_sub:Nn \l_@@_forth_data_text_int { \l_@@_tmpa_int }
+    \int_set:Nn \l_@@_tmpa_int
+      { \str_count:N \l_@@_forth_input_word_str }
+    \int_sub:Nn \l_@@_forth_data_text_int { \l_@@_tmpa_int #1 }
     \int_compare:nNnTF
       \l_@@_forth_data_text_int < \l_@@_forth_data_here_int
       {
@@ -3220,16 +3238,18 @@
       {
         \@@_forth_def_code:x
           {
-            \@@_forth_push:nn
-              { \int_use:N \l_@@_forth_data_text_int }
-              { \int_use:N \l_@@_tmpa_int }
+            \@@_forth_push:n { \int_use:N \l_@@_forth_data_text_int }
+            #2
           }
         \int_set_eq:NN \l_@@_tmpb_int \l_@@_forth_data_text_int
-        \tl_set_eq:NN \l_@@_tmpa_tl \l_@@_forth_input_word_str
-        \@@_forth_store_str:NN \l_@@_tmpa_tl \l_@@_tmpb_int
+        #3
+        \@@_forth_store_str:NN \l_@@_forth_input_word_str
+          \l_@@_tmpb_int
       }
   }
 %    \end{macrocode}
+% \end{macro}
+% \end{macro}
 % \end{macro}
 %
 % ^^A todo: bug?  Should ': X 0 S" 1 ." EVALUATE . ; X' give '0 1' or '1 0'?

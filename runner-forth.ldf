@@ -1501,9 +1501,23 @@
   }
 \__runner_forth_new_compilation_core:nn { S" }
   {
+    \__runner_forth_squote:nnn { }
+      { \__runner_forth_push:n { \int_use:N \l__runner_tmpa_int } } { }
+  }
+\__runner_forth_new_compilation_core:nn { C" }
+  {
+    \__runner_forth_squote:nnn { + 1 } { }
+      {
+        \__runner_forth_data_gset:nn \l__runner_tmpb_int \l__runner_tmpa_int
+        \int_incr:N \l__runner_tmpb_int
+      }
+  }
+\cs_new_protected:Npn \__runner_forth_squote:nnn #1#2#3
+  {
     \__runner_forth_input_until:n { `" }
-    \int_set:Nn \l__runner_tmpa_int { \str_count:N \l__runner_forth_input_word_str }
-    \int_sub:Nn \l__runner_forth_data_text_int { \l__runner_tmpa_int }
+    \int_set:Nn \l__runner_tmpa_int
+      { \str_count:N \l__runner_forth_input_word_str }
+    \int_sub:Nn \l__runner_forth_data_text_int { \l__runner_tmpa_int #1 }
     \int_compare:nNnTF
       \l__runner_forth_data_text_int < \l__runner_forth_data_here_int
       {
@@ -1514,13 +1528,13 @@
       {
         \__runner_forth_def_code:x
           {
-            \__runner_forth_push:nn
-              { \int_use:N \l__runner_forth_data_text_int }
-              { \int_use:N \l__runner_tmpa_int }
+            \__runner_forth_push:n { \int_use:N \l__runner_forth_data_text_int }
+            #2
           }
         \int_set_eq:NN \l__runner_tmpb_int \l__runner_forth_data_text_int
-        \tl_set_eq:NN \l__runner_tmpa_tl \l__runner_forth_input_word_str
-        \__runner_forth_store_str:NN \l__runner_tmpa_tl \l__runner_tmpb_int
+        #3
+        \__runner_forth_store_str:NN \l__runner_forth_input_word_str
+          \l__runner_tmpb_int
       }
   }
 \__runner_forth_new_core:nn { EVALUATE }
