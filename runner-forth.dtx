@@ -207,10 +207,7 @@
 % \end{center}
 %
 % The following words of the Core extension word set are not implemented:
-% \begin{itemize}
-% \item Case: |CASE|, |ENDCASE|, |OF|, |ENDOF|
-% \item Inpu: |EXPECT|, |QUERY|, |RESTORE-INPUT|, |SAVE-INPUT|, |SPAN|
-% \end{itemize}
+% |EXPECT|, |QUERY|, |RESTORE-INPUT|, |SAVE-INPUT|, |SPAN|.
 %
 % \end{runner-documentation}
 %
@@ -863,12 +860,22 @@
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[int, TF]{\@@_forth_control_close:n}
+% \begin{macro}[int, TF]{\@@_forth_control_close:n, \@@_forth_control_if:n}
+% \begin{macro}[aux]{\@@_forth_control_if_aux:nn}
 %   Read the top of the control-flow stack if not empty.  If this
-%   matches with |#1|, remove it (by shifting \texttt{control_here}),
-%   and return \texttt{true}, otherwise \texttt{false}.
+%   matches with |#1|, \texttt{control_close} removes it (by shifting
+%   \texttt{control_here}), while \texttt{control_if} does not.  Return
+%   \texttt{true} if the top of the control stack matched the argument;
+%   otherwise \texttt{false}.
 %    \begin{macrocode}
 \prg_new_protected_conditional:Npnn \@@_forth_control_close:n #1 { TF }
+  {
+    \@@_forth_control_if_aux:nn {#1}
+      { \int_decr:N \l_@@_forth_control_here_int }
+  }
+\prg_new_protected_conditional:Npnn \@@_forth_control_if:n #1 { TF }
+  { \@@_forth_control_if_aux:nn {#1} { } }
+\cs_new_protected:Npn \@@_forth_control_if_aux:nn #1#2
   {
     \int_compare:nNnTF
       \l_@@_forth_control_here_int > \g_@@_forth_control_min_int
@@ -879,15 +886,13 @@
               { \l_@@_forth_control_here_int - 1 }
           }
           = {#1}
-          {
-            \int_decr:N \l_@@_forth_control_here_int
-            \prg_return_true:
-          }
+          { #2 \prg_return_true: }
           { \prg_return_false: }
       }
       { \prg_return_false: }
   }
 %    \end{macrocode}
+% \end{macro}
 % \end{macro}
 %
 % \subsubsection{Manipulating the return stack}
@@ -2140,7 +2145,8 @@
 %
 % \subsubsection{Conditionals}
 %
-% This section defines the words |IF|, |ELSE|, |THEN|.
+% This section defines the words |IF|, |ELSE|, |THEN|, |CASE|, |OF|,
+% |ENDOF|, |ENDCASE|.
 %
 % \begin{macro}[int]{IF}
 %   Save the definition-so-far in the \texttt{def} stack, and empty that
@@ -2219,6 +2225,94 @@
       { \prg_return_false: } { \prg_return_true: }
   }
 %    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int]{CASE}
+%   Copy the current definition code to a safe place, and place \(4\)
+%   (magic number for |CASE|) onto the control-flow stack.
+%    \begin{macrocode}
+\@@_forth_new_compilation_core:nn { CASE }
+  { \@@_forth_control_open:n { 4 } }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int]{OF}
+%   Make sure the previous control-flow word was |CASE|, and leave that
+%   item onto the control flow stack.  Place \(5\) onto the control-flow
+%   stack.
+%    \begin{macrocode}
+\@@_forth_new_compilation_core:nn { OF }
+  {
+    \@@_forth_control_if:nTF { 4 }
+      { \@@_forth_control_open:n { 5 } }
+      { \msg_error:nnn { runner/forth } { misplaced } { OF } }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int]{ENDOF}
+% \begin{macro}[aux]{\@@_forth_compiled_of:n}
+%   Make sure the previous control-flow word was |OF|.  Go back to the
+%   previously built definition code, and append to it the
+%   \texttt{compiled_of} function, with as its argument the code
+%   collected between |OF| and |ENDOF|.  At run-time, compare the two
+%   topmost items on the stack: if they are equal, break to the end of
+%   the |CASE...ENDCASE| construct and perform the code for that
+%   |OF...ENDOF| clause; otherwise push back the case element, for
+%   comparisons with further |OF...ENDOF| clauses.
+%    \begin{macrocode}
+\@@_forth_new_compilation_core:nn { ENDOF }
+  {
+    \@@_forth_control_close:nTF { 5 }
+      {
+        \tl_set_eq:NN \l_@@_tmpa_tl \l_@@_forth_def_code_tl
+        \seq_pop:NN \l_@@_forth_def_seq \l_@@_forth_def_code_tl
+        \@@_forth_def_code:x
+          { \@@_forth_compiled_of:n { \l_@@_tmpa_tl } }
+      }
+      { \msg_error:nnn { runner/forth } { misplaced } { ENDOF } }
+  }
+\cs_new_protected:Npn \@@_forth_compiled_of:n #1
+  {
+    \@@_forth_pop_int:NN \l_@@_tmpa_int \l_@@_tmpb_int
+    \int_compare:nNnTF \l_@@_tmpa_int = \l_@@_tmpb_int
+      { \@@_break:n {#1} }
+      { \@@_forth_push:n \l_@@_tmpa_int }
+  }
+%    \end{macrocode}
+% \end{macro}
+% \end{macro}
+%
+% ^^A todo: test nested CASE...ENDCASE.
+% \begin{macro}[int]{ENDCASE}
+% \begin{macro}[aux]{\@@_forth_compiled_case:n}
+%   An |ENDCASE| word should match with |CASE| (magic number \(4\) on
+%   the control flow stack).  Restore the definition collected before
+%   |CASE|, and append \texttt{compiled_case} with the code collected
+%   within |CASE...ENDCASE| as its argument.  This function, performed
+%   at run-time, simply sets up the necessary end-marker to allow
+%   |OF...ENDOF| clauses to jump out of the |CASE...ENDCASE| block.  If
+%   none of the clauses match, the case value is dropped before exiting.
+%    \begin{macrocode}
+\@@_forth_new_compilation_core:nn { ENDCASE }
+  {
+    \@@_forth_control_close:nTF { 4 }
+      {
+        \tl_set_eq:NN \l_@@_tmpa_tl \l_@@_forth_def_code_tl
+        \seq_pop:NN \l_@@_forth_def_seq \l_@@_forth_def_code_tl
+        \@@_forth_def_code:x
+          { \@@_forth_compiled_case:n { \l_@@_tmpa_tl } }
+      }
+      { \msg_error:nnn { runner/forth } { misplaced } { ENDCASE } }
+  }
+\cs_new_protected:Npn \@@_forth_compiled_case:n #1
+  {
+    #1
+    \@@_forth_pop_int:N \l_@@_tmpa_int
+    \@@_break_point:n { }
+  }
+%    \end{macrocode}
+% \end{macro}
 % \end{macro}
 %
 % \subsubsection{Defining words}
@@ -4232,12 +4326,12 @@
 % \begin{macro}[int]{>R, 2>R}
 %   Pop one or two cells from the data stack onto the return stack.
 %    \begin{macrocode}
-\@@_forth_new_compilation_core:nn { >R }
+\@@_forth_new_core:nn { >R }
   {
     \@@_forth_pop_int:N \l_@@_tmpa_int
     \@@_forth_return_push:n \l_@@_tmpa_int
   }
-\@@_forth_new_compilation_core:nn { 2>R }
+\@@_forth_new_core:nn { 2>R }
   {
     \@@_forth_pop_int:NN \l_@@_tmpa_int \l_@@_tmpb_int
     \@@_forth_return_push:n \l_@@_tmpa_int

@@ -109,6 +109,19 @@
 \typeout{\result}
 
 \runner{forth}[output = \result]|
+  : factorial DUP
+  CASE
+    0 OF DROP 1 EXIT ENDOF
+    1 OF DROP 1 EXIT ENDOF
+  ENDCASE
+  DUP 1- RECURSE * ;
+||
+  2 factorial .
+  7 factorial .
+|
+\typeout{\result}
+
+\runner{forth}[output = \result]|
   CHAR foobar EMIT|||
 \typeout{\result}
 
