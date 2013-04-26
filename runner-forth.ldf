@@ -241,6 +241,8 @@
   { \__runner_forth_push:n { \__runner_forth_data_get:n {#1} } }
 \cs_new_protected:Npn \__runner_forth_control_open:n #1
   {
+    \seq_push:NV \l__runner_forth_def_seq \l__runner_forth_def_code_tl
+    \tl_clear:N \l__runner_forth_def_code_tl
     \int_compare:nNnTF
       \l__runner_forth_control_here_int < \g__runner_forth_control_max_int
       {
@@ -933,30 +935,22 @@
       { \__runner_forth_push:n { \l__runner_tmpa_int } }
   }
 \__runner_forth_new_compilation_core:nn { IF }
-  {
-    \seq_push:NV \l__runner_forth_def_seq \l__runner_forth_def_code_tl
-    \tl_clear:N \l__runner_forth_def_code_tl
-    \__runner_forth_control_open:n { 3 }
-  }
+  { \__runner_forth_control_open:n { 2 } }
 \__runner_forth_new_compilation_core:nn { ELSE }
   {
-    \__runner_forth_control_close:nTF { 3 }
-      {
-        \seq_push:NV \l__runner_forth_def_seq \l__runner_forth_def_code_tl
-        \tl_clear:N \l__runner_forth_def_code_tl
-        \__runner_forth_control_open:n { 4 }
-      }
+    \__runner_forth_control_close:nTF { 2 }
+      { \__runner_forth_control_open:n { 3 } }
       { \msg_error:nnn { runner/forth } { misplaced } { ELSE } }
   }
 \__runner_forth_new_compilation_core:nn { THEN }
   {
-    \__runner_forth_control_close:nTF { 3 }
+    \__runner_forth_control_close:nTF { 2 }
       {
         \exp_args:NV \__runner_forth_compile_then:nn
           \l__runner_forth_def_code_tl { }
       }
       {
-        \__runner_forth_control_close:nTF { 4 }
+        \__runner_forth_control_close:nTF { 3 }
           {
             \seq_pop:NN \l__runner_forth_def_seq \l__runner_tmpa_tl
             \exp_args:NVV \__runner_forth_compile_then:nn
@@ -1081,23 +1075,17 @@
     \seq_push:NV \l__runner_forth_def_seq \l__runner_forth_def_token_int
     \int_set_eq:NN \l__runner_forth_def_token_int \l__runner_forth_toks_int
     \int_incr:N \l__runner_forth_toks_int
-    \seq_push:NV \l__runner_forth_def_seq \l__runner_forth_def_code_tl
-    \tl_clear:N \l__runner_forth_def_code_tl
+    \__runner_forth_control_open:n { 0 }
     \seq_push:Nn \l__runner_forth_def_seq {#1}
     \__runner_forth_data_gset:nn
       { \l__runner_forth_state_address_int }
       { \c__runner_forth_mod_int - \c_one }
     \cs_set_eq:NN \__runner_forth_perform:n \__runner_forth_compile:n
-    \__runner_forth_control_open:n { 0 }
   }
 \__runner_forth_new_compilation_core:nn { DOES> }
   {
     \__runner_forth_control_close:nTF { 0 }
-      {
-        \seq_push:NV \l__runner_forth_def_seq \l__runner_forth_def_code_tl
-        \tl_clear:N \l__runner_forth_def_code_tl
-        \__runner_forth_control_open:n { 1 }
-      }
+      { \__runner_forth_control_open:n { 1 } }
       { \msg_error:nnn { runner/forth } { misplaced } { DOES> } }
   }
 \__runner_forth_new_compilation_core:nn { ; }
@@ -1242,17 +1230,9 @@
   }
 \bool_new:N \l__runner_forth_loop_bool
 \__runner_forth_new_compilation_core:nn { DO }
-  {
-    \seq_push:NV \l__runner_forth_def_seq \l__runner_forth_def_code_tl
-    \tl_clear:N \l__runner_forth_def_code_tl
-    \__runner_forth_control_open:n { 5 }
-  }
+  { \__runner_forth_control_open:n { 6 } }
 \__runner_forth_new_compilation_core:nn { ?DO }
-  {
-    \seq_push:NV \l__runner_forth_def_seq \l__runner_forth_def_code_tl
-    \tl_clear:N \l__runner_forth_def_code_tl
-    \__runner_forth_control_open:n { 6 }
-  }
+  { \__runner_forth_control_open:n { 7 } }
 \__runner_forth_new_compilation_core:nn { LOOP }
   {
     \__runner_forth_compile_loop:n
@@ -1269,7 +1249,7 @@
   }
 \cs_new_protected:Npn \__runner_forth_compile_loop:n #1
   {
-    \__runner_forth_control_close:nTF { 5 }
+    \__runner_forth_control_close:nTF { 6 }
       {
         \tl_set_eq:NN \l__runner_tmpa_tl \l__runner_forth_def_code_tl
         \seq_pop:NN \l__runner_forth_def_seq \l__runner_forth_def_code_tl
@@ -1277,7 +1257,7 @@
           { \__runner_forth_compiled_do:nnn { } { \l__runner_tmpa_tl } {#1} }
       }
       {
-        \__runner_forth_control_close:nTF { 6 }
+        \__runner_forth_control_close:nTF { 7 }
           {
             \tl_set_eq:NN \l__runner_tmpa_tl \l__runner_forth_def_code_tl
             \seq_pop:NN \l__runner_forth_def_seq \l__runner_forth_def_code_tl
@@ -2141,11 +2121,7 @@
       { \__runner_forth_push:n { \c__runner_forth_mod_int - \c_one } }
   }
 \__runner_forth_new_compilation_core:nn { BEGIN }
-  {
-    \seq_push:NV \l__runner_forth_def_seq \l__runner_forth_def_code_tl
-    \tl_clear:N \l__runner_forth_def_code_tl
-    \__runner_forth_control_open:n { 8 }
-  }
+  { \__runner_forth_control_open:n { 8 } }
 \__runner_forth_new_compilation_core:nn { AGAIN }
   { \__runner_forth_again:Nn \__runner_forth_compiled_again:n { AGAIN } }
 \__runner_forth_new_compilation_core:nn { UNTIL }
@@ -2176,11 +2152,7 @@
 \__runner_forth_new_compilation_core:nn { WHILE }
   {
     \__runner_forth_control_close:nTF { 8 }
-      {
-        \seq_push:NV \l__runner_forth_def_seq \l__runner_forth_def_code_tl
-        \tl_clear:N \l__runner_forth_def_code_tl
-        \__runner_forth_control_open:n { 9 }
-      }
+      { \__runner_forth_control_open:n { 9 } }
       { \msg_error:nnn { runner/forth } { misplaced } { WHILE } }
   }
 \__runner_forth_new_compilation_core:nn { REPEAT }
