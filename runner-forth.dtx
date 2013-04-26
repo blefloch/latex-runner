@@ -68,9 +68,9 @@
 %   called for, all characters in \([0,32]\) will match.  Even in the
 %   case of |WORD|.
 % \item Format of the control-flow stack: integers, indicating what was
-%   the last control-flow construct used, \(-1\) for |DOES>|, \(0\) for
-%   |:|, \(1\) for |IF|, \(2\) for |ELSE|, \(3\) for |DO|, \(4\) for
-%   |BEGIN|, \(5\) for |WHILE|.
+%   the last control-flow construct used, \(0\) for |:| or |:NONAME|,
+%   \(1\) for |DOES>|, \(3\) for |IF|, \(4\) for |ELSE|, \(5\) for |DO|,
+%   \(8\) for |BEGIN|, \(9\) for |WHILE|.
 % \item Conversion of digits larger than thirty-five: this never arises,
 %   as the base used in conversion is automatically truncated to the
 %   interval \([2, 36]\).
@@ -209,7 +209,7 @@
 % The following words of the Core extension word set are not implemented:
 % \begin{itemize}
 % \item Case: |CASE|, |ENDCASE|, |OF|, |ENDOF|
-% \item Defi: |COMPILE,|, |[COMPILE]|,
+% \item Defi: |COMPILE,|,
 % \item Do l: |?DO|
 % \item Inpu: |EXPECT|, |QUERY|, |REFILL|, |RESTORE-INPUT|,
 %   |SAVE-INPUT|, |SOURCE-ID|, |SPAN|
@@ -2138,13 +2138,13 @@
 %   variable.  Then continue collecting: the |THEN| word will take care
 %   of combining what is collected now with the definition-so-far saved
 %   on the \texttt{def} stack.  For subsequent control-flow words to
-%   know what happened, push \(1\) onto the control-flow stack.
+%   know what happened, push \(3\) onto the control-flow stack.
 %    \begin{macrocode}
 \@@_forth_new_compilation_core:nn { IF }
   {
     \seq_push:NV \l_@@_forth_def_seq \l_@@_forth_def_code_tl
     \tl_clear:N \l_@@_forth_def_code_tl
-    \@@_forth_control_open:n { 1 }
+    \@@_forth_control_open:n { 3 }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -2153,16 +2153,16 @@
 %   The word |ELSE| can only be used if the last control flow word was
 %   |IF|.  Stash away the definition code of the \texttt{true} branch
 %   that was just collected, and empty the \texttt{def_code} variable to
-%   be ready for the \texttt{false} branch.  Then push \(2\) on the
+%   be ready for the \texttt{false} branch.  Then push \(4\) on the
 %   stack to indicate the presence of a dangling |ELSE|.
 %    \begin{macrocode}
 \@@_forth_new_compilation_core:nn { ELSE }
   {
-    \@@_forth_control_close:nTF { 1 }
+    \@@_forth_control_close:nTF { 3 }
       {
         \seq_push:NV \l_@@_forth_def_seq \l_@@_forth_def_code_tl
         \tl_clear:N \l_@@_forth_def_code_tl
-        \@@_forth_control_open:n { 2 }
+        \@@_forth_control_open:n { 4 }
       }
       { \msg_error:nnn { runner/forth } { misplaced } { ELSE } }
   }
@@ -2175,21 +2175,21 @@
 %   matching |IF|, then appends to it \cs{@@_forth_compiled_if:TF}
 %   followed by the codes for the \texttt{true} branch and the
 %   \texttt{false} branch.  After an |IF| with no |ELSE| (magic number
-%   \(1\)), the \texttt{true} branch is in \texttt{def_code}, and the
+%   \(3\)), the \texttt{true} branch is in \texttt{def_code}, and the
 %   \texttt{false} branch is empty.  After an \texttt{ELSE} (magic
-%   number \(2\)), the \texttt{false} branch is in \texttt{def_code},
+%   number \(4\)), the \texttt{false} branch is in \texttt{def_code},
 %   and the \texttt{true} branch is on the \texttt{def} stack.  Any
 %   other circumstance means that |THEN| does not belong there.
 %    \begin{macrocode}
 \@@_forth_new_compilation_core:nn { THEN }
   {
-    \@@_forth_control_close:nTF { 1 }
+    \@@_forth_control_close:nTF { 3 }
       {
         \exp_args:NV \@@_forth_compile_then:nn
           \l_@@_forth_def_code_tl { }
       }
       {
-        \@@_forth_control_close:nTF { 2 }
+        \@@_forth_control_close:nTF { 4 }
           {
             \seq_pop:NN \l_@@_forth_def_seq \l_@@_tmpa_tl
             \exp_args:NVV \@@_forth_compile_then:nn
@@ -2454,7 +2454,7 @@
 % \begin{macro}[int]{DOES>}
 %   Check that the |DOES>| matches a start-of-definition on the control
 %   stack (magic number \(0\)).  Save the code-so-far, and push the
-%   magic number \(-1\) (for |DOES>|) onto the control stack.  Remain in
+%   magic number \(1\) (for |DOES>|) onto the control stack.  Remain in
 %   compilation mode.
 %    \begin{macrocode}
 \@@_forth_new_compilation_core:nn { DOES> }
@@ -2463,7 +2463,7 @@
       {
         \seq_push:NV \l_@@_forth_def_seq \l_@@_forth_def_code_tl
         \tl_clear:N \l_@@_forth_def_code_tl
-        \@@_forth_control_open:n { -1 }
+        \@@_forth_control_open:n { 1 }
       }
       { \msg_error:nnn { runner/forth } { misplaced } { DOES> } }
   }
@@ -2479,14 +2479,14 @@
 %   stack, or store it in a word).  Afterwards, restore the former
 %   values of \texttt{def_code} and the \texttt{def_token} integer, and
 %   go back to interpreting.  If the |;| matches a |DOES>| (magic number
-%   \(-1\)), there is a bit more work.
+%   \(1\)), there is a bit more work.
 %    \begin{macrocode}
 \@@_forth_new_compilation_core:nn { ; }
   {
     \@@_forth_control_close:nTF { 0 }
       { \@@_forth_compile_semicolon:x { \l_@@_forth_def_code_tl } }
       {
-        \@@_forth_control_close:nTF { -1 }
+        \@@_forth_control_close:nTF { 1 }
           { \@@_forth_compile_does: }
           { \msg_error:nnn { runner/forth } { misplaced } { ; } }
       }
@@ -2610,12 +2610,16 @@
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[int]{POSTPONE}
+% \begin{macro}[int]{POSTPONE, [COMPILE]}
 % \begin{macro}[aux, EXP]{\@@_forth_postpone:Nw}
 %   Read a word from the input buffer.  Append its compilation semantics
 %   to the current definition.
 %    \begin{macrocode}
 \@@_forth_new_compilation_core:nn { POSTPONE }
+  { \@@_forth_postpone:N \@@_forth_def_code:x }
+\@@_forth_new_compilation_core:nn { [COMPILE] }
+  { \@@_forth_postpone:N \use:n }
+\cs_new_protected:Npn \@@_forth_postpone:N #1
   {
     \@@_forth_input_word:
     \prop_get:NoN
@@ -2624,22 +2628,21 @@
       \l_@@_tmpa_tl
     \@@_forth_def_code:x
       {
-        \exp_after:wN \@@_forth_postpone:Nw
-          \l_@@_tmpa_tl \q_stop
+        \exp_after:wN \@@_forth_postpone:NwN
+          \l_@@_tmpa_tl \q_stop #1
       }
   }
-\cs_new:Npn \@@_forth_postpone:Nw #1#2 \q_stop
+\cs_new:Npn \@@_forth_postpone:NwN #1#2 \q_stop #3
   {
     \int_case:nnn {#1}
       {
-        { 1 }
-          { \@@_forth_def_code:x { \@@_forth_execute:n {#2} } }
+        { 1 } { #3 { \@@_forth_execute:n {#2} } }
         { 2 } { \@@_forth_execute:n {#2} }
       }
       { \@@_forth_execute:n { \int_eval:n { #2 + 1 } } }
   }
 %    \end{macrocode}
-% ^^A todo: \@@_forth_postpone:Nw = \@@_forth_compile:Nw.
+% ^^A todo: \@@_forth_postpone:Nw ~ \@@_forth_compile:Nw.
 % \end{macro}
 % \end{macro}
 %
@@ -2700,13 +2703,13 @@
 % \begin{macro}[int]{DO}
 %   Save the definition-so-far, and empty the variable, then push to the
 %   control-flow stack a flag indicating that a |DO| is unresolved
-%   (magic number \(3\)).
+%   (magic number \(5\)).
 %    \begin{macrocode}
 \@@_forth_new_compilation_core:nn { DO }
   {
     \seq_push:NV \l_@@_forth_def_seq \l_@@_forth_def_code_tl
     \tl_clear:N \l_@@_forth_def_code_tl
-    \@@_forth_control_open:n { 3 }
+    \@@_forth_control_open:n { 5 }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -2735,7 +2738,7 @@
   }
 \cs_new_protected:Npn \@@_forth_compile_loop:n #1
   {
-    \@@_forth_control_close:nTF { 3 }
+    \@@_forth_control_close:nTF { 5 }
       {
         \tl_set_eq:NN \l_@@_tmpa_tl \l_@@_forth_def_code_tl
         \seq_pop:NN \l_@@_forth_def_seq \l_@@_forth_def_code_tl
@@ -4195,7 +4198,7 @@
 %
 % \begin{macro}[int]{BEGIN}
 %   Similar to |IF|.  Save the definition-so-far in the \texttt{def}
-%   stack, and empty that variable.  Push the magic number \(4\) onto
+%   stack, and empty that variable.  Push the magic number \(8\) onto
 %   the control flow stack.  The |UNTIL| word (or |WHILE| and |REPEAT|)
 %   will take care of combining the two pieces of code.
 %    \begin{macrocode}
@@ -4203,7 +4206,7 @@
   {
     \seq_push:NV \l_@@_forth_def_seq \l_@@_forth_def_code_tl
     \tl_clear:N \l_@@_forth_def_code_tl
-    \@@_forth_control_open:n { 4 }
+    \@@_forth_control_open:n { 8 }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -4213,7 +4216,7 @@
 % \begin{macro}[int]{\@@_forth_again:Nn}
 % \begin{macro}[aux]{\@@_forth_compiled_again:n, \@@_forth_compiled_until:n}
 %   The words |AGAIN| and |UNTIL| must follow |BEGIN| (magic number
-%   \(4\)).  Save the code of the loop body as \texttt{tmpa}, and
+%   \(8\)).  Save the code of the loop body as \texttt{tmpa}, and
 %   restore the previous \texttt{def_code}, then append the
 %   \texttt{compiled_again} or \texttt{compiled_until} with the loop
 %   body code as its argument.  At run-time, the \texttt{compiled_again}
@@ -4228,7 +4231,7 @@
   { \@@_forth_again:Nn \@@_forth_compiled_until:n { UNTIL } }
 \cs_new_protected:Npn \@@_forth_compile_again:Nn #1#2
   {
-    \@@_forth_control_close:nTF { 4 }
+    \@@_forth_control_close:nTF { 8 }
       {
         \tl_set_eq:NN \l_@@_tmpa_tl \l_@@_forth_def_code_tl
         \seq_pop:NN \l_@@_forth_def_seq \l_@@_forth_def_code_tl
@@ -4256,9 +4259,9 @@
 %
 % \begin{macro}[int]{WHILE, REPEAT}
 % \begin{macro}[aux]{\@@_forth_compiled_repeat:nn}
-%   |WHILE| must follow |BEGIN| (magic number \(5\)).  Store the first
+%   |WHILE| must follow |BEGIN| (magic number \(9\)).  Store the first
 %   part of the loop body in the \texttt{def} sequence.  |REPEAT| must
-%   follow |WHILE| (magic number \(4\)).  The loop body code is in
+%   follow |WHILE| (magic number \(8\)).  The loop body code is in
 %   \texttt{tmpa} (pre-|WHILE|) and \texttt{tmpb} (post-|WHILE|), and we
 %   insert \cs{@@_forth_compiled_repeat:nn} into the definition started
 %   before |BEGIN|.  At run-time, perform the first part of the loop;
@@ -4267,17 +4270,17 @@
 %    \begin{macrocode}
 \@@_forth_new_compilation_core:nn { WHILE }
   {
-    \@@_forth_control_close:nTF { 4 }
+    \@@_forth_control_close:nTF { 8 }
       {
         \seq_push:NV \l_@@_forth_def_seq \l_@@_forth_def_code_tl
         \tl_clear:N \l_@@_forth_def_code_tl
-        \@@_forth_control_open:n { 5 }
+        \@@_forth_control_open:n { 9 }
       }
       { \msg_error:nnn { runner/forth } { misplaced } { WHILE } }
   }
 \@@_forth_new_compilation_core:nn { REPEAT }
   {
-    \@@_forth_control_close:nTF { 5 }
+    \@@_forth_control_close:nTF { 9 }
       {
         \tl_set_eq:NN \l_@@_tmpb_tl \l_@@_forth_def_code_tl
         \seq_pop:NN \l_@@_forth_def_seq \l_@@_tmpa_tl
