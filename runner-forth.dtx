@@ -213,7 +213,6 @@
 % \item Do l: |?DO|
 % \item Inpu: |EXPECT|, |QUERY|, |REFILL|, |RESTORE-INPUT|,
 %   |SAVE-INPUT|, |SOURCE-ID|, |SPAN|
-% \item Nume: |CONVERT|
 % \end{itemize}
 %
 % \end{runner-documentation}
@@ -3658,7 +3657,7 @@
 % \end{macro}
 %
 % ^^A todo: combine \cs{@@_forth_get_number:nNTF} and |>NUMBER|.
-% \begin{macro}[int]{>NUMBER}
+% \begin{macro}[int]{>NUMBER, CONVERT}
 % \begin{macro}[aux]{\@@_forth_to_number_aux:n}
 %   See also \cs{@@_forth_get_number:nNTF}.  Get a double cell integer
 %   \((a,b)\), an address \(c\) and a length \(d\).  Set \(d\) to the
@@ -3676,13 +3675,29 @@
 %   value for that digit.  Updating is done by an auxiliary, which
 %   multiplies \(a\) by the base, adding the argument~|#1|, multiplies
 %   \(b\) by the base, adding the carry from \(a\), and subtracts the
-%   carry from \(a\).
+%   carry from \(a\).  At the end of the day, push the resulting
+%   double-cell number, and the address of the first character that was
+%   not converted.  For |>NUMBER|, also push the length of the
+%   non-converted string.
 %    \begin{macrocode}
 \@@_forth_new_core:nn { >NUMBER }
   {
     \@@_forth_pop_int:NNNN
       \l_@@_tmpa_int \l_@@_tmpb_int
       \l_@@_tmpc_int \l_@@_tmpd_int
+    \@@_forth_to_number:
+    \@@_forth_push:n { \l_@@_tmpd_int - \l_@@_tmpc_int }
+  }
+\@@_forth_new_core:nn { CONVERT }
+  {
+    \@@_forth_pop_int:NNN
+      \l_@@_tmpa_int \l_@@_tmpb_int \l_@@_tmpc_int
+    \int_incr:N \l_@@_tmpc_int
+    \int_set_eq:NN \l_@@_tmpd_int \c_@@_forth_mod_int
+    \@@_forth_to_number:
+  }
+\cs_new_protected_nopar:Npn \@@_forth_to_number:
+  {
     \int_add:Nn \l_@@_tmpd_int { \l_@@_tmpc_int }
     \tl_set:Nx \l_@@_tmpb_tl { \@@_forth_base: }
     \int_while_do:nNnn \l_@@_tmpc_int < \l_@@_tmpd_int
@@ -3701,9 +3716,8 @@
         \int_incr:N \l_@@_tmpc_int
       }
     \@@_break_point:n { }
-    \@@_forth_push:nnnn
-      { \l_@@_tmpa_int } { \l_@@_tmpb_int }
-      { \l_@@_tmpc_int } { \l_@@_tmpd_int - \l_@@_tmpc_int }
+    \@@_forth_push:nnn
+      { \l_@@_tmpa_int } { \l_@@_tmpb_int } { \l_@@_tmpc_int }
   }
 \cs_new_protected:Npn \@@_forth_to_number_aux:n #1
   {
