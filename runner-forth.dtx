@@ -17,23 +17,10 @@
 %
 % \section{The \plang{forth} language}
 %
+% \subsection{Introduction to \plang{forth}}
+%
 % This is not the place for an introduction to Forth, many can be found
 % online.  ^^A todo: add a bunch of refs
-%
-% The \plang{forth} interpreter can be called in interactive or in
-% non-interactive mode.  In interactive mode, invoked with the command
-% \begin{verbatim}
-%   \runner{forth}[interactive]||||
-% \end{verbatim}
-% the interpreter follows the ANS Forth 1994 specification: it is a
-% Standard System with Environmental Restriction as follows.
-% \begin{itemize}
-% \item The core word |KEY| is not implemented.
-% \item The environment variable |/COUNTED-STRING| is not recognized.
-% \end{itemize}
-% In non-interactive mode, the interpreter does not have a prompt, but
-% otherwise behaves as a standard system, subject to the environmental
-% restrictions above.
 %
 % For example, one can define the factorial function as follows.
 % \begin{verbatim}
@@ -51,6 +38,26 @@
 % \(-4194304\).  The last number is incorrect, because the result
 % overflows the size of a single-cell unsigned integer.  We can easily
 % check that it is the correct result modulo \(2^{24}\).
+%
+% \subsection{Details of the interpreter}
+%
+% The \plang{forth} interpreter can be called in interactive or in
+% non-interactive mode.  In interactive mode, invoked with the command
+% \begin{verbatim}
+%   \runner{forth}[interactive]||||
+% \end{verbatim}
+% the interpreter is a Standard System Subset (as defined by the ANS
+% Forth 1994 specification), providing most of the Core and Core
+% Extensions word set.  Namely, the following are missing.
+% \begin{itemize}
+% \item The core word |KEY| is not implemented.
+% \item The core extension words |EXPECT|, |QUERY|, |RESTORE-INPUT|,
+%   |SAVE-INPUT|, |SPAN| are not implemented.
+% \item The environment variable |/COUNTED-STRING| is not recognized.
+% \end{itemize}
+% In non-interactive mode, the interpreter does not have a prompt, but
+% otherwise behaves as a standard system subset, subject to the
+% restrictions above.
 %
 % ^^A todo: doc that |BYE| can be used to end the run.
 %
@@ -205,9 +212,6 @@
 %     \bottomrule
 %   \end{tabular}
 % \end{center}
-%
-% The following words of the Core extension word set are not implemented:
-% |EXPECT|, |QUERY|, |RESTORE-INPUT|, |SAVE-INPUT|, |SPAN|.
 %
 % \end{runner-documentation}
 %
@@ -3241,7 +3245,7 @@
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[int]+\+
+% \begin{macro}[int]+\\+
 %   Parse until the end of the parse area, by setting |>IN| to its
 %   maximal value.
 %    \begin{macrocode}
