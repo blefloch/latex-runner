@@ -7,6 +7,10 @@
 \immediate\openout\outfile \jobname.out
 \RunnerOptions{output-stream = \outfile}
 
+\ExplSyntaxOn
+\msg_redirect_module:nnn { runner/forth } { error } { warning }
+\ExplSyntaxOff
+
 % \runner{forth}[interactive]||||
 % \stop
 % \runner{forth}[interactive, output = \result]|
@@ -206,25 +210,20 @@
 \runner{forth}[output = \result, program = {123}]|456 . .|||
 \typeout{\result}
 
+\runner{forth}[output, output-stream = \z@]|
+  564 . 453 . boom CR boom 897 .
+|||
 
-{
-  \ExplSyntaxOn
-  \msg_redirect_module:nnn { runner/forth } { error } { warning }
-  \runner{forth}[output, output-stream = \z@]|
-    564 . 453 . boom CR boom 897 .
-  |||
+\runner{forth}[output, output-stream = \z@]|
+  : x 0 . ;
+  MARKER revert
+  : x 1 . ;
+  : y 2 . ;
+||x y revert x y revert|
 
-  \runner{forth}[output, output-stream = \z@]|
-    : x 0 . ;
-    MARKER revert
-    : x 1 . ;
-    : y 2 . ;
-  ||x y revert x y revert|
-
-  \runner{forth}[output]|
-    UNUSED ALLOT boom 1 ALLOT
-  |||
-}
+\runner{forth}[output]|
+  UNUSED ALLOT boom 1 ALLOT
+|||
 
 \runner{forth}[output = \result, output-stream = \z@]|
   : const CREATE , DOES> @ ;
