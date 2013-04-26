@@ -1241,6 +1241,12 @@
     \tl_clear:N \l__runner_forth_def_code_tl
     \__runner_forth_control_open:n { 5 }
   }
+\__runner_forth_new_compilation_core:nn { ?DO }
+  {
+    \seq_push:NV \l__runner_forth_def_seq \l__runner_forth_def_code_tl
+    \tl_clear:N \l__runner_forth_def_code_tl
+    \__runner_forth_control_open:n { 6 }
+  }
 \__runner_forth_new_compilation_core:nn { LOOP }
   {
     \__runner_forth_compile_loop:n
@@ -1262,22 +1268,40 @@
         \tl_set_eq:NN \l__runner_tmpa_tl \l__runner_forth_def_code_tl
         \seq_pop:NN \l__runner_forth_def_seq \l__runner_forth_def_code_tl
         \__runner_forth_def_code:x
-          { \__runner_forth_compiled_do:nn { \l__runner_tmpa_tl } {#1} }
+          { \__runner_forth_compiled_do:nnn { } { \l__runner_tmpa_tl } {#1} }
       }
-      { \msg_error:nnn { runner/forth } { misplaced } { LOOP } }
+      {
+        \__runner_forth_control_close:nTF { 6 }
+          {
+            \tl_set_eq:NN \l__runner_tmpa_tl \l__runner_forth_def_code_tl
+            \seq_pop:NN \l__runner_forth_def_seq \l__runner_forth_def_code_tl
+            \__runner_forth_def_code:x
+              { \__runner_forth_compiled_qdo:nn { \l__runner_tmpa_tl } {#1} }
+          }
+          { \msg_error:nnn { runner/forth } { misplaced } { LOOP } }
+      }
   }
-\cs_new_protected:Npn \__runner_forth_compiled_do:nn #1#2
+\cs_new_protected_nopar:Npn \__runner_forth_compiled_qdo:nn
+  {
+    \__runner_forth_compiled_do:nnn
+      {
+        \int_compare:nNnT
+          \l__runner_tmpa_int = \l__runner_tmpb_int { \__runner_break:n { } }
+      }
+  }
+\cs_new_protected:Npn \__runner_forth_compiled_do:nnn #1#2#3
   {
     \__runner_forth_pop_int:NN \l__runner_tmpa_int \l__runner_tmpb_int
     \__runner_forth_return_push:n { \l__runner_tmpa_int } % ^^A limit
     \__runner_forth_return_push:n { \l__runner_tmpb_int } % ^^A index
+    #1
     \bool_set_true:N \l__runner_forth_loop_bool
     \bool_do_while:Nn \l__runner_forth_loop_bool
       {
-        #1
+        #2
         \__runner_forth_return_pop_int:N \l__runner_tmpb_int
         \__runner_forth_return_pop_int:N \l__runner_tmpa_int
-        #2
+        #3
         \int_compare:nNnTF \l__runner_tmpb_int < \l__runner_tmpa_int
           { \int_compare:nNnF }
           { \int_compare:nNnT }

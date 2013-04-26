@@ -70,7 +70,7 @@
 % \item Format of the control-flow stack: integers, indicating what was
 %   the last control-flow construct used, \(0\) for |:| or |:NONAME|,
 %   \(1\) for |DOES>|, \(3\) for |IF|, \(4\) for |ELSE|, \(5\) for |DO|,
-%   \(8\) for |BEGIN|, \(9\) for |WHILE|.
+%   \(6\) for |?DO|, \(8\) for |BEGIN|, \(9\) for |WHILE|.
 % \item Conversion of digits larger than thirty-five: this never arises,
 %   as the base used in conversion is automatically truncated to the
 %   interval \([2, 36]\).
@@ -210,7 +210,6 @@
 % \begin{itemize}
 % \item Case: |CASE|, |ENDCASE|, |OF|, |ENDOF|
 % \item Defi: |COMPILE,|,
-% \item Do l: |?DO|
 % \item Inpu: |EXPECT|, |QUERY|, |RESTORE-INPUT|, |SAVE-INPUT|, |SPAN|
 % \end{itemize}
 %
@@ -2695,7 +2694,7 @@
 %
 % \subsubsection{Do loops}
 %
-% This section defines |DO|, |LOOP|, |+LOOP|, |I|, |J|, |LEAVE|,
+% This section defines |DO|, |?DO|, |LOOP|, |+LOOP|, |I|, |J|, |LEAVE|,
 % |UNLOOP|.
 %
 % \begin{variable}{\l_@@_forth_loop_bool}
@@ -2704,10 +2703,10 @@
 %    \end{macrocode}
 % \end{variable}
 %
-% \begin{macro}[int]{DO}
+% \begin{macro}[int]{DO, ?DO}
 %   Save the definition-so-far, and empty the variable, then push to the
-%   control-flow stack a flag indicating that a |DO| is unresolved
-%   (magic number \(5\)).
+%   control-flow stack a flag indicating that a |DO| or a |?DO| is
+%   unresolved (magic numbers \(5\) or \(6\)).
 %    \begin{macrocode}
 \@@_forth_new_compilation_core:nn { DO }
   {
@@ -2715,16 +2714,22 @@
     \tl_clear:N \l_@@_forth_def_code_tl
     \@@_forth_control_open:n { 5 }
   }
+\@@_forth_new_compilation_core:nn { ?DO }
+  {
+    \seq_push:NV \l_@@_forth_def_seq \l_@@_forth_def_code_tl
+    \tl_clear:N \l_@@_forth_def_code_tl
+    \@@_forth_control_open:n { 6 }
+  }
 %    \end{macrocode}
 % \end{macro}
 %
-% ^^A todo: redoc
 % \begin{macro}[int]{LOOP, +LOOP}
 % \begin{macro}[aux]{\@@_forth_compile_loop:n}
 %   Save the code of the loop body as \texttt{tmpa}, then restore the
-%   definition as it was before the matching |DO|.  Finally, append to
-%   the definition \cs{@@_forth_compiled_do:nn}, with the loop body as
-%   its first argument, and incrementing the loop counter as its second.
+%   definition as it was before the matching |DO| or |?DO|.  Finally,
+%   append to the definition \texttt{compiled_do} or
+%   \texttt{compiled_qdo}, with as its arguments the loop body, and the
+%   code to step the loop counter.
 %    \begin{macrocode}
 \@@_forth_new_compilation_core:nn { LOOP }
   {
@@ -2747,9 +2752,18 @@
         \tl_set_eq:NN \l_@@_tmpa_tl \l_@@_forth_def_code_tl
         \seq_pop:NN \l_@@_forth_def_seq \l_@@_forth_def_code_tl
         \@@_forth_def_code:x
-          { \@@_forth_compiled_do:nn { \l_@@_tmpa_tl } {#1} }
+          { \@@_forth_compiled_do:nnn { } { \l_@@_tmpa_tl } {#1} }
       }
-      { \msg_error:nnn { runner/forth } { misplaced } { LOOP } }
+      {
+        \@@_forth_control_close:nTF { 6 }
+          {
+            \tl_set_eq:NN \l_@@_tmpa_tl \l_@@_forth_def_code_tl
+            \seq_pop:NN \l_@@_forth_def_seq \l_@@_forth_def_code_tl
+            \@@_forth_def_code:x
+              { \@@_forth_compiled_qdo:nn { \l_@@_tmpa_tl } {#1} }
+          }
+          { \msg_error:nnn { runner/forth } { misplaced } { LOOP } }
+      }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -2758,20 +2772,29 @@
 % ^^A todo: optimize
 % ^^A todo: now, this fails for i=-1, lim=0.
 % ^^A todo: bug, with overflow of negative numbers.
-% \begin{macro}[int]{\@@_forth_compiled_do:nn}
+% \begin{macro}[int]{\@@_forth_compiled_qdo:nn, \@@_forth_compiled_do:nnn}
 %    \begin{macrocode}
-\cs_new_protected:Npn \@@_forth_compiled_do:nn #1#2
+\cs_new_protected_nopar:Npn \@@_forth_compiled_qdo:nn
+  {
+    \@@_forth_compiled_do:nnn
+      {
+        \int_compare:nNnT
+          \l_@@_tmpa_int = \l_@@_tmpb_int { \@@_break:n { } }
+      }
+  }
+\cs_new_protected:Npn \@@_forth_compiled_do:nnn #1#2#3
   {
     \@@_forth_pop_int:NN \l_@@_tmpa_int \l_@@_tmpb_int
     \@@_forth_return_push:n { \l_@@_tmpa_int } % ^^A limit
     \@@_forth_return_push:n { \l_@@_tmpb_int } % ^^A index
+    #1
     \bool_set_true:N \l_@@_forth_loop_bool
     \bool_do_while:Nn \l_@@_forth_loop_bool
       {
-        #1
+        #2
         \@@_forth_return_pop_int:N \l_@@_tmpb_int
         \@@_forth_return_pop_int:N \l_@@_tmpa_int
-        #2
+        #3
         \int_compare:nNnTF \l_@@_tmpb_int < \l_@@_tmpa_int
           { \int_compare:nNnF }
           { \int_compare:nNnT }
