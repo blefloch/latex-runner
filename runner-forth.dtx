@@ -211,7 +211,7 @@
 % \item Case: |CASE|, |ENDCASE|, |OF|, |ENDOF|
 % \item Defi: |COMPILE,|, |[COMPILE]|,
 % \item Do l: |?DO|
-% \item Inpu: |C"|, |EXPECT|, |PARSE|, |QUERY|, |REFILL|, |RESTORE-INPUT|,
+% \item Inpu: |C"|, |EXPECT|, |QUERY|, |REFILL|, |RESTORE-INPUT|,
 %   |SAVE-INPUT|, |SOURCE-ID|, |SPAN|
 % \item Nume: |CONVERT|
 % \end{itemize}
@@ -1266,7 +1266,8 @@
 %   the loop, reading characters until either no character can be found
 %   (\texttt{false} branch of \texttt{read_char}), or the loop is broken
 %   by the code of |#3| or~|#4|.  Then set the value at~|>IN| correctly
-%   for the outside world to see.
+%   for the outside world to see.  This function uses
+%   \cs{l_@@_tmpa_bool} and \cs{l_@@_tmpc_int} as scratch space.
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \@@_forth_input_discard:n
   {
@@ -3036,7 +3037,7 @@
 % \subsubsection{Input}
 %
 % This section defines |>IN|, |SOURCE|, |TIB|, |#TIB|, |CHAR|, |[CHAR]|,
-% |(|, |\|, |WORD|, |COUNT|, |S"|, |EVALUATE|, |ACCEPT|.  ^^A)
+% |(|, |\|, |PARSE|, |WORD|, |COUNT|, |S"|, |EVALUATE|, |ACCEPT|.  ^^A)
 %
 % \begin{macro}[int]{>IN}
 %   Push the address where the input buffer offset is stored.
@@ -3129,33 +3130,45 @@
 %    \end{macrocode}
 % \end{macro}
 %
+% \begin{macro}[int]{PARSE}
+%   Get a character~\(a\) from the stack, save the current
+%   \texttt{source_parsed} as~\(b\), and push it to the stack.  Then
+%   read a word delimited by~\(a\), and push the length of the word
+%   found.
+%    \begin{macrocode}
+\@@_forth_new_core:nn { PARSE }
+  {
+    \@@_forth_pop_int:N \l_@@_tmpa_int
+    \int_set_eq:NN \l_@@_tmpb_int \l_@@_forth_source_parsed_int
+    \@@_forth_push:n { \l_@@_tmpb_int }
+    \@@_forth_input_until:n { \l_@@_tmpa_int }
+    \@@_forth_push:n { \l_@@_forth_source_parsed_int - \l_@@_tmpb_int }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
 % ^^A todo: avoid back-and-forth between TeX strings and Forth counted strings
 % \begin{macro}[int]{WORD}
-%   Pop a character from the stack.  The word will be stored as a
-%   counted string in the region from \texttt{data_here} (included) to
-%   \texttt{data_word}, so we immediately push \texttt{data_here}.  Then
-%   build \cs{l_@@_tmpa_tl} containing the delimiter, and call the
-%   appropriate input functions to discard leading delimiters and grab
-%   until the next occurrence of the delimiter.  The word found is
-%   stored as \cs{l_@@_tmpb_tl}.  Then, after setting
-%   \texttt{data_word}, which will index the word as we store it, to
-%   \texttt{data_here}, we go through the string, storing its character
-%   codes at positions starting from \(1 + \text{\texttt{data_here}}\).
-%   Eventually, put the length, obtained by simple subtraction, in the
-%   \texttt{data_here} address.  The final increment takes care of
-%   placing \texttt{data_word} just after the end of the word.
+%   |WORD| stores its result starting at the \texttt{data_here} pointer,
+%   so after popping the delimiter character~\(a\) from the stack, we
+%   push \texttt{data_here} right away.  Set \texttt{data_word} to
+%   \(\text{\texttt{data_here}}+1\), the address at which the first
+%   character will be stored.  Find the \(a\)-delimited word, after
+%   ignoring leading delimiters, and store the resulting string starting
+%   at \texttt{data_word}.  The \texttt{store_str} function updates this
+%   pointer to just after the end of the word stored.  Store the
+%   character count before the string.  Balk if we went out of bound.
 %    \begin{macrocode}
 \@@_forth_new_core:nn { WORD }
   {
     \@@_forth_pop_int:N \l_@@_tmpa_int
     \@@_forth_push:n { \l_@@_forth_data_here_int }
+    \int_set:Nn \l_@@_forth_data_word_int
+      { \l_@@_forth_data_here_int + 1 }
     \@@_forth_input_discard:n { \l_@@_tmpa_int }
     \@@_forth_input_until:n { \l_@@_tmpa_int }
-    \int_set_eq:NN \l_@@_forth_data_word_int
-      \l_@@_forth_data_here_int
-    \tl_set_eq:NN \l_@@_tmpb_tl \l_@@_forth_input_word_str
-    \int_incr:N \l_@@_forth_data_word_int
-    \@@_forth_store_str:NN \l_@@_tmpb_tl \l_@@_forth_data_word_int
+    \@@_forth_store_str:NN \l_@@_forth_input_word_str
+      \l_@@_forth_data_word_int
     \@@_forth_data_gset:nn
       { \l_@@_forth_data_here_int }
       { \l_@@_forth_data_word_int - \l_@@_forth_data_here_int - 1 }

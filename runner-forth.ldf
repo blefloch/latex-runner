@@ -1467,17 +1467,24 @@
     \__runner_forth_data_gset:nn \l__runner_forth_in_address_int
       { \l__runner_forth_source_end_int - \l__runner_forth_source_begin_int }
   }
+\__runner_forth_new_core:nn { PARSE }
+  {
+    \__runner_forth_pop_int:N \l__runner_tmpa_int
+    \int_set_eq:NN \l__runner_tmpb_int \l__runner_forth_source_parsed_int
+    \__runner_forth_push:n { \l__runner_tmpb_int }
+    \__runner_forth_input_until:n { \l__runner_tmpa_int }
+    \__runner_forth_push:n { \l__runner_forth_source_parsed_int - \l__runner_tmpb_int }
+  }
 \__runner_forth_new_core:nn { WORD }
   {
     \__runner_forth_pop_int:N \l__runner_tmpa_int
     \__runner_forth_push:n { \l__runner_forth_data_here_int }
+    \int_set:Nn \l__runner_forth_data_word_int
+      { \l__runner_forth_data_here_int + 1 }
     \__runner_forth_input_discard:n { \l__runner_tmpa_int }
     \__runner_forth_input_until:n { \l__runner_tmpa_int }
-    \int_set_eq:NN \l__runner_forth_data_word_int
-      \l__runner_forth_data_here_int
-    \tl_set_eq:NN \l__runner_tmpb_tl \l__runner_forth_input_word_str
-    \int_incr:N \l__runner_forth_data_word_int
-    \__runner_forth_store_str:NN \l__runner_tmpb_tl \l__runner_forth_data_word_int
+    \__runner_forth_store_str:NN \l__runner_forth_input_word_str
+      \l__runner_forth_data_word_int
     \__runner_forth_data_gset:nn
       { \l__runner_forth_data_here_int }
       { \l__runner_forth_data_word_int - \l__runner_forth_data_here_int - 1 }
