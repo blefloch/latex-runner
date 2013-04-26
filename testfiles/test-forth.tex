@@ -150,7 +150,8 @@
 \typeout{\result}
 
 \runner{forth}[output = \result]|
-  65 WORD AAAAbcaA DUP 1+ SWAP @ TYPE
+  CHAR . WORD ...3 4 + . DUP 1+ SWAP @ TYPE CR
+  CHAR . PARSE .3 4 + .
 |||
 \typeout{\result}
 
