@@ -1557,6 +1557,11 @@
 \__runner_forth_core_alias:nn { CHARS } { ALIGNED }
 \__runner_forth_new_core:nn { HERE }
   { \__runner_forth_push:n { \l__runner_forth_data_here_int } }
+\__runner_forth_new_core:nn { UNUSED }
+  {
+    \__runner_forth_push:n
+      { \l__runner_forth_data_text_int - \l__runner_forth_data_here_int }
+  }
 \__runner_forth_new_core:nn { , }
   {
     \__runner_forth_pop_int:N \l__runner_tmpa_int

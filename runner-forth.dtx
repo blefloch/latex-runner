@@ -213,7 +213,6 @@
 % \item Do l: |?DO|
 % \item Inpu: |C"|, |EXPECT|, |PARSE|, |QUERY|, |REFILL|, |RESTORE-INPUT|,
 %   |SAVE-INPUT|, |SOURCE-ID|, |SPAN|
-% \item Memo: |UNUSED|
 % \item Nume: |CONVERT|
 % \end{itemize}
 %
@@ -3270,8 +3269,8 @@
 % \subsubsection{Memory cells}
 %
 % This section defines the words |ALIGN|, |ALIGNED|, |CELL+|, |CHAR+|,
-% |CELLS|, |CHARS|, |HERE|, |,|, |C,|, |@|, |C@|, |2@|, |!|, |C!|, |2!|,
-% |+!|, |ALLOT|, |ERASE|, |FILL|, |MOVE|.
+% |CELLS|, |CHARS|, |HERE|, |UNUSED|, |,|, |C,|, |@|, |C@|, |2@|, |!|,
+% |C!|, |2!|, |+!|, |ALLOT|, |ERASE|, |FILL|, |MOVE|.
 %
 % ^^A todo: Simplify how |ALIGNED| triggers an error upon empty stack
 % \begin{macro}[int]{ALIGN, ALIGNED}
@@ -3300,10 +3299,16 @@
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[int]{HERE}
+% \begin{macro}[int]{HERE, UNUSED}
+%   The next address to be allocated, and the remaining memory.
 %    \begin{macrocode}
 \@@_forth_new_core:nn { HERE }
   { \@@_forth_push:n { \l_@@_forth_data_here_int } }
+\@@_forth_new_core:nn { UNUSED }
+  {
+    \@@_forth_push:n
+      { \l_@@_forth_data_text_int - \l_@@_forth_data_here_int }
+  }
 %    \end{macrocode}
 % \end{macro}
 %
