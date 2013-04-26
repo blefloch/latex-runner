@@ -206,6 +206,19 @@
 %   \end{tabular}
 % \end{center}
 %
+% The following words of the Core extension word set are not implemented:
+% \begin{itemize}
+% \item Case: |CASE|, |ENDCASE|, |OF|, |ENDOF|
+% \item Defi: |:NONAME|, |COMPILE,|, |[COMPILE]|, |MARKER|,
+% \item Do l: |?DO|
+% \item Envi: |PAD|
+% \item Inpu: |C"|, |EXPECT|, |PARSE|, |QUERY|, |REFILL|, |RESTORE-INPUT|,
+%   |SAVE-INPUT|, |SOURCE-ID|, |SPAN|, |#TIB|
+% \item Memo: |UNUSED|
+% \item Nume: |CONVERT|
+% \item Whil: |AGAIN|
+% \end{itemize}
+%
 % \end{runner-documentation}
 %
 % \begin{runner-implementation}
@@ -256,6 +269,7 @@
 \cs_generate_variant:Nn \prop_get:NnNTF { Nx }
 \cs_generate_variant:Nn \prop_put:Nnn { Nxx }
 \cs_generate_variant:Nn \tl_item:nn { o }
+\cs_generate_variant:Nn \tl_if_head_eq_meaning:nNTF { V }
 %    \end{macrocode}
 %
 % ^^A todo: try to only put the marker on actual definitions.
@@ -820,6 +834,14 @@
              * round- ( \l_@@_forth_push_fp / \c_@@_forth_mod_int )
       }
   }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int]{\@@_forth_push_value:n}
+%   Push the value at a given address onto the stack.
+%    \begin{macrocode}
+\cs_new_protected:Npn \@@_forth_push_value:n #1
+  { \@@_forth_push:n { \@@_forth_data_get:n {#1} } }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -1971,82 +1993,117 @@
 %
 % \subsubsection{Comparisons}
 %
-% This section defines the words |0<|, |0=|, |<|, |=|, |>|, |U<|,
-% |?DUP|.
+% This section defines the words |FALSE|, |TRUE|, |0=|, |0<>|, |0<|,
+% |0>|, |=|, |<>|, |U<|, |U>|, |<|, |>|, |WITHIN|, |?DUP|.
 %
-% \begin{macro}[int]{0<}
-%   If \(a<0\) push true, otherwise false.
+% \begin{macro}[int]{FALSE, TRUE}
+%   Pushing a \texttt{true} or \texttt{false} flag to the stack.
 %    \begin{macrocode}
-\@@_forth_new_core:nn { 0< }
-  {
-    \@@_forth_pop_int:N \l_@@_tmpa_int
-    \int_compare:nNnTF
-      { \@@_forth_signed:N \l_@@_tmpa_int } < \c_zero
-      { \@@_forth_push_true: }
-      { \@@_forth_push_false: }
-  }
+\@@_forth_new_core:nn { FALSE } { \@@_forth_push_false: }
+\@@_forth_new_core:nn { TRUE } { \@@_forth_push_true: }
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[int]{0=}
-%   If \(a\) is \(0\), push true, otherwise false.
+% \begin{macro}[int]{0=, 0<>}
+% \begin{macro}[aux]{\@@_forth_eq_zero:TF}
+%   Compare the top of stack with~\(0\).
 %    \begin{macrocode}
 \@@_forth_new_core:nn { 0= }
+  { \@@_forth_eq_zero:TF \@@_forth_push_true: \@@_forth_push_false: }
+\@@_forth_new_core:nn { 0<> }
+  { \@@_forth_eq_zero:TF \@@_forth_push_false: \@@_forth_push_true: }
+\cs_new_protected_nopar:Npn \@@_forth_eq_zero:TF
   {
     \@@_forth_pop_int:N \l_@@_tmpa_int
     \int_compare:nNnTF \l_@@_tmpa_int = \c_zero
-      { \@@_forth_push_true: }
-      { \@@_forth_push_false: }
   }
 %    \end{macrocode}
 % \end{macro}
+% \end{macro}
 %
-% \begin{macro}[int]{<, =, >}
-%   Signed comparisons.  Push true or false.
+% \begin{macro}[int]{0<, 0>}
+% \begin{macro}[aux]{\@@_forth_cmp_zero:N}
+%   Compare the (signed) top of stack with~\(0\).
 %    \begin{macrocode}
-\@@_forth_new_core:nn { < }
+\@@_forth_new_core:nn { 0< }
+  { \@@_forth_cmp_zero:N < }
+\@@_forth_new_core:nn { 0> }
+  { \@@_forth_cmp_zero:N > }
+\cs_new_protected:Npn \@@_forth_cmp_zero:N #1
   {
-    \@@_forth_pop_int:NN \l_@@_tmpa_int \l_@@_tmpb_int
+    \@@_forth_pop_int:N \l_@@_tmpa_int
     \int_compare:nNnTF
-      { \@@_forth_signed:N \l_@@_tmpa_int }
-      < { \@@_forth_signed:N \l_@@_tmpb_int }
-      { \@@_forth_push_true: }
-      { \@@_forth_push_false: }
+      { \@@_forth_signed:N \l_@@_tmpa_int } #1 \c_zero
   }
+%    \end{macrocode}
+% \end{macro}
+% \end{macro}
+%
+% \begin{macro}[int]{=, <>}
+% \begin{macro}[aux]{\@@_forth_eq:TF}
+%   Compare the two tops of stack.
+%    \begin{macrocode}
 \@@_forth_new_core:nn { = }
+  { \@@_forth_eq:TF \@@_forth_push_true: \@@_forth_push_false: }
+\@@_forth_new_core:nn { <> }
+  { \@@_forth_eq:TF \@@_forth_push_false: \@@_forth_push_true: }
+\cs_new_protected:Npn \@@_forth_eq:TF
   {
     \@@_forth_pop_int:NN \l_@@_tmpa_int \l_@@_tmpb_int
-    \int_compare:nNnTF
-      { \@@_forth_signed:N \l_@@_tmpa_int }
-      = { \@@_forth_signed:N \l_@@_tmpb_int }
-      { \@@_forth_push_true: }
-      { \@@_forth_push_false: }
-  }
-\@@_forth_new_core:nn { > }
-  {
-    \@@_forth_pop_int:NN \l_@@_tmpa_int \l_@@_tmpb_int
-    \int_compare:nNnTF
-      { \@@_forth_signed:N \l_@@_tmpa_int }
-      > { \@@_forth_signed:N \l_@@_tmpb_int }
-      { \@@_forth_push_true: }
-      { \@@_forth_push_false: }
+    \int_compare:nNnTF \l_@@_tmpa_int = \l_@@_tmpb_int
   }
 %    \end{macrocode}
 % \end{macro}
+% \end{macro}
 %
-% \begin{macro}[int]{U<}
-%   Compare unsigned numbers.  Push true or false.
+% \begin{macro}[int]{U<, U>, <, >}
+% \begin{macro}[aux]{\@@_forth_cmp:Nn}
+%   Signed or unsigned comparisons.
 %    \begin{macrocode}
-\@@_forth_new_core:nn { U< }
+\@@_forth_new_core:nn { U< } { \@@_forth_cmp:Nn < { } }
+\@@_forth_new_core:nn { U> } { \@@_forth_cmp:Nn > { } }
+\@@_forth_new_core:nn { < }
+  { \@@_forth_cmp:Nn < \@@_forth_signed:N }
+\@@_forth_new_core:nn { > }
+  { \@@_forth_cmp:Nn > \@@_forth_signed:N }
+\cs_new_protected:Npn \@@_forth_cmp:Nn #1#2
   {
     \@@_forth_pop_int:NN \l_@@_tmpa_int \l_@@_tmpb_int
-    \int_compare:nNnTF \l_@@_tmpa_int < \l_@@_tmpb_int
+    \int_compare:nNnTF
+      { #2 \l_@@_tmpa_int } #1 { #2 \l_@@_tmpb_int }
+      { \@@_forth_push_true: }
+      { \@@_forth_push_false: }
+  }
+%    \end{macrocode}
+% \end{macro}
+% \end{macro}
+%
+% \begin{macro}[int]{WITHIN}
+%   Push \texttt{true} if \(b\leq a < c\) or \(c < b \leq a\) or \(a < c
+%   < b\); otherwise push \texttt{false}.
+%    \begin{macrocode}
+\@@_forth_new_core:nn { WITHIN }
+  {
+    \@@_forth_pop_int:NNN
+      \l_@@_tmpa_int \l_@@_tmpb_int \l_@@_tmpc_int
+    \bool_if:nTF
+      {
+        \int_compare_p:n
+          { \l_@@_tmpb_int <= \l_@@_tmpa_int < \l_@@_tmpc_int }
+        ||
+        \int_compare_p:n
+          { \l_@@_tmpc_int < \l_@@_tmpb_int <= \l_@@_tmpa_int }
+        ||
+        \int_compare_p:n
+          { \l_@@_tmpa_int < \l_@@_tmpc_int < \l_@@_tmpb_int }
+      }
       { \@@_forth_push_true: }
       { \@@_forth_push_false: }
   }
 %    \end{macrocode}
 % \end{macro}
 %
+% ^^A todo: optimize
 % \begin{macro}[int]{?DUP}
 %   Duplicate top of stack if non-zero.
 %    \begin{macrocode}
@@ -2152,9 +2209,9 @@
 %
 % \subsubsection{Defining words}
 %
-% This section defines the words |CONSTANT|, |CREATE|, |>BODY|,
-% |VARIABLE|, |:|, |DOES>|, |;|, |IMMEDIATE|, |LITERAL|, |POSTPONE|,
-% |RECURSE|, |STATE|, |[|, |]|.
+% This section defines the words |CONSTANT|, |CREATE|, |VARIABLE|,
+% |>BODY|, |VALUE|, |TO|, |:|, |DOES>|, |;|, |IMMEDIATE|, |LITERAL|,
+% |POSTPONE|, |RECURSE|, |STATE|, |[|, |]|.
 %
 % \begin{variable}{\l_@@_forth_def_word_str, \l_@@_forth_def_code_tl}
 %   The word whose definition is being built (empty for, \eg, |:NONAME|
@@ -2209,11 +2266,22 @@
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[int]{CREATE}
-%   The next word in the input buffer is defined to push the current
-%   value of |HERE|.  No space is allotted.
+% \begin{macro}[int]{CREATE, VARIABLE}
+% \begin{macro}[aux]{\@@_forth_create:}
+%   The auxiliary reads the next word in the input buffer and defines it
+%   to push the current value of |HERE|.  No space is allotted.  The
+%   |VARIABLE| word additionally reserves one cell by putting |0| there
+%   (actually putting a fixed value is unnecessary, but that is the
+%   available auxiliary).
 %    \begin{macrocode}
 \@@_forth_new_core:nn { CREATE }
+  { \@@_forth_create: }
+\@@_forth_new_core:nn { VARIABLE }
+  {
+    \@@_forth_create:
+    \@@_forth_put_here:n { 0 }
+  }
+\cs_new_protected_nopar:Npn \@@_forth_create:
   {
     \@@_forth_input_word:
     \@@_forth_set_word:ox \l_@@_forth_input_word_str
@@ -2223,6 +2291,7 @@
       }
   }
 %    \end{macrocode}
+% \end{macro}
 % \end{macro}
 %
 % \begin{macro}[int]{>BODY}
@@ -2239,22 +2308,82 @@
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[int]{VARIABLE}
-%   See code for |CREATE|.  Then reserve one cell by putting |0| there
-%   (actually putting a fixed value is unnecessary, but that's the
-%   available auxiliary).
+% \begin{macro}[int]{VALUE}
+%   A value is implemented in a way similar to a variable, but with the
+%   \texttt{push} function replaced by \texttt{push_value} to retrieve
+%   the value at the given address.  Instead of storing~\(0\) like in
+%   the case of |VARIABLE|, store the top of the stack.
 %    \begin{macrocode}
-\@@_forth_new_core:nn { VARIABLE }
+\@@_forth_new_core:nn { VALUE }
   {
     \@@_forth_input_word:
     \@@_forth_set_word:ox \l_@@_forth_input_word_str
       {
-        \@@_forth_push:n
+        \@@_forth_push_value:n
           { \int_use:N \l_@@_forth_data_here_int }
       }
-    \@@_forth_put_here:n { 0 }
+    \@@_forth_pop_int:N \l_@@_tmpa_int
+    \@@_forth_put_here:n \l_@@_tmpa_int
   }
 %    \end{macrocode}
+% \end{macro}
+%
+% ^^A todo: reuse \cs{@@_forth_to:n} where applicable.
+% ^^A todo: reuse \cs{@@_forth_push_value:n} where applicable.
+% \begin{macro}[int]{TO}
+% \begin{macro}[aux]{\@@_forth_to:n}
+%   This word is state-smart.  Immediately read a word from the input,
+%   then try to find it in the list of all words.  If it is found, make
+%   sure that it is a variable by looking at the first token in the code
+%   \texttt{tmpb} for its execution token \cs{tl_tail:N}
+%   \cs{l_@@_tmpa_tl}.  This first token \texttt{push_value} is followed
+%   by the address at which the value is stored, which we store in the
+%   integer~\(a\).  Assuming that all of this worked, check the state.
+%   In interpretation state, perform the auxiliary \texttt{forth_to}
+%   command directly; otherwise place it in the definition code.  This
+%   auxiliary pops the stack and stores that value into the given data
+%   cell.
+%    \begin{macrocode}
+\@@_forth_new_immediate_core:nn { TO }
+  {
+    \@@_forth_input_word:
+    \prop_get:NVNTF
+      \l_@@_forth_words_prop
+      \l_@@_forth_input_word_str
+      \l_@@_tmpa_tl
+      {
+        \tl_set:Nx \l_@@_tmpb_tl
+          { \tex_the:D \tex_toks:D \tl_tail:N \l_@@_tmpa_tl }
+        \tl_if_head_eq_meaning:VNTF
+          \l_@@_tmpb_tl \@@_forth_push_value:n
+          {
+            \int_set:Nn \l_@@_tmpa_int
+              { \tl_item:Nn \l_@@_tmpb_tl { 2 } }
+            \token_if_eq_meaning:NNTF
+              \@@_forth_perform:n
+              \@@_forth_interpret:n
+              {
+                \exp_args:NV \@@_forth_to:n \l_@@_tmpa_int
+              }
+              {
+                \@@_forth_def_code:x
+                  { \@@_forth_to:n { \int_use:N \l_@@_tmpa_int } }
+              }
+          }
+          { \msg_error:nn { runner/forth } { to-non-value } }
+      }
+      {
+        \msg_error:nnx { runner/forth } { unknown-word }
+          { \l_@@_forth_input_word_str }
+      }
+  }
+\cs_new_protected:Npn \@@_forth_to:n #1
+  {
+    \@@_forth_pop_int:N \l_@@_tmpa_int
+    \@@_forth_data_gset:nn {#1} { \l_@@_tmpa_int }
+  }
+%    \end{macrocode}
+% \end{macro}
 % \end{macro}
 %
 % ^^A todo: what is the compilation semantics of the colon word?
@@ -2833,8 +2962,8 @@
 %
 % \subsubsection{Input}
 %
-% This section defines |>IN|, |SOURCE|, |CHAR|, |[CHAR]|, |(|,%^^A)
-% |WORD|, |COUNT|, |S"|, |EVALUATE|, |ACCEPT|.
+% This section defines |>IN|, |SOURCE|, |TIB|, |CHAR|, |[CHAR]|, |(|,
+% |\|, |WORD|, |COUNT|, |S"|, |EVALUATE|, |ACCEPT|.  ^^A)
 %
 % \begin{macro}[int]{>IN}
 %   Push the address where the input buffer offset is stored.
@@ -2854,6 +2983,14 @@
     \@@_forth_push:n
       { \l_@@_forth_source_end_int - \l_@@_forth_source_begin_int }
   }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int]{TIB}
+%   Push the address of the terminal input buffer.
+%    \begin{macrocode}
+\@@_forth_new_core:nn { TIB }
+  { \@@_forth_push:n { \g_@@_forth_term_min_int } }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -2883,13 +3020,25 @@
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[int]{(}%^^A)
+% \begin{macro}[int]+(+%^^A)
 %   Comments are implemented by grabbing a piece of input delimited by a
 %   right parenthesis, and not doing anything with it.  This is an
 %   immediate word.
 %    \begin{macrocode}
 \@@_forth_new_immediate_core:nn (
   { \@@_forth_input_until:n { `) } }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int]+\+
+%   Parse until the end of the parse area, by setting |>IN| to its
+%   maximal value.
+%    \begin{macrocode}
+\exp_args:Nx \@@_forth_new_immediate_core:nn { \iow_char:N \\ }
+  {
+    \@@_forth_data_gset:nn \l_@@_forth_in_address_int
+      { \l_@@_forth_source_end_int - \l_@@_forth_source_begin_int }
+  }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -3034,7 +3183,7 @@
 %
 % This section defines the words |ALIGN|, |ALIGNED|, |CELL+|, |CHAR+|,
 % |CELLS|, |CHARS|, |HERE|, |,|, |C,|, |@|, |C@|, |2@|, |!|, |C!|, |2!|,
-% |+!|, |ALLOT|, |FILL|, |MOVE|.
+% |+!|, |ALLOT|, |ERASE|, |FILL|, |MOVE|.
 %
 % ^^A todo: Simplify how |ALIGNED| triggers an error upon empty stack
 % \begin{macro}[int]{ALIGN, ALIGNED}
@@ -3191,20 +3340,30 @@
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[int]{FILL}
+% \begin{macro}[int]{ERASE, FILL}
+% \begin{macro}[aux]{\@@_forth_fill:NNN}
 %   Fill the addresses from \(a\) to \(a+b-1\) with the value \(c\).
 %    \begin{macrocode}
+\@@_forth_new_core:nn { ERASE }
+  {
+    \@@_forth_pop_int:NN
+      \l_@@_tmpa_int \l_@@_tmpb_int
+    \@@_forth_fill:NNN \l_@@_tmpa_int \l_@@_tmpb_int \c_zero
+  }
 \@@_forth_new_core:nn { FILL }
   {
     \@@_forth_pop_int:NNN
       \l_@@_tmpa_int \l_@@_tmpb_int \l_@@_tmpc_int
-    \int_step_inline:nnnn
-      { \l_@@_tmpa_int }
-      { 1 }
-      { \l_@@_tmpa_int + \l_@@_tmpb_int - 1 }
-      { \@@_forth_data_gset:nn {#1} { \l_@@_tmpc_int } }
+    \@@_forth_fill:NNN
+      \l_@@_tmpa_int \l_@@_tmpb_int \l_@@_tmpc_int
+  }
+\cs_new_protected:Npn \@@_forth_fill:NNN #1#2#3
+  {
+    \int_step_inline:nnnn {#1} { 1 } { #1 + #2 - 1 }
+      { \@@_forth_data_gset:nn {##1} {#3} }
   }
 %    \end{macrocode}
+% \end{macro}
 % \end{macro}
 %
 % \begin{macro}[int]{MOVE}
@@ -3240,7 +3399,7 @@
 %
 % \subsubsection{Number conversion}
 %
-% This section defines |BASE|, |DECIMAL|, |<#|, |SIGN|, |HOLD|, |#|,
+% This section defines |BASE|, |DECIMAL|, |HEX|, |<#|, |SIGN|, |HOLD|, |#|,
 % |#S|, |#>|, |>NUMBER|.
 %
 % \begin{macro}[int]{BASE}
@@ -3251,10 +3410,13 @@
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[int]{DECIMAL}
+% \begin{macro}[int]{DECIMAL, HEX}
+%   Change base to \(10\) or \(16\).
 %    \begin{macrocode}
 \@@_forth_new_core:nn { DECIMAL }
   { \@@_forth_data_gset:nn { \l_@@_forth_base_address_int } { 10 } }
+\@@_forth_new_core:nn { HEX }
+  { \@@_forth_data_gset:nn { \l_@@_forth_base_address_int } { 16 } }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -3439,43 +3601,65 @@
 %
 % \subsubsection{Output}
 %
-% This section defines the words |.|, |U.|, |."|, |BL|, |CR|, |EMIT|,
-% |SPACE|, |SPACES|, |TYPE|.
+% This section defines the words |.|, |U.|, |.R|, |U.R|, |."|, |.(|%^^A)
+% |BL|, |CR|, |EMIT|, |SPACE|, |SPACES|, |TYPE|.
 %
-% \begin{macro}[int]{.}
-%   Get a signed value from the data stack, convert it to the base.
-%   Trailing space.
+% \begin{macro}[int]{., U.}
+% \begin{macro}[aux]{\@@_forth_outnum:n}
+%   Get a signed or unsigned value from the data stack, convert it to
+%   the base.  Trailing space.
 %    \begin{macrocode}
 \@@_forth_new_core:nn { . }
+  { \@@_forth_outnum:n { \@@_forth_signed:N } }
+\@@_forth_new_core:nn { U. }
+  { \@@_forth_outnum:n { } }
+\cs_new_protected:Npn \@@_forth_outnum:n #1
   {
     \@@_forth_pop_int:N \l_@@_tmpa_int
     \@@_output:x
+      { \int_to_base:nn { #1 \l_@@_tmpa_int } { \@@_forth_base: } ~ }
+  }
+%    \end{macrocode}
+% \end{macro}
+% \end{macro}
+%
+% \begin{macro}[int]{.R, U.R}
+% \begin{macro}[aux]{\@@_forth_outnum_aligned:n}
+%   Get a signed or unsigned value from the data stack, convert it to
+%   the base, fill on the left with spaces, making sure not to give
+%   \cs{prg_replicate:nn} a negative first argument.
+%    \begin{macrocode}
+\@@_forth_new_core:nn { .R }
+  { \@@_forth_outnum_aligned:n { \@@_forth_signed:N } }
+\@@_forth_new_core:nn { U.R }
+  { \@@_forth_outnum_aligned:n { } }
+\cs_new_protected:Npn \@@_forth_outnum_aligned:n #1
+  {
+    \@@_forth_pop_int:NN \l_@@_tmpa_int \l_@@_tmpb_int
+    \tl_set:Nx \l_@@_tmpa_tl
+      { \int_to_base:nn { \l_@@_tmpa_int } { \@@_forth_base: } }
+    \@@_output:x
       {
-        \int_to_base:nn
-          { \@@_forth_signed:N \l_@@_tmpa_int }
-          { \@@_forth_base: } ~
+        \prg_replicate:nn
+          {
+            \int_max:nn { \c_zero  }
+              { \l_@@_tmpb_int - \str_count:N \l_@@_tmpa_tl }
+          }
+          { ~ }
+        \l_@@_tmpa_tl
       }
   }
 %    \end{macrocode}
 % \end{macro}
-%
-% \begin{macro}[int]{U.}
-%   Get an unsigned value from the data stack, convert it to the base.
-%   Trailing space.
-%    \begin{macrocode}
-\@@_forth_new_core:nn { U. }
-  {
-    \@@_forth_pop_int:N \l_@@_tmpa_int
-    \@@_output:x
-      { \int_to_base:nn { \l_@@_tmpa_int } { \@@_forth_base: } ~ }
-  }
-%    \end{macrocode}
 % \end{macro}
 %
 % \begin{macro}[int]+."+
+% \begin{macro}[int]+.(+ %^^A)
 %   The dot-quote word reads the input until a double quote.  It has no
 %   interpretation semantics.  Its compilation semantics is to add code
-%   to the current definition that display what it read.
+%   to the current definition that display what it read.  The dot-parent
+%   is an immediate word that outputs the string read until a right
+%   parenthesis.
 %    \begin{macrocode}
 \@@_forth_new_compilation_core:nn { ." }
   {
@@ -3483,7 +3667,13 @@
     \@@_forth_def_code:x
       { \@@_output:n { \l_@@_forth_input_word_str } }
   }
+\@@_forth_new_immediate_core:nn { .( }
+  {
+    \@@_forth_input_until:n { `) }
+    \@@_output:n { \l_@@_forth_input_word_str }
+  }
 %    \end{macrocode}
+% \end{macro}
 % \end{macro}
 %
 % \begin{macro}[int]{BL}
@@ -3617,9 +3807,9 @@
 %
 % \subsubsection{Stacks}
 %
-% This section defines the words |DEPTH|, |DROP|, |2DROP|, |SWAP|,
-% |2SWAP|, |ROT|, |DUP|, |2DUP|, |OVER|, |2OVER|, |R>|, |R@|, |>R|,
-% |S>D|.
+% This section defines the words |DEPTH|, |DROP|, |2DROP|, |NIP|,
+% |SWAP|, |2SWAP|, |ROT|, |DUP|, |2DUP|, |OVER|, |2OVER|, |TUCK|,
+% |PICK|, |ROLL|, |R>|, |2R>|, |R@|, |2R@|, |>R|, |2>R|, |S>D|.
 %
 % \begin{macro}[int]{DEPTH}
 %    \begin{macrocode}
@@ -3638,6 +3828,17 @@
   { \@@_forth_pop_int:N \l_@@_tmpa_int }
 \@@_forth_new_core:nn { 2DROP }
   { \@@_forth_pop_int:NN \l_@@_tmpa_int \l_@@_tmpb_int }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int]{NIP}
+%   Turn \(x_1, x_2\) to \(x_2\).
+%    \begin{macrocode}
+\@@_forth_new_core:nn { NIP }
+  {
+    \@@_forth_pop_int:NN \l_@@_tmpa_int \l_@@_tmpb_int
+    \@@_forth_push:n \l_@@_tmpb_int
+  }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -3716,20 +3917,84 @@
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[int]{R>}
-%   Pop from the return stack onto the data stack.
+% \begin{macro}[int]{TUCK}
+%   Turn \(x_1, x_2\) to \(x_2, x_1, x_2\).
+%    \begin{macrocode}
+\@@_forth_new_core:nn { TUCK }
+  {
+    \@@_forth_pop_int:NN \l_@@_tmpa_int \l_@@_tmpb_int
+    \@@_forth_push:nnn
+      { \l_@@_tmpb_int } { \l_@@_tmpa_int } { \l_@@_tmpb_int }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int]{PICK, ROLL}
+%    \begin{macrocode}
+\@@_forth_new_core:nn { PICK }
+  {
+    \@@_forth_pop_int:N \l_@@_tmpa_int
+    \int_compare:nNnTF
+      { \l_@@_forth_stack_here_int - \l_@@_tmpa_int }
+      > \g_@@_forth_stack_min_int
+      {
+        \@@_forth_push:n
+          {
+            \@@_array_item:Nn \g_@@_forth_array
+              { \l_@@_forth_stack_here_int - \l_@@_tmpa_int - 1 }
+          }
+      }
+      { \msg_error:nn { runner/forth } { pick-too-far } }
+  }
+\@@_forth_new_core:nn { ROLL }
+  {
+    \@@_forth_pop_int:N \l_@@_tmpa_int
+    \int_compare:nNnTF
+      { \l_@@_forth_stack_here_int - \l_@@_tmpa_int }
+      > \g_@@_forth_stack_min_int
+      {
+        \int_set:Nn \l_@@_tmpb_int
+          {
+            \@@_array_item:Nn \g_@@_forth_array
+              { \l_@@_forth_stack_here_int - \l_@@_tmpa_int - 1 }
+          }
+        \int_step_inline:nnnn
+          { \l_@@_forth_stack_here_int - \l_@@_tmpa_int }
+          { 1 }
+          { \l_@@_forth_stack_here_int - 1 }
+          {
+            \@@_array_gset:Nnn \g_@@_forth_array { #1 - 1 }
+              { \@@_array_item:Nn \g_@@_forth_array {#1} }
+          }
+        \@@_array_gset:Nnn \g_@@_forth_array
+          { \l_@@_forth_stack_here_int - 1 }
+          { \l_@@_tmpb_int }
+      }
+      { \msg_error:nn { runner/forth } { pick-too-far } }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int]{R>, 2R>}
+%   Pop one or two cells from the return stack onto the data stack.
 %    \begin{macrocode}
 \@@_forth_new_core:nn { R> }
   {
     \@@_forth_return_pop_int:N \l_@@_tmpa_int
     \@@_forth_push:n { \l_@@_tmpa_int }
   }
+\@@_forth_new_core:nn { 2R> }
+  {
+    \@@_forth_return_pop_int:N \l_@@_tmpb_int
+    \@@_forth_return_pop_int:N \l_@@_tmpa_int
+    \@@_forth_push:nn { \l_@@_tmpa_int } { \l_@@_tmpb_int }
+  }
 %    \end{macrocode}
 % \end{macro}
 %
 % ^^A todo: optimize.
-% \begin{macro}[int]{R@}
-%   Copy from the return stack onto the data stack.
+% \begin{macro}[int]{R@, 2R@}
+%   Copy one or two cells from the return stack onto the data stack.
 %    \begin{macrocode}
 \@@_forth_new_core:nn { R@ }
   {
@@ -3737,16 +4002,30 @@
     \@@_forth_return_push:n { \l_@@_tmpa_int }
     \@@_forth_push:n { \l_@@_tmpa_int }
   }
+\@@_forth_new_core:nn { 2R@ }
+  {
+    \@@_forth_return_pop_int:N \l_@@_tmpb_int
+    \@@_forth_return_pop_int:N \l_@@_tmpa_int
+    \@@_forth_return_push:n { \l_@@_tmpa_int }
+    \@@_forth_return_push:n { \l_@@_tmpb_int }
+    \@@_forth_push:nn { \l_@@_tmpa_int } { \l_@@_tmpb_int }
+  }
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[int]{>R}
-%   Pop from the data stack onto the return stack.
+% \begin{macro}[int]{>R, 2>R}
+%   Pop one or two cells from the data stack onto the return stack.
 %    \begin{macrocode}
 \@@_forth_new_compilation_core:nn { >R }
   {
     \@@_forth_pop_int:N \l_@@_tmpa_int
     \@@_forth_return_push:n \l_@@_tmpa_int
+  }
+\@@_forth_new_compilation_core:nn { 2>R }
+  {
+    \@@_forth_pop_int:NN \l_@@_tmpa_int \l_@@_tmpb_int
+    \@@_forth_return_push:n \l_@@_tmpa_int
+    \@@_forth_return_push:n \l_@@_tmpb_int
   }
 %    \end{macrocode}
 % \end{macro}
@@ -3985,6 +4264,8 @@
   { Misplaced~#1. }
 \msg_new:nnn { runner/forth } { internal }
   { Internal~error.~Please~report. }
+\msg_new:nnn { runner/forth } { pick-too-far }
+  { PICK~or~ROLL's~first~argument~larger~than~DEPTH. }
 %    \end{macrocode}
 %
 % \end{runner-implementation}

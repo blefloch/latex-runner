@@ -25,6 +25,7 @@
 \cs_generate_variant:Nn \prop_get:NnNTF { Nx }
 \cs_generate_variant:Nn \prop_put:Nnn { Nxx }
 \cs_generate_variant:Nn \tl_item:nn { o }
+\cs_generate_variant:Nn \tl_if_head_eq_meaning:nNTF { V }
 \cs_new_protected:Npn \__runner_forth_exit:
   #1 \__runner_forth_exit_point: { }
 \cs_new_eq:NN \__runner_forth_exit_point: \scan_stop:
@@ -236,6 +237,8 @@
              * round- ( \l__runner_forth_push_fp / \c__runner_forth_mod_int )
       }
   }
+\cs_new_protected:Npn \__runner_forth_push_value:n #1
+  { \__runner_forth_push:n { \__runner_forth_data_get:n {#1} } }
 \cs_new_protected:Npn \__runner_forth_control_open:n #1
   {
     \int_compare:nNnTF
@@ -850,52 +853,65 @@
     \__runner_bit_rshift:NN \l__runner_tmpa_int \l__runner_tmpb_int
     \__runner_forth_push_signed:n { \l__runner_tmpa_int }
   }
-\__runner_forth_new_core:nn { 0< }
-  {
-    \__runner_forth_pop_int:N \l__runner_tmpa_int
-    \int_compare:nNnTF
-      { \__runner_forth_signed:N \l__runner_tmpa_int } < \c_zero
-      { \__runner_forth_push_true: }
-      { \__runner_forth_push_false: }
-  }
+\__runner_forth_new_core:nn { FALSE } { \__runner_forth_push_false: }
+\__runner_forth_new_core:nn { TRUE } { \__runner_forth_push_true: }
 \__runner_forth_new_core:nn { 0= }
+  { \__runner_forth_eq_zero:TF \__runner_forth_push_true: \__runner_forth_push_false: }
+\__runner_forth_new_core:nn { 0<> }
+  { \__runner_forth_eq_zero:TF \__runner_forth_push_false: \__runner_forth_push_true: }
+\cs_new_protected_nopar:Npn \__runner_forth_eq_zero:TF
   {
     \__runner_forth_pop_int:N \l__runner_tmpa_int
     \int_compare:nNnTF \l__runner_tmpa_int = \c_zero
-      { \__runner_forth_push_true: }
-      { \__runner_forth_push_false: }
   }
-\__runner_forth_new_core:nn { < }
+\__runner_forth_new_core:nn { 0< }
+  { \__runner_forth_cmp_zero:N < }
+\__runner_forth_new_core:nn { 0> }
+  { \__runner_forth_cmp_zero:N > }
+\cs_new_protected:Npn \__runner_forth_cmp_zero:N #1
   {
-    \__runner_forth_pop_int:NN \l__runner_tmpa_int \l__runner_tmpb_int
+    \__runner_forth_pop_int:N \l__runner_tmpa_int
     \int_compare:nNnTF
-      { \__runner_forth_signed:N \l__runner_tmpa_int }
-      < { \__runner_forth_signed:N \l__runner_tmpb_int }
-      { \__runner_forth_push_true: }
-      { \__runner_forth_push_false: }
+      { \__runner_forth_signed:N \l__runner_tmpa_int } #1 \c_zero
   }
 \__runner_forth_new_core:nn { = }
+  { \__runner_forth_eq:TF \__runner_forth_push_true: \__runner_forth_push_false: }
+\__runner_forth_new_core:nn { <> }
+  { \__runner_forth_eq:TF \__runner_forth_push_false: \__runner_forth_push_true: }
+\cs_new_protected:Npn \__runner_forth_eq:TF
   {
     \__runner_forth_pop_int:NN \l__runner_tmpa_int \l__runner_tmpb_int
-    \int_compare:nNnTF
-      { \__runner_forth_signed:N \l__runner_tmpa_int }
-      = { \__runner_forth_signed:N \l__runner_tmpb_int }
-      { \__runner_forth_push_true: }
-      { \__runner_forth_push_false: }
+    \int_compare:nNnTF \l__runner_tmpa_int = \l__runner_tmpb_int
   }
+\__runner_forth_new_core:nn { U< } { \__runner_forth_cmp:Nn < { } }
+\__runner_forth_new_core:nn { U> } { \__runner_forth_cmp:Nn > { } }
+\__runner_forth_new_core:nn { < }
+  { \__runner_forth_cmp:Nn < \__runner_forth_signed:N }
 \__runner_forth_new_core:nn { > }
+  { \__runner_forth_cmp:Nn > \__runner_forth_signed:N }
+\cs_new_protected:Npn \__runner_forth_cmp:Nn #1#2
   {
     \__runner_forth_pop_int:NN \l__runner_tmpa_int \l__runner_tmpb_int
     \int_compare:nNnTF
-      { \__runner_forth_signed:N \l__runner_tmpa_int }
-      > { \__runner_forth_signed:N \l__runner_tmpb_int }
+      { #2 \l__runner_tmpa_int } #1 { #2 \l__runner_tmpb_int }
       { \__runner_forth_push_true: }
       { \__runner_forth_push_false: }
   }
-\__runner_forth_new_core:nn { U< }
+\__runner_forth_new_core:nn { WITHIN }
   {
-    \__runner_forth_pop_int:NN \l__runner_tmpa_int \l__runner_tmpb_int
-    \int_compare:nNnTF \l__runner_tmpa_int < \l__runner_tmpb_int
+    \__runner_forth_pop_int:NNN
+      \l__runner_tmpa_int \l__runner_tmpb_int \l__runner_tmpc_int
+    \bool_if:nTF
+      {
+        \int_compare_p:n
+          { \l__runner_tmpb_int <= \l__runner_tmpa_int < \l__runner_tmpc_int }
+        ||
+        \int_compare_p:n
+          { \l__runner_tmpc_int < \l__runner_tmpb_int <= \l__runner_tmpa_int }
+        ||
+        \int_compare_p:n
+          { \l__runner_tmpa_int < \l__runner_tmpc_int < \l__runner_tmpb_int }
+      }
       { \__runner_forth_push_true: }
       { \__runner_forth_push_false: }
   }
@@ -965,6 +981,13 @@
       { \__runner_forth_push:n { \int_use:N \l__runner_tmpa_int } }
   }
 \__runner_forth_new_core:nn { CREATE }
+  { \__runner_forth_create: }
+\__runner_forth_new_core:nn { VARIABLE }
+  {
+    \__runner_forth_create:
+    \__runner_forth_put_here:n { 0 }
+  }
+\cs_new_protected_nopar:Npn \__runner_forth_create:
   {
     \__runner_forth_input_word:
     \__runner_forth_set_word:ox \l__runner_forth_input_word_str
@@ -979,15 +1002,54 @@
     \__runner_forth_push:n
       { \tl_item:on { \tex_the:D \tex_toks:D \l__runner_tmpa_int } { 2 } }
   }
-\__runner_forth_new_core:nn { VARIABLE }
+\__runner_forth_new_core:nn { VALUE }
   {
     \__runner_forth_input_word:
     \__runner_forth_set_word:ox \l__runner_forth_input_word_str
       {
-        \__runner_forth_push:n
+        \__runner_forth_push_value:n
           { \int_use:N \l__runner_forth_data_here_int }
       }
-    \__runner_forth_put_here:n { 0 }
+    \__runner_forth_pop_int:N \l__runner_tmpa_int
+    \__runner_forth_put_here:n \l__runner_tmpa_int
+  }
+\__runner_forth_new_immediate_core:nn { TO }
+  {
+    \__runner_forth_input_word:
+    \prop_get:NVNTF
+      \l__runner_forth_words_prop
+      \l__runner_forth_input_word_str
+      \l__runner_tmpa_tl
+      {
+        \tl_set:Nx \l__runner_tmpb_tl
+          { \tex_the:D \tex_toks:D \tl_tail:N \l__runner_tmpa_tl }
+        \tl_if_head_eq_meaning:VNTF
+          \l__runner_tmpb_tl \__runner_forth_push_value:n
+          {
+            \int_set:Nn \l__runner_tmpa_int
+              { \tl_item:Nn \l__runner_tmpb_tl { 2 } }
+            \token_if_eq_meaning:NNTF
+              \__runner_forth_perform:n
+              \__runner_forth_interpret:n
+              {
+                \exp_args:NV \__runner_forth_to:n \l__runner_tmpa_int
+              }
+              {
+                \__runner_forth_def_code:x
+                  { \__runner_forth_to:n { \int_use:N \l__runner_tmpa_int } }
+              }
+          }
+          { \msg_error:nn { runner/forth } { to-non-value } }
+      }
+      {
+        \msg_error:nnx { runner/forth } { unknown-word }
+          { \l__runner_forth_input_word_str }
+      }
+  }
+\cs_new_protected:Npn \__runner_forth_to:n #1
+  {
+    \__runner_forth_pop_int:N \l__runner_tmpa_int
+    \__runner_forth_data_gset:nn {#1} { \l__runner_tmpa_int }
   }
 \__runner_forth_new_core:nn { : }
   {
@@ -1332,6 +1394,8 @@
     \__runner_forth_push:n
       { \l__runner_forth_source_end_int - \l__runner_forth_source_begin_int }
   }
+\__runner_forth_new_core:nn { TIB }
+  { \__runner_forth_push:n { \g__runner_forth_term_min_int } }
 \__runner_forth_new_core:nn { CHAR }
   {
     \__runner_forth_input_word:
@@ -1347,6 +1411,11 @@
   }
 \__runner_forth_new_immediate_core:nn (
   { \__runner_forth_input_until:n { `) } }
+\exp_args:Nx \__runner_forth_new_immediate_core:nn { \iow_char:N \\ }
+  {
+    \__runner_forth_data_gset:nn \l__runner_forth_in_address_int
+      { \l__runner_forth_source_end_int - \l__runner_forth_source_begin_int }
+  }
 \__runner_forth_new_core:nn { WORD }
   {
     \__runner_forth_pop_int:N \l__runner_tmpa_int
@@ -1505,15 +1574,23 @@
           }
       }
   }
+\__runner_forth_new_core:nn { ERASE }
+  {
+    \__runner_forth_pop_int:NN
+      \l__runner_tmpa_int \l__runner_tmpb_int
+    \__runner_forth_fill:NNN \l__runner_tmpa_int \l__runner_tmpb_int \c_zero
+  }
 \__runner_forth_new_core:nn { FILL }
   {
     \__runner_forth_pop_int:NNN
       \l__runner_tmpa_int \l__runner_tmpb_int \l__runner_tmpc_int
-    \int_step_inline:nnnn
-      { \l__runner_tmpa_int }
-      { 1 }
-      { \l__runner_tmpa_int + \l__runner_tmpb_int - 1 }
-      { \__runner_forth_data_gset:nn {#1} { \l__runner_tmpc_int } }
+    \__runner_forth_fill:NNN
+      \l__runner_tmpa_int \l__runner_tmpb_int \l__runner_tmpc_int
+  }
+\cs_new_protected:Npn \__runner_forth_fill:NNN #1#2#3
+  {
+    \int_step_inline:nnnn {#1} { 1 } { #1 + #2 - 1 }
+      { \__runner_forth_data_gset:nn {##1} {#3} }
   }
 \__runner_forth_new_core:nn { MOVE }
   {
@@ -1541,6 +1618,8 @@
   { \__runner_forth_push:n { \l__runner_forth_base_address_int } }
 \__runner_forth_new_core:nn { DECIMAL }
   { \__runner_forth_data_gset:nn { \l__runner_forth_base_address_int } { 10 } }
+\__runner_forth_new_core:nn { HEX }
+  { \__runner_forth_data_gset:nn { \l__runner_forth_base_address_int } { 16 } }
 \exp_args:Nx \__runner_forth_new_core:nn { < \iow_char:N \# }
   {
     \int_set_eq:NN \l__runner_forth_picnum_here_int
@@ -1650,26 +1729,45 @@
       { \int_mod:nn { \l__runner_tmpa_int } { \c__runner_forth_mod_int } }
   }
 \__runner_forth_new_core:nn { . }
+  { \__runner_forth_outnum:n { \__runner_forth_signed:N } }
+\__runner_forth_new_core:nn { U. }
+  { \__runner_forth_outnum:n { } }
+\cs_new_protected:Npn \__runner_forth_outnum:n #1
   {
     \__runner_forth_pop_int:N \l__runner_tmpa_int
+    \__runner_output:x
+      { \int_to_base:nn { #1 \l__runner_tmpa_int } { \__runner_forth_base: } ~ }
+  }
+\__runner_forth_new_core:nn { .R }
+  { \__runner_forth_outnum_aligned:n { \__runner_forth_signed:N } }
+\__runner_forth_new_core:nn { U.R }
+  { \__runner_forth_outnum_aligned:n { } }
+\cs_new_protected:Npn \__runner_forth_outnum_aligned:n #1
+  {
+    \__runner_forth_pop_int:NN \l__runner_tmpa_int \l__runner_tmpb_int
+    \tl_set:Nx \l__runner_tmpa_tl
+      { \int_to_base:nn { \l__runner_tmpa_int } { \__runner_forth_base: } }
     \__runner_output:x
       {
-        \int_to_base:nn
-          { \__runner_forth_signed:N \l__runner_tmpa_int }
-          { \__runner_forth_base: } ~
+        \prg_replicate:nn
+          {
+            \int_max:nn { \c_zero  }
+              { \l__runner_tmpb_int - \str_count:N \l__runner_tmpa_tl }
+          }
+          { ~ }
+        \l__runner_tmpa_tl
       }
-  }
-\__runner_forth_new_core:nn { U. }
-  {
-    \__runner_forth_pop_int:N \l__runner_tmpa_int
-    \__runner_output:x
-      { \int_to_base:nn { \l__runner_tmpa_int } { \__runner_forth_base: } ~ }
   }
 \__runner_forth_new_compilation_core:nn { ." }
   {
     \__runner_forth_input_until:n { `" }
     \__runner_forth_def_code:x
       { \__runner_output:n { \l__runner_forth_input_word_str } }
+  }
+\__runner_forth_new_immediate_core:nn { .( }
+  {
+    \__runner_forth_input_until:n { `) }
+    \__runner_output:n { \l__runner_forth_input_word_str }
   }
 \__runner_forth_new_core:nn { BL }
   { \__runner_forth_push:n { `\  } }
@@ -1743,6 +1841,11 @@
   { \__runner_forth_pop_int:N \l__runner_tmpa_int }
 \__runner_forth_new_core:nn { 2DROP }
   { \__runner_forth_pop_int:NN \l__runner_tmpa_int \l__runner_tmpb_int }
+\__runner_forth_new_core:nn { NIP }
+  {
+    \__runner_forth_pop_int:NN \l__runner_tmpa_int \l__runner_tmpb_int
+    \__runner_forth_push:n \l__runner_tmpb_int
+  }
 \__runner_forth_new_core:nn { SWAP }
   {
     \__runner_forth_pop_int:NN \l__runner_tmpa_int \l__runner_tmpb_int
@@ -1792,10 +1895,63 @@
       { \l__runner_tmpc_int } { \l__runner_tmpd_int }
       { \l__runner_tmpa_int } { \l__runner_tmpb_int }
   }
+\__runner_forth_new_core:nn { TUCK }
+  {
+    \__runner_forth_pop_int:NN \l__runner_tmpa_int \l__runner_tmpb_int
+    \__runner_forth_push:nnn
+      { \l__runner_tmpb_int } { \l__runner_tmpa_int } { \l__runner_tmpb_int }
+  }
+\__runner_forth_new_core:nn { PICK }
+  {
+    \__runner_forth_pop_int:N \l__runner_tmpa_int
+    \int_compare:nNnTF
+      { \l__runner_forth_stack_here_int - \l__runner_tmpa_int }
+      > \g__runner_forth_stack_min_int
+      {
+        \__runner_forth_push:n
+          {
+            \__runner_array_item:Nn \g__runner_forth_array
+              { \l__runner_forth_stack_here_int - \l__runner_tmpa_int - 1 }
+          }
+      }
+      { \msg_error:nn { runner/forth } { pick-too-far } }
+  }
+\__runner_forth_new_core:nn { ROLL }
+  {
+    \__runner_forth_pop_int:N \l__runner_tmpa_int
+    \int_compare:nNnTF
+      { \l__runner_forth_stack_here_int - \l__runner_tmpa_int }
+      > \g__runner_forth_stack_min_int
+      {
+        \int_set:Nn \l__runner_tmpb_int
+          {
+            \__runner_array_item:Nn \g__runner_forth_array
+              { \l__runner_forth_stack_here_int - \l__runner_tmpa_int - 1 }
+          }
+        \int_step_inline:nnnn
+          { \l__runner_forth_stack_here_int - \l__runner_tmpa_int }
+          { 1 }
+          { \l__runner_forth_stack_here_int - 1 }
+          {
+            \__runner_array_gset:Nnn \g__runner_forth_array { #1 - 1 }
+              { \__runner_array_item:Nn \g__runner_forth_array {#1} }
+          }
+        \__runner_array_gset:Nnn \g__runner_forth_array
+          { \l__runner_forth_stack_here_int - 1 }
+          { \l__runner_tmpb_int }
+      }
+      { \msg_error:nn { runner/forth } { pick-too-far } }
+  }
 \__runner_forth_new_core:nn { R> }
   {
     \__runner_forth_return_pop_int:N \l__runner_tmpa_int
     \__runner_forth_push:n { \l__runner_tmpa_int }
+  }
+\__runner_forth_new_core:nn { 2R> }
+  {
+    \__runner_forth_return_pop_int:N \l__runner_tmpb_int
+    \__runner_forth_return_pop_int:N \l__runner_tmpa_int
+    \__runner_forth_push:nn { \l__runner_tmpa_int } { \l__runner_tmpb_int }
   }
 \__runner_forth_new_core:nn { R@ }
   {
@@ -1803,10 +1959,24 @@
     \__runner_forth_return_push:n { \l__runner_tmpa_int }
     \__runner_forth_push:n { \l__runner_tmpa_int }
   }
+\__runner_forth_new_core:nn { 2R@ }
+  {
+    \__runner_forth_return_pop_int:N \l__runner_tmpb_int
+    \__runner_forth_return_pop_int:N \l__runner_tmpa_int
+    \__runner_forth_return_push:n { \l__runner_tmpa_int }
+    \__runner_forth_return_push:n { \l__runner_tmpb_int }
+    \__runner_forth_push:nn { \l__runner_tmpa_int } { \l__runner_tmpb_int }
+  }
 \__runner_forth_new_compilation_core:nn { >R }
   {
     \__runner_forth_pop_int:N \l__runner_tmpa_int
     \__runner_forth_return_push:n \l__runner_tmpa_int
+  }
+\__runner_forth_new_compilation_core:nn { 2>R }
+  {
+    \__runner_forth_pop_int:NN \l__runner_tmpa_int \l__runner_tmpb_int
+    \__runner_forth_return_push:n \l__runner_tmpa_int
+    \__runner_forth_return_push:n \l__runner_tmpb_int
   }
 \__runner_forth_new_core:nn { S>D }
   {
@@ -1973,6 +2143,8 @@
   { Misplaced~#1. }
 \msg_new:nnn { runner/forth } { internal }
   { Internal~error.~Please~report. }
+\msg_new:nnn { runner/forth } { pick-too-far }
+  { PICK~or~ROLL's~first~argument~larger~than~DEPTH. }
 %% 
 %%
 %% End of file `runner-forth.ldf'.
