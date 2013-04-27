@@ -272,7 +272,7 @@
       { clist } \l__runner_output_encoding_tl
     \str_put_right:Nx \l__runner_output_str
       { \l__runner_internal_tl #2 }
-    \__runner_output_line_aux:Nn \l__runner_internal_tl {#1}
+    \__runner_output_line_aux:Nn \l__runner_internal_tl {#2}
   }
 \cs_generate_variant:Nn \__runner_output_line:nn { x }
 \cs_new_eq:NN \__runner_output_line_aux:Nn \use_none:nn

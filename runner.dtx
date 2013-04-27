@@ -871,7 +871,7 @@
       { clist } \l_@@_output_encoding_tl
     \str_put_right:Nx \l_@@_output_str
       { \l_@@_internal_tl #2 }
-    \@@_output_line_aux:Nn \l_@@_internal_tl {#1}
+    \@@_output_line_aux:Nn \l_@@_internal_tl {#2}
   }
 \cs_generate_variant:Nn \@@_output_line:nn { x }
 \cs_new_eq:NN \@@_output_line_aux:Nn \use_none:nn
