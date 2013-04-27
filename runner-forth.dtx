@@ -1093,10 +1093,12 @@
 %
 % \subsubsection{Input}
 %
-% \begin{variable}{\l_@@_forth_input_word_str}
-%   Token list containing the word being built.
+% \begin{variable}{\l_@@_forth_input_word_str, \l_@@_forth_input_word_seq}
+%   String containing the word being built, and sequence with its
+%   character codes.
 %    \begin{macrocode}
 \str_new:N \l_@@_forth_input_word_str
+\seq_new:N \l_@@_forth_input_word_seq
 %    \end{macrocode}
 % \end{variable}
 %
@@ -1275,6 +1277,7 @@
 \cs_new_protected_nopar:Npn \@@_forth_input_until:n
   {
     \tl_clear:N \l_@@_forth_input_word_str
+    \seq_clear:N \l_@@_forth_input_word_seq
     \@@_forth_input_discard_aux:TFn
       {
         \bool_set_false:N \l_@@_tmpa_bool
@@ -1283,7 +1286,9 @@
       {
         \@@_forth_str_put_char:Nn \l_@@_forth_input_word_str
           { \l_@@_tmpc_int }
-          \int_incr:N \l_@@_forth_source_parsed_int
+        \seq_put_right:Nx \l_@@_forth_input_word_seq
+          { \int_use:N \l_@@_tmpc_int }
+        \int_incr:N \l_@@_forth_source_parsed_int
       }
   }
 \cs_new_protected:Npn \@@_forth_input_discard_aux:TFn #1#2#3
@@ -1460,10 +1465,10 @@
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[int]{\@@_forth_store_str:NN}
-%   Store the string |#1| in the \texttt{forth_array} starting at
-%   position |#2|.  Afterwards, |#2| is at the first cell after the
-%   string, and |#1| is modified.
+% \begin{macro}[int]{\@@_forth_store_str:NN, \@@_forth_store_seq:NN}
+%   Store the string or sequence |#1| in the \texttt{forth_array}
+%   starting at position |#2|.  Afterwards, |#2| is at the first cell
+%   after the string, and |#1| is modified.
 %    \begin{macrocode}
 \cs_new_protected:Npn \@@_forth_store_str:NN #1#2
   {
@@ -1471,6 +1476,14 @@
     \tl_map_inline:Nn #1
       {
         \@@_array_gset:Nnn \g_@@_forth_array {#2} { `##1 }
+        \int_incr:N #2
+      }
+  }
+\cs_new_protected:Npn \@@_forth_store_seq:NN #1#2
+  {
+    \seq_map_inline:Nn #1
+      {
+        \@@_array_gset:Nnn \g_@@_forth_array {#2} {##1}
         \int_incr:N #2
       }
   }
@@ -3201,9 +3214,8 @@
 \@@_forth_new_core:nn { CHAR }
   {
     \@@_forth_input_word:
-    \tl_set:Nx \l_@@_tmpa_tl
-      { \str_head:N \l_@@_forth_input_word_str }
-    \@@_forth_push:n { \exp_after:wN ` \l_@@_tmpa_tl }
+    \seq_get:NN \l_@@_forth_input_word_seq \l_@@_tmpa_tl
+    \@@_forth_push:n { \l_@@_tmpa_tl }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -3215,8 +3227,8 @@
 \@@_forth_new_compilation_core:nn { [CHAR] }
   {
     \@@_forth_input_word:
-    \@@_forth_def_code:x
-      { \@@_forth_push:n { ` \str_head:N \l_@@_forth_input_word_str } }
+    \seq_get:NN \l_@@_forth_input_word_seq \l_@@_tmpa_tl
+    \@@_forth_def_code:x { \@@_forth_push:n { \l_@@_tmpa_tl } }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -3268,7 +3280,7 @@
 %   \(\text{\texttt{data_here}}+1\), the address at which the first
 %   character will be stored.  Find the \(a\)-delimited word, after
 %   ignoring leading delimiters, and store the resulting string starting
-%   at \texttt{data_word}.  The \texttt{store_str} function updates this
+%   at \texttt{data_word}.  The \texttt{store_seq} function updates this
 %   pointer to just after the end of the word stored.  Store the
 %   character count before the string.  Balk if we went out of bound.
 %    \begin{macrocode}
@@ -3280,7 +3292,7 @@
       { \l_@@_forth_data_here_int + 1 }
     \@@_forth_input_discard:n { \l_@@_tmpa_int }
     \@@_forth_input_until:n { \l_@@_tmpa_int }
-    \@@_forth_store_str:NN \l_@@_forth_input_word_str
+    \@@_forth_store_seq:NN \l_@@_forth_input_word_seq
       \l_@@_forth_data_word_int
     \@@_forth_data_gset:nn
       { \l_@@_forth_data_here_int }
@@ -3339,7 +3351,7 @@
   {
     \@@_forth_input_until:n { `" }
     \int_set:Nn \l_@@_tmpa_int
-      { \str_count:N \l_@@_forth_input_word_str }
+      { \seq_count:N \l_@@_forth_input_word_seq }
     \int_sub:Nn \l_@@_forth_data_text_int { \l_@@_tmpa_int #1 }
     \int_compare:nNnTF
       \l_@@_forth_data_text_int < \l_@@_forth_data_here_int
@@ -3356,7 +3368,7 @@
           }
         \int_set_eq:NN \l_@@_tmpb_int \l_@@_forth_data_text_int
         #3
-        \@@_forth_store_str:NN \l_@@_forth_input_word_str
+        \@@_forth_store_seq:NN \l_@@_forth_input_word_seq
           \l_@@_tmpb_int
       }
   }
@@ -3965,12 +3977,16 @@
   {
     \@@_forth_input_until:n { `" }
     \@@_forth_def_code:x
-      { \@@_output:n { \l_@@_forth_input_word_str } }
+      {
+        \@@_output_clist:n
+          { \seq_use:Nnnn \l_@@_forth_input_word_seq , , , }
+      }
   }
 \@@_forth_new_immediate_core:nn { .( }
   {
     \@@_forth_input_until:n { `) }
-    \@@_output:n { \l_@@_forth_input_word_str }
+    \@@_output_clist:n
+      { \seq_use:Nnnn \l_@@_forth_input_word_seq , , , }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -4005,7 +4021,7 @@
 % \end{macro}
 %
 % \begin{macro}[int]{SPACE}
-%   Output a space.
+%   Output a space (character code~\(32\)).
 %    \begin{macrocode}
 \@@_forth_new_core:nn { SPACE }
   { \@@_output_char:n { 32 } }
@@ -4013,12 +4029,14 @@
 % \end{macro}
 %
 % \begin{macro}[int]{SPACES}
-%   Output \(a\) spaces, where \(a\) is found on the stack.
+%   Output \(a\) spaces (character code~\(32\)), where \(a\) is found on
+%   the stack.
 %    \begin{macrocode}
 \@@_forth_new_core:nn { SPACES }
   {
     \@@_forth_pop_int:N \l_@@_tmpa_int
-    \@@_output:x { \prg_replicate:nn { \l_@@_tmpa_int } { ~ } }
+    \@@_output_clist:x
+      { \prg_replicate:nn { \l_@@_tmpa_int } { 32 , } }
   }
 %    \end{macrocode}
 % \end{macro}
