@@ -282,6 +282,21 @@
   ; x|||
 \typeout{\result}
 
+\runner{forth}[output = \result]|
+  2 3 + 5 =
+  [IF]
+    .( true-1 )
+    2 3 + 6 =
+    [IF] .( true-2 ) [ELSE] .( false-2 ) [THEN]
+  [ELSE]
+    .( false-1)
+    [IF] [ELSE] [IF] [IF] [THEN] [ELSE] [THEN] [THEN]
+    .( re-false-1 )
+  [THEN]
+  .( out)
+|||
+\typeout{\result}
+
 % From the Forth_(programming_language) page on Wikipedia.
 \runner{forth}[output = \result]|
   0 VALUE ii        0 VALUE jj

@@ -975,20 +975,20 @@
   {
     \__runner_forth_control_close:nTF { 2 }
       {
-        \exp_args:NV \__runner_forth_compile_then:nn
+        \exp_args:NV \__runner_forth_compile_then:TF
           \l__runner_forth_def_code_tl { }
       }
       {
         \__runner_forth_control_close:nTF { 3 }
           {
             \seq_pop:NN \l__runner_forth_def_seq \l__runner_tmpa_tl
-            \exp_args:NVV \__runner_forth_compile_then:nn
+            \exp_args:NVV \__runner_forth_compile_then:TF
               \l__runner_tmpa_tl \l__runner_forth_def_code_tl
           }
           { \msg_error:nnn { runner/forth } { misplaced } { THEN } }
       }
   }
-\cs_new_protected:Npn \__runner_forth_compile_then:nn #1#2
+\cs_new_protected:Npn \__runner_forth_compile_then:TF #1#2
   {
     \seq_pop:NN \l__runner_forth_def_seq \l__runner_forth_def_code_tl
     \__runner_forth_def_code:x
@@ -1648,24 +1648,26 @@
       { \__runner_forth_push_true: }
   }
 \__runner_forth_new_core:nn { REFILL }
+  { \__runner_forth_refill:TF \__runner_forth_push_true: \__runner_forth_push_false: }
+\cs_new_protected_nopar:Npn \__runner_forth_refill:TF
   {
     \seq_if_empty:NTF \l__runner_forth_sources_seq
       {
         \__runner_get_line:NTF \l__runner_forth_input_str
           {
             \__runner_forth_term_refill:
-            \__runner_forth_push_true:
+            \use_i:nn
           }
           {
             \seq_if_empty:NTF \l__runner_sources_seq
-              { \__runner_forth_push_false: }
+              { \use_ii:nn }
               {
                 \__runner_forth_term_refill:
-                \__runner_forth_push_true:
+                \use_i:nn
               }
           }
       }
-      { \__runner_forth_push_false: }
+      { \use_ii:nn }
   }
 \__runner_forth_new_core:nn { ALIGN } { }
 \__runner_forth_new_core:nn { ALIGNED }
@@ -2238,6 +2240,45 @@
       {
         #2
         \__runner_forth_compiled_repeat:nn {#1} {#2}
+      }
+  }
+\int_new:N \l__runner_forth_if_int
+\__runner_forth_new_immediate_core:nn { [IF] }
+  {
+    \__runner_forth_pop_int:N \l__runner_tmpa_int
+    \int_compare:nNnT \l__runner_tmpa_int = \c_zero
+      {
+        \__runner_forth_bracket_if:n
+          {
+            { [ELSE] }
+              {
+                \int_compare:nNnF \l__runner_forth_if_int > \c_zero
+                  { \int_decr:N \l__runner_forth_if_int }
+              }
+          }
+      }
+  }
+\__runner_forth_new_immediate_core:nn { [ELSE] }
+  { \__runner_forth_bracket_if:n { } }
+\__runner_forth_new_immediate_core:nn { [THEN] } { }
+\cs_new_protected:Npn \__runner_forth_bracket_if:n #1
+  {
+    \int_zero:N \l__runner_forth_if_int
+    \int_until_do:nNnn \l__runner_forth_if_int < \c_zero
+      {
+        \__runner_forth_input_word:
+        \str_case:onn { \l__runner_forth_input_word_str }
+          {
+            { }
+              {
+                \__runner_forth_refill:TF { }
+                  { \int_set_eq:NN \l__runner_forth_if_int \c_minus_one }
+              }
+            {  [IF]  } { \int_incr:N \l__runner_forth_if_int }
+            { [THEN] } { \int_decr:N \l__runner_forth_if_int }
+            #1
+          }
+          { }
       }
   }
 \__runner_forth_new_core:nn { .S }

@@ -2195,7 +2195,7 @@
 % \end{macro}
 %
 % \begin{macro}[int]{THEN}
-% \begin{macro}[aux]{\@@_forth_compile_then:nn}
+% \begin{macro}[aux]{\@@_forth_compile_then:TF}
 %   The auxiliary restores the definition code to what it was before the
 %   matching |IF|, then appends to it \cs{@@_forth_compiled_if:TF}
 %   followed by the codes for the \texttt{true} branch and the
@@ -2210,27 +2210,26 @@
   {
     \@@_forth_control_close:nTF { 2 }
       {
-        \exp_args:NV \@@_forth_compile_then:nn
+        \exp_args:NV \@@_forth_compile_then:TF
           \l_@@_forth_def_code_tl { }
       }
       {
         \@@_forth_control_close:nTF { 3 }
           {
             \seq_pop:NN \l_@@_forth_def_seq \l_@@_tmpa_tl
-            \exp_args:NVV \@@_forth_compile_then:nn
+            \exp_args:NVV \@@_forth_compile_then:TF
               \l_@@_tmpa_tl \l_@@_forth_def_code_tl
           }
           { \msg_error:nnn { runner/forth } { misplaced } { THEN } }
       }
   }
-\cs_new_protected:Npn \@@_forth_compile_then:nn #1#2
+\cs_new_protected:Npn \@@_forth_compile_then:TF #1#2
   {
     \seq_pop:NN \l_@@_forth_def_seq \l_@@_forth_def_code_tl
     \@@_forth_def_code:x
       { \@@_forth_compiled_if:TF {#1} {#2} }
   }
 %    \end{macrocode}
-% ^^A todo: rename ...compile_then:nn to :TF.
 % \end{macro}
 % \end{macro}
 %
@@ -3440,6 +3439,7 @@
 %
 % ^^A todo: make runner omit the separation of program/input for Forth.
 % \begin{macro}[int]{REFILL}
+% \begin{macro}[int]{\@@_forth_refill:TF}
 %   If we are not reading from an |EVALUATE|d string, request a line
 %   from \pkg{runner}, and store it to the terminal.  Otherwise, it may
 %   mean that we reached the end of the program source, but there is
@@ -3448,26 +3448,29 @@
 %   \texttt{false}.
 %    \begin{macrocode}
 \@@_forth_new_core:nn { REFILL }
+  { \@@_forth_refill:TF \@@_forth_push_true: \@@_forth_push_false: }
+\cs_new_protected_nopar:Npn \@@_forth_refill:TF
   {
     \seq_if_empty:NTF \l_@@_forth_sources_seq
       {
         \@@_get_line:NTF \l_@@_forth_input_str
           {
             \@@_forth_term_refill:
-            \@@_forth_push_true:
+            \use_i:nn
           }
           {
             \seq_if_empty:NTF \l_@@_sources_seq
-              { \@@_forth_push_false: }
+              { \use_ii:nn }
               {
                 \@@_forth_term_refill:
-                \@@_forth_push_true:
+                \use_i:nn
               }
           }
       }
-      { \@@_forth_push_false: }
+      { \use_ii:nn }
   }
 %    \end{macrocode}
+% \end{macro}
 % \end{macro}
 %
 % \subsubsection{Memory cells}
@@ -4476,8 +4479,71 @@
 %
 % This section implements some of the programming tools words.  The
 % words |SEE|, |WORDS|, |;CODE|, |AHEAD|, |ASSEMBLER|, |CODE|,
-% |CS-PICK|, |CS-ROLL|, |EDITOR|, |FORGET|, |[IF]|, |[THEN]|, |[ELSE]|
-% are not implemented.
+% |CS-PICK|, |CS-ROLL|, |EDITOR|, |FORGET|, are not implemented.
+%
+% \subsubsection{Conditionals}
+%
+% This section implements the words |[IF]|, |[THEN]|, |[ELSE]|.
+%
+% \begin{variable}{\l_@@_forth_if_int}
+%   Nesting level of conditionals.
+%    \begin{macrocode}
+\int_new:N \l_@@_forth_if_int
+%    \end{macrocode}
+% \end{variable}
+%
+% \begin{macro}[int]{[IF], [ELSE], [THEN]}
+% \begin{macro}[aux]{\@@_forth_bracket_if:n}
+%   |[IF]| jumps to the matching [ELSE] or [THEN] if the top of flag is
+%   \texttt{false} (\(0\)).  |[ELSE]| jumps unconditionally to the
+%   matching [THEN].  |[THEN]| does nothing.  This is done by repeatedly
+%   getting words, until the \texttt{forth_if} integer, which keeps
+%   track of nesting, becomes negative.  Each word is compared with the
+%   words |[IF]| (increment nesting), |[ELSE]| (do nothing, or for
+%   |[IF]| check that the nesting is non-zero), |[THEN]| (decrement
+%   nesting).  An empty word marks the end of the line.
+%    \begin{macrocode}
+\@@_forth_new_immediate_core:nn { [IF] }
+  {
+    \@@_forth_pop_int:N \l_@@_tmpa_int
+    \int_compare:nNnT \l_@@_tmpa_int = \c_zero
+      {
+        \@@_forth_bracket_if:n
+          {
+            { [ELSE] }
+              {
+                \int_compare:nNnF \l_@@_forth_if_int > \c_zero
+                  { \int_decr:N \l_@@_forth_if_int }
+              }
+          }
+      }
+  }
+\@@_forth_new_immediate_core:nn { [ELSE] }
+  { \@@_forth_bracket_if:n { } }
+\@@_forth_new_immediate_core:nn { [THEN] } { }
+\cs_new_protected:Npn \@@_forth_bracket_if:n #1
+  {
+    \int_zero:N \l_@@_forth_if_int
+    \int_until_do:nNnn \l_@@_forth_if_int < \c_zero
+      {
+        \@@_forth_input_word:
+        \str_case:onn { \l_@@_forth_input_word_str }
+          {
+            { }
+              {
+                \@@_forth_refill:TF { }
+                  { \int_set_eq:NN \l_@@_forth_if_int \c_minus_one }
+              }
+            {  [IF]  } { \int_incr:N \l_@@_forth_if_int }
+            { [THEN] } { \int_decr:N \l_@@_forth_if_int }
+            #1
+          }
+          { }
+      }
+  }
+%    \end{macrocode}
+% \end{macro}
+% \end{macro}
 %
 % \subsubsection{Output}
 %
