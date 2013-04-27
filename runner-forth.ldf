@@ -1926,7 +1926,7 @@
   {
     \__runner_forth_pop_int:NN \l__runner_tmpa_int \l__runner_tmpb_int
     \tl_set:Nx \l__runner_tmpa_tl
-      { \int_to_base:nn { \l__runner_tmpa_int } { \__runner_forth_base: } }
+      { \int_to_base:nn { #1 \l__runner_tmpa_int } { \__runner_forth_base: } }
     \__runner_output:x
       {
         \prg_replicate:nn

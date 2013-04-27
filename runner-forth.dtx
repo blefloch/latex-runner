@@ -3931,7 +3931,7 @@
   {
     \@@_forth_pop_int:NN \l_@@_tmpa_int \l_@@_tmpb_int
     \tl_set:Nx \l_@@_tmpa_tl
-      { \int_to_base:nn { \l_@@_tmpa_int } { \@@_forth_base: } }
+      { \int_to_base:nn { #1 \l_@@_tmpa_int } { \@@_forth_base: } }
     \@@_output:x
       {
         \prg_replicate:nn
