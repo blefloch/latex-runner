@@ -39,6 +39,36 @@
 % overflows the size of a single-cell unsigned integer.  We can easily
 % check that it is the correct result modulo \(2^{24}\).
 %
+% Most Forth words receive arguments from the data stack, and place
+% their results back onto this stack.  The stack contents takes the form
+% of \(24\)-bit cells, which can represent one of the following
+% data-types, each of which is represented in the documentation below by
+% a short-hand (we follow the notations of the ANS 1994 standard)
+% \begin{itemize}
+% \item[flag] a flag (true: \(-1\), false: \(0\)),
+% \item[char] a character (in \([0,1114111]\), the range of Unicode code
+%   points),
+% \item[n] a signed number (in \([-2^{23},2^{23}-1]\)),
+% \item[+n] a non-negative number (in \([0,2^{23}-1]\)),
+% \item[u] an unsigned number (in \([0,2^{24}-1]\)),
+% \item[xt] an execution token (which points to some \TeX{} code
+%   implementing a Forth word),
+% \item[addr] an address in memory (typically a small non-negative integer)
+% \item[x] arbitrary cell data.
+% \end{itemize}
+% Pairs of cells are used by some words to manipulate integers larger
+% than \(2^{24}\):
+% \begin{itemize}
+% \item[d] a double-cell signed number (in \([-2^{47},2^{47}-1]\)),
+% \item[+d] a double-cell non-negative number (in \([0,2^{47}-1]\)),
+% \item[ud] a double-cell unsigned number (in \([0,2^{48}-1]\)),
+% \item[xd] arbitrary pair of cells
+% \end{itemize}
+% Additionally, some internal data-types are used for the implementation
+% of control-flow words, namely colon-sys, do-sys, case-sys, of-sys,
+% orig, dest, loop-sys, nest-sys.  Additionally, i*x is used to
+% represent an arbitrary number of cells.
+%
 % \subsection{Details of the interpreter}
 %
 % The \plang{forth} interpreter can be called in interactive or in
@@ -47,8 +77,8 @@
 %   \runner{forth}[interactive]||||
 % \end{verbatim}
 % the interpreter is a Standard System Subset (as defined by the ANS
-% Forth 1994 specification), providing most of the Core and Core
-% Extensions word set.  Namely, the following are missing.
+% Forth 1994 specification), providing the Core and Core
+% Extensions word set, with the following exceptions.
 % \begin{itemize}
 % \item The core word |KEY| is not implemented.
 % \item The core extension words |EXPECT|, |QUERY|, |RESTORE-INPUT|,
@@ -179,40 +209,6 @@
 %   this is later ignored.
 % \end{itemize}
 %
-% Here is a list of data types and their sizes in this implementation.
-% \begin{center}
-%   \begin{tabular}{ccc}
-%     \toprule
-%     Symbol    & Data type  & \# bits \\
-%     \midrule
-%     flag      & flag (true or false)            & 24 \\
-%     char      & character                       & 24 \\
-%     n         & signed number                   & 24 \\
-%     +n        & non-negative number             & 24 \\
-%     u         & unsigned number                 & 24 \\
-%     x         & unspecified cell                & 24 \\
-%     xt        & execution token                 & 24 \\
-%     addr      & address ($=\text{a-addr}=\text{c-addr}$) & 24 \\
-%     \midrule
-%     d         & double-cell signed number       & 48 \\
-%     +d        & double-cell non-negative number & 48 \\
-%     ud        & double-cell unsigned number     & 48 \\
-%     xd        & unspecified cell pair           & 48 \\
-%     \midrule
-%     ^^A todo: clarify what those '-sys' types are in this implementation.
-%     colon-sys & definition compilation          & dep \\
-%     do-sys    & do-loop structures              & dep \\
-%     case-sys  & CASE structures                 & dep \\
-%     of-sys    & OF structures                   & dep \\
-%     orig      & control-flow origins            & dep \\
-%     dest      & control-flow destinations       & dep \\
-%     loop-sys  & loop-control parameters         & dep \\
-%     nest-sys  & definition calls                & dep \\
-%     i*x, j*x, k*x (3) & any data type           & \(\geq 0\) \\
-%     \bottomrule
-%   \end{tabular}
-% \end{center}
-%
 % \end{runner-documentation}
 %
 % \begin{runner-implementation}
@@ -229,24 +225,8 @@
 % \item 3.3.
 % \end{itemize}
 %
-% Maybe relevant text in the 1994 standard.
-% \begin{quote}
-%   This Standard designates the following words as obsolescent:
-%   \begin{itemize}
-%   \item 6.2.0060  |#TIB|
-%   \item 15.6.2.1580  |FORGET|
-%   \item 6.2.2240  |SPAN|
-%   \item 6.2.0970  |CONVERT|
-%   \item 6.2.2040  |QUERY|
-%   \item 6.2.2290  |TIB|
-%   \item 6.2.1390  |EXPECT|
-%   \end{itemize}
-%   [...]\\
-%   A system need not provide any standard words for accessing mass
-%   storage.  If a system provides any standard word for accessing mass
-%   storage, it shall also implement the Block word set.
-%   [...]\\
-% \end{quote}
+% The ANS 1994 standard designates the words |#TIB|, |TIB|, |EXPECT|,
+% |QUERY|, |SPAN|, |CONVERT|, and |FORGET (15.6.2.1580) as obsolescent.
 %
 % The standard says ``char'' is a subtype of ``+n'', so characters are
 % only allowed to take values in the range \([0, 2^{23}-1]\)?  Addresses
