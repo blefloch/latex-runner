@@ -1439,6 +1439,27 @@
 %    \end{macrocode}
 % \end{variable}
 %
+% \begin{macro}[int]
+%   {\@@_forth_state_to_interpret:, \@@_forth_state_to_compile:}
+%   Change the value at |STATE|, and redefine \cs{@@_forth_perform:n},
+%   to interpret or to compile the words found in the input.
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \@@_forth_state_to_interpret:
+  {
+    \@@_forth_data_gset:nn
+      { \l_@@_forth_state_address_int } { 0 }
+    \cs_set_eq:NN \@@_forth_perform:n \@@_forth_interpret:n
+  }
+\cs_new_protected_nopar:Npn \@@_forth_state_to_compile:
+  {
+    \@@_forth_data_gset:nn
+      { \l_@@_forth_state_address_int }
+      { \c_@@_forth_mod_int - \c_one }
+    \cs_set_eq:NN \@@_forth_perform:n \@@_forth_compile:n
+  }
+%    \end{macrocode}
+% \end{macro}
+%
 % \begin{macro}[int]{\@@_forth_store_str:NN}
 %   Store the string |#1| in the \texttt{forth_array} starting at
 %   position |#2|.  Afterwards, |#2| is at the first cell after the
@@ -2520,10 +2541,7 @@
     \int_incr:N \l_@@_forth_toks_int
     \@@_forth_control_open:n { 0 }
     \seq_push:Nn \l_@@_forth_def_seq {#1}
-    \@@_forth_data_gset:nn
-      { \l_@@_forth_state_address_int }
-      { \c_@@_forth_mod_int - \c_one }
-    \cs_set_eq:NN \@@_forth_perform:n \@@_forth_compile:n
+    \@@_forth_state_to_compile:
   }
 %    \end{macrocode}
 % ^^A todo: introduce state-switching auxiliaries.
@@ -2574,9 +2592,7 @@
     \seq_pop:NN \l_@@_forth_def_seq \l_@@_forth_def_code_tl
     \seq_pop:NN \l_@@_forth_def_seq \l_@@_tmpa_tl
     \int_set:Nn \l_@@_forth_def_token_int { \l_@@_tmpa_tl }
-    \@@_forth_data_gset:nn
-      { \l_@@_forth_state_address_int } { 0 }
-    \cs_set_eq:NN \@@_forth_perform:n \@@_forth_interpret:n
+    \@@_forth_state_to_interpret:
   }
 %    \end{macrocode}
 % \end{macro}
@@ -2758,22 +2774,12 @@
 % \end{macro}
 %
 % \begin{macro}[int]{[, ]}
-%   Change the value at |STATE|, and redefine \cs{@@_forth_perform:n},
-%   to interpret or to compile the words found in the input.
+%   Change state.
 %    \begin{macrocode}
 \@@_forth_new_compilation_core:nn { [ }
-  {
-    \@@_forth_data_gset:nn
-      { \l_@@_forth_state_address_int } { 0 }
-    \cs_set_eq:NN \@@_forth_perform:n \@@_forth_interpret:n
-  }
+  { \@@_forth_state_to_interpret: }
 \@@_forth_new_immediate_core:nn { ] }
-  {
-    \@@_forth_data_gset:nn
-      { \l_@@_forth_state_address_int }
-      { \c_@@_forth_mod_int - \c_one }
-    \cs_set_eq:NN \@@_forth_perform:n \@@_forth_compile:n
-  }
+  { \@@_forth_state_to_compile: }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -4068,9 +4074,7 @@
   {
     \int_set_eq:NN \l_@@_forth_return_here_int
       \g_@@_forth_return_min_int
-    \@@_forth_data_gset:nn
-      { \l_@@_forth_state_address_int } { 0 }
-    \cs_set_eq:NN \@@_forth_perform:n \@@_forth_interpret:n
+    \@@_forth_state_to_interpret:
     \@@_forth_quit:
   }
 %    \end{macrocode}

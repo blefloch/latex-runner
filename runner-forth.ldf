@@ -553,6 +553,19 @@
   }
 \int_new:N \l__runner_forth_state_address_int
 \int_new:N \l__runner_forth_tib_size_address_int
+\cs_new_protected_nopar:Npn \__runner_forth_state_to_interpret:
+  {
+    \__runner_forth_data_gset:nn
+      { \l__runner_forth_state_address_int } { 0 }
+    \cs_set_eq:NN \__runner_forth_perform:n \__runner_forth_interpret:n
+  }
+\cs_new_protected_nopar:Npn \__runner_forth_state_to_compile:
+  {
+    \__runner_forth_data_gset:nn
+      { \l__runner_forth_state_address_int }
+      { \c__runner_forth_mod_int - \c_one }
+    \cs_set_eq:NN \__runner_forth_perform:n \__runner_forth_compile:n
+  }
 \cs_new_protected:Npn \__runner_forth_store_str:NN #1#2
   {
     \tl_replace_all:Nnn #1 { ~ } { {~} }
@@ -1124,10 +1137,7 @@
     \int_incr:N \l__runner_forth_toks_int
     \__runner_forth_control_open:n { 0 }
     \seq_push:Nn \l__runner_forth_def_seq {#1}
-    \__runner_forth_data_gset:nn
-      { \l__runner_forth_state_address_int }
-      { \c__runner_forth_mod_int - \c_one }
-    \cs_set_eq:NN \__runner_forth_perform:n \__runner_forth_compile:n
+    \__runner_forth_state_to_compile:
   }
 \__runner_forth_new_compilation_core:nn { DOES> }
   {
@@ -1153,9 +1163,7 @@
     \seq_pop:NN \l__runner_forth_def_seq \l__runner_forth_def_code_tl
     \seq_pop:NN \l__runner_forth_def_seq \l__runner_tmpa_tl
     \int_set:Nn \l__runner_forth_def_token_int { \l__runner_tmpa_tl }
-    \__runner_forth_data_gset:nn
-      { \l__runner_forth_state_address_int } { 0 }
-    \cs_set_eq:NN \__runner_forth_perform:n \__runner_forth_interpret:n
+    \__runner_forth_state_to_interpret:
   }
 \cs_new_protected_nopar:Npn \__runner_forth_compile_does:
   {
@@ -1263,18 +1271,9 @@
 \__runner_forth_new_core:nn { STATE }
   { \__runner_forth_push:n { \l__runner_forth_state_address_int } }
 \__runner_forth_new_compilation_core:nn { [ }
-  {
-    \__runner_forth_data_gset:nn
-      { \l__runner_forth_state_address_int } { 0 }
-    \cs_set_eq:NN \__runner_forth_perform:n \__runner_forth_interpret:n
-  }
+  { \__runner_forth_state_to_interpret: }
 \__runner_forth_new_immediate_core:nn { ] }
-  {
-    \__runner_forth_data_gset:nn
-      { \l__runner_forth_state_address_int }
-      { \c__runner_forth_mod_int - \c_one }
-    \cs_set_eq:NN \__runner_forth_perform:n \__runner_forth_compile:n
-  }
+  { \__runner_forth_state_to_compile: }
 \bool_new:N \l__runner_forth_loop_bool
 \__runner_forth_new_compilation_core:nn { DO }
   { \__runner_forth_control_open:n { 6 } }
@@ -1990,9 +1989,7 @@
   {
     \int_set_eq:NN \l__runner_forth_return_here_int
       \g__runner_forth_return_min_int
-    \__runner_forth_data_gset:nn
-      { \l__runner_forth_state_address_int } { 0 }
-    \cs_set_eq:NN \__runner_forth_perform:n \__runner_forth_interpret:n
+    \__runner_forth_state_to_interpret:
     \__runner_forth_quit:
   }
 \__runner_forth_new_compilation_core:nn { ABORT" }
