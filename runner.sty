@@ -21,9 +21,10 @@
 %%    http://www.latex-project.org/lppl.txt
 %%
 %% -----------------------------------------------------------------------
-\RequirePackage{expl3}[2012/12/07]
-\RequirePackage{l3str}[2012/12/07]
-\RequirePackage{xparse}[2012/12/07]
+\RequirePackage{expl3}[2013/04/27]
+\RequirePackage{l3str}[2013/04/27]
+\RequirePackage{l3str-convert}[2013/04/27]
+\RequirePackage{xparse}[2013/04/27]
 \ProvidesExplPackage
   {runner} {2013/04/22} {0.0a} {Interpreters for various languages}
 \clist_new:N \g_runner_languages_clist
@@ -41,18 +42,31 @@
 \clist_new:N \l__runner_input_file_clist
 \tl_new:N \l__runner_input_stream_tl
 \seq_new:N \l__runner_input_arg_seq
+\seq_new:N \l__runner_sources_seq
+\tl_new:N \l__runner_get_line_code_tl
+\ior_new:N \l__runner_ior
+\bool_new:N \l__runner_interactive_bool
+\tl_new:N \l__runner_program_str
+\tl_new:N \l__runner_input_str
+\tl_new:N \l__runner_prompt_code_tl
+\tl_set:Nn \l__runner_prompt_code_tl { \tex_message:D { ? ~ } }
+\cs_new_protected:Npn \__runner_no_next_prompt:
+  {
+    \tl_set:Nx \l__runner_prompt_code_tl
+      {
+        \exp_not:n { \tl_set:Nn \l__runner_prompt_code_tl }
+          { \exp_not:V \l__runner_prompt_code_tl }
+      }
+  }
 \bool_new:N \l__runner_output_use_bool
 \tl_new:N \l__runner_output_key_tl
 \clist_new:N \l__runner_output_file_clist
 \tl_new:N \l__runner_output_stream_tl
-\seq_new:N \l__runner_sources_seq
-\tl_new:N \l__runner_get_line_code_tl
-\ior_new:N \l__runner_ior
 \iow_new:N \l__runner_iow
-\str_new:N \l__runner_output_line_str
+\clist_new:N \l__runner_output_line_clist
+\tl_new:N \l__runner_output_encoding_tl
 \str_new:N \l__runner_output_str
 \tl_new:N \g__runner_output_tl
-\bool_new:N \l__runner_interactive_bool
 \tl_new:N \l__runner_tmpa_tl
 \tl_new:N \l__runner_tmpb_tl
 \tl_new:N \l__runner_tmpc_tl
@@ -65,20 +79,10 @@
 \bool_new:N \l__runner_tmpa_bool
 \cs_new_eq:NN \__runner_tmp:w ?
 \int_new:N \g__runner_array_font_size_int
-\tl_new:N \l__runner_prompt_code_tl
-\tl_set:Nn \l__runner_prompt_code_tl { \tex_message:D { ? ~ } }
-\cs_new_protected:Npn \__runner_no_next_prompt:
-  {
-    \tl_set:Nx \l__runner_prompt_code_tl
-      {
-        \exp_not:n { \tl_set:Nn \l__runner_prompt_code_tl }
-          { \exp_not:V \l__runner_prompt_code_tl }
-      }
-  }
 \tl_new:N \l__runner_internal_tl
-\tl_new:N \l__runner_program_str
-\tl_new:N \l__runner_input_str
+\seq_new:N \l__runner_internal_seq
 \cs_generate_variant:Nn \seq_set_split:Nnn { Nnx , Nxn }
+\cs_generate_variant:Nn \str_set_convert:Nnnn { NnnV , NnVn }
 \keys_define:nn { runner }
   {
     program        .code:n =
@@ -161,10 +165,10 @@
   }
 \cs_new_protected:Npn \__runner_get_user_line:NTF #1
   {
-    \tl_if_empty:NF \l__runner_output_line_str
+    \clist_if_empty:NF \l__runner_output_line_clist
       {
-        \__runner_output_line_unsafe:nV { } \l__runner_output_line_str
-        \tl_clear:N \l__runner_output_line_str
+        \__runner_output_line:xn \l__runner_output_line_clist { }
+        \clist_clear:N \l__runner_output_line_clist
       }
     \l__runner_prompt_code_tl
     \ior_get_str:NN \c_minus_one #1
@@ -240,17 +244,12 @@
   }
 \cs_new_protected_nopar:Npn \__runner_init_output:
   {
-    \tl_clear:N \l__runner_output_line_str
+    \clist_clear:N \l__runner_output_line_clist
     \tl_clear:N \l__runner_output_str
     \tl_if_empty:NF \l__runner_output_stream_tl
       {
-        \cs_set_protected:Npx \__runner_output_line_unsafe:nn ##1##2
-          {
-            \str_put_right:Nn
-              \exp_not:N \l__runner_output_str { ##2 ##1 }
-            \iow_now:Nn
-              \exp_not:V \l__runner_output_stream_tl {##2}
-          }
+        \cs_set_protected:Npn \__runner_output_line_aux:Nn ##1##2
+          { \exp_after:wN \iow_now:Nx \l__runner_output_stream_tl {##1} }
       }
     \bool_if:NT \l__runner_interactive_bool
       {
@@ -260,47 +259,49 @@
             \msg_error:nnnn { runner } { incompatible-options }
               { interactive } { output-stream }
           }
-        \cs_set_protected:Npn \__runner_output_line_unsafe:nn ##1##2
+        \cs_set_protected:Npn \__runner_output_line_aux:Nn ##1##2
           {
-            \str_put_right:Nn \l__runner_output_str { ##2 ##1 }
-            \tl_if_empty:nF { ##2 ##1 }
-              { \tex_message:D { ##2 ##1 } }
+            \tl_if_empty:oF { ##1 ##2 }
+              { \tex_message:D { ##1 ##2 } }
           }
       }
   }
-\cs_new_protected:Npn \__runner_output_line_unsafe:nn #1#2
-  { \str_put_right:Nn \l__runner_output_str { #2 #1 } }
-\cs_generate_variant:Nn \__runner_output_line_unsafe:nn { nV }
-\group_begin:
-  \char_set_catcode_other:N \^^@
-  \cs_new_protected:Npn \__runner_output_char:n #1
-    {
-      \int_compare:nNnTF {#1} = { `^^J }
-        {
-          \__runner_output_line_unsafe:nV ^^J \l__runner_output_line_str
-          \tl_clear:N \l__runner_output_line_str
-        }
-        {
-          \group_begin:
-          \char_set_lccode:nn {0} {#1}
-          \tl_to_lowercase:n
-            {
-              \group_end:
-              \str_put_right:Nn \l__runner_output_line_str { ^^@ }
-            }
-        }
-    }
-\group_end:
+\cs_new_protected_nopar:Npn \__runner_output_line:nn #1#2
+  {
+    \str_set_convert:NnnV \l__runner_internal_tl {#1}
+      { clist } \l__runner_output_encoding_tl
+    \str_put_right:Nx \l__runner_output_str
+      { \l__runner_internal_tl #2 }
+    \__runner_output_line_aux:Nn \l__runner_internal_tl {#1}
+  }
+\cs_generate_variant:Nn \__runner_output_line:nn { x }
+\cs_new_eq:NN \__runner_output_line_aux:Nn \use_none:nn
+\cs_new_protected:Npn \__runner_output_char:n #1
+  {
+    \int_compare:nNnTF {#1} = { 10 }
+      {
+        \__runner_output_line:xn \l__runner_output_line_clist { ^^J }
+        \clist_clear:N \l__runner_output_line_clist
+      }
+      {
+        \clist_put_right:Nx \l__runner_output_line_clist
+          { \int_eval:n {#1} }
+      }
+  }
+\cs_new_protected:Npn \__runner_output_clist:n #1
+  {
+    \seq_set_split:Nnx \l__runner_internal_seq { , 10 , }
+      { \l__runner_output_line_clist , #1 , }
+    \seq_pop_right:NN \l__runner_internal_seq \l__runner_output_line_clist
+    \seq_map_inline:Nn \l__runner_internal_seq
+      { \__runner_output_line:nn {##1} { ^^J } }
+  }
+\cs_generate_variant:Nn \__runner_output_clist:n { x }
 \cs_new_protected:Npn \__runner_output:n #1
   {
-    \str_put_right:Nn \l__runner_output_line_str {#1}
-    \__runner_split_newline:NnnF \l__runner_output_line_str
-      { \__runner_output_line_unsafe:nn ^^J }
-      {
-        \tl_clear:N \l__runner_output_line_str
-        \__runner_output:n
-      }
-      { }
+    \str_set_convert:NnVn \l__runner_internal_tl {#1}
+      \l__runner_output_encoding_tl { clist }
+    \__runner_output_clist:x \l__runner_internal_tl
   }
 \cs_generate_variant:Nn \__runner_output:n { x }
 \NewDocumentCommand { \runner } { m O{} +v +v }
@@ -357,36 +358,24 @@
   }
 \cs_new_protected_nopar:Npn \__runner_finish:
   {
-    \__runner_output_line_unsafe:nV { } \l__runner_output_line_str
+    \__runner_output_line:xn \l__runner_output_line_clist { }
+    \clist_clear:N \l__runner_output_line_clist
     \clist_map_inline:Nn \l__runner_output_file_clist
       {
         \iow_open:Nn \l__runner_iow {##1}
         \iow_now:Nx \l__runner_iow { \l__runner_output_str }
         \iow_close:N \l__runner_iow
       }
+    \tl_if_single:NF \l__runner_output_key_tl
+      { \tl_set:Nn \l__runner_output_key_tl { \l__runner_internal_tl } }
     \tl_gset:Nx \g__runner_output_tl
       {
-        \bool_if:NTF \l__runner_output_use_bool
-          {
-            \bool_if:NTF \l__runner_output_rescan_bool
-              { \tl_rescan:nn { } { \l__runner_output_str } }
+        \bool_if:NTF \l__runner_output_rescan_bool
+          { \tl_set_rescan:Nnn \exp_not:V \l__runner_output_key_tl { } }
+          { \tl_set:Nn \exp_not:V \l__runner_output_key_tl }
               { \l__runner_output_str }
-          }
-          {
-            \tl_if_empty:NF \l__runner_output_key_tl
-              {
-                \bool_if:NTF \l__runner_output_rescan_bool
-                  {
-                    \tl_set_rescan:Nnn
-                      \exp_not:V \l__runner_output_key_tl
-                      { } { \l__runner_output_str }
-                  }
-                  {
-                    \tl_set:Nn \exp_not:V \l__runner_output_key_tl
-                      { \l__runner_output_str }
-                  }
-              }
-          }
+        \bool_if:NT \l__runner_output_use_bool
+          { \exp_not:N \tl_use:N \exp_not:V \l__runner_output_key_tl }
       }
     \group_insert_after:N \g__runner_output_tl
   }
