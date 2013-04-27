@@ -507,7 +507,7 @@
 %
 %    \begin{macrocode}
 \cs_generate_variant:Nn \seq_set_split:Nnn { Nnx , Nxn }
-\cs_generate_variant:Nn \str_set_convert:Nnnn { NnnV , NnVn }
+\cs_generate_variant:Nn \str_set_convert:Nnnn { NnnV }
 %    \end{macrocode}
 %
 % \subsection{Keys}
@@ -918,18 +918,16 @@
 % \end{macro}
 %
 % \begin{macro}[int]{\@@_output:n, \@@_output:x}
-%   Output an \texttt{output}-encoded string, by converting it to a
-%   comma-list of character codes, then calling \texttt{output_clist}.
+%   Output a native string, by converting it to a comma-list of
+%   character codes, then calling \texttt{output_clist}.
 %    \begin{macrocode}
 \cs_new_protected:Npn \@@_output:n #1
   {
-    \str_set_convert:NnVn \l_@@_internal_tl {#1}
-      \l_@@_output_encoding_tl { clist }
+    \str_set_convert:Nnnn \l_@@_internal_tl {#1} { } { clist }
     \@@_output_clist:x \l_@@_internal_tl
   }
 \cs_generate_variant:Nn \@@_output:n { x }
 %    \end{macrocode}
-% ^^A todo: eliminate this function.
 % \end{macro}
 %
 % \subsection{Running programs}
