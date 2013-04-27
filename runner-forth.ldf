@@ -117,6 +117,13 @@
       }
       { \msg_error:nn { runner/forth } { out-of-memory } }
   }
+\cs_new:Npn \__runner_forth_interval_to_clist:NN #1#2
+  {
+    \int_step_function:nnnN {#1} { 1 } { #2 - 1 }
+      \__runner_forth_interval_to_clist_aux:n
+  }
+\cs_new:Npn \__runner_forth_interval_to_clist_aux:n #1
+  { \__runner_array_item:Nn \g__runner_forth_array {#1} , }
 \cs_new_protected:Npn \__runner_forth_pop_int:N #1
   {
     \int_compare:nNnTF
@@ -358,8 +365,9 @@
     \int_incr:N \l__runner_forth_toks_int
   }
 \cs_generate_variant:Nn \__runner_forth_set_word:nn { ox }
+\int_new:N \l__runner_forth_input_word_begin_int
+\int_new:N \l__runner_forth_input_word_end_int
 \str_new:N \l__runner_forth_input_word_str
-\seq_new:N \l__runner_forth_input_word_seq
 \str_new:N \l__runner_forth_input_str
 \group_begin:
   \char_set_catcode_other:n { 0 }
@@ -456,17 +464,16 @@
 \cs_new_protected_nopar:Npn \__runner_forth_input_until:n
   {
     \tl_clear:N \l__runner_forth_input_word_str
-    \seq_clear:N \l__runner_forth_input_word_seq
     \__runner_forth_input_discard_aux:TFn
       {
         \bool_set_false:N \l__runner_tmpa_bool
+        \int_set_eq:NN \l__runner_forth_input_word_end_int
+          \l__runner_forth_source_parsed_int
         \int_incr:N \l__runner_forth_source_parsed_int
       }
       {
         \__runner_forth_str_put_char:Nn \l__runner_forth_input_word_str
           { \l__runner_tmpc_int }
-        \seq_put_right:Nx \l__runner_forth_input_word_seq
-          { \int_use:N \l__runner_tmpc_int }
         \int_incr:N \l__runner_forth_source_parsed_int
       }
   }
@@ -484,12 +491,18 @@
         \l__runner_forth_source_begin_int
         + \__runner_forth_data_get:n { \l__runner_forth_in_address_int }
       }
+    \int_set_eq:NN \l__runner_forth_input_word_begin_int
+      \l__runner_forth_source_parsed_int
     \bool_set_true:N \l__runner_tmpa_bool
     \bool_while_do:Nn \l__runner_tmpa_bool
       {
         \__runner_forth_read_char:NTF \l__runner_tmpc_int
           { \int_compare:nNnTF \l__runner_tmpc_int #1 {#2} {#3} {#4} }
-          { \bool_set_false:N \l__runner_tmpa_bool }
+          {
+            \int_set_eq:NN \l__runner_forth_input_word_end_int
+              \l__runner_forth_source_parsed_int
+            \bool_set_false:N \l__runner_tmpa_bool
+          }
       }
     \__runner_forth_data_gset:nn { \l__runner_forth_in_address_int }
       {
@@ -587,6 +600,15 @@
         \int_incr:N #2
       }
   }
+\cs_new_protected:Npn \__runner_forth_store_interval:NNN #1#2#3
+  {
+    \int_step_inline:nnnn {#1} { 1 } { #2 - 1 }
+      {
+        \__runner_array_gset:Nnn \g__runner_forth_array {#3}
+          { \__runner_array_item:Nn \g__runner_forth_array {##1} }
+        \int_incr:N #3
+      }
+  }
 \cs_new_protected_nopar:Npn \__runner_forth_run:
   {
     \__runner_forth_init:
@@ -602,13 +624,15 @@
 \cs_new_protected_nopar:Npn \__runner_forth_run_aux:TF
   {
     \__runner_forth_input_word:
-    \tl_if_empty:NTF \l__runner_forth_input_word_str
+    \int_compare:nNnTF
+      \l__runner_forth_input_word_begin_int
+      < \l__runner_forth_input_word_end_int
+      { \use_i:nn }
       {
         \__runner_forth_input_refill:TF
           { \__runner_forth_run_aux:TF }
           { \use_ii:nn }
       }
-      { \use_i:nn }
   }
 \cs_new_protected_nopar:Npn \__runner_forth_init:
   {
@@ -1526,14 +1550,23 @@
 \__runner_forth_new_core:nn { CHAR }
   {
     \__runner_forth_input_word:
-    \seq_get:NN \l__runner_forth_input_word_seq \l__runner_tmpa_tl
-    \__runner_forth_push:n { \l__runner_tmpa_tl }
+    \__runner_forth_push:n
+      {
+        \__runner_array_item:Nn \g__runner_forth_array
+          { \l__runner_forth_input_word_begin_int }
+      }
   }
 \__runner_forth_new_compilation_core:nn { [CHAR] }
   {
     \__runner_forth_input_word:
-    \seq_get:NN \l__runner_forth_input_word_seq \l__runner_tmpa_tl
-    \__runner_forth_def_code:x { \__runner_forth_push:n { \l__runner_tmpa_tl } }
+    \__runner_forth_def_code:x
+      {
+        \__runner_forth_push:n
+          {
+            \__runner_array_item:Nn \g__runner_forth_array
+              { \l__runner_forth_input_word_begin_int }
+          }
+      }
   }
 \__runner_forth_new_immediate_core:nn (
   { \__runner_forth_input_until:n { `) } }
@@ -1558,7 +1591,9 @@
       { \l__runner_forth_data_here_int + 1 }
     \__runner_forth_input_discard:n { \l__runner_tmpa_int }
     \__runner_forth_input_until:n { \l__runner_tmpa_int }
-    \__runner_forth_store_seq:NN \l__runner_forth_input_word_seq
+    \__runner_forth_store_interval:NNN
+      \l__runner_forth_input_word_begin_int
+      \l__runner_forth_input_word_end_int
       \l__runner_forth_data_word_int
     \__runner_forth_data_gset:nn
       { \l__runner_forth_data_here_int }
@@ -1591,7 +1626,10 @@
   {
     \__runner_forth_input_until:n { `" }
     \int_set:Nn \l__runner_tmpa_int
-      { \seq_count:N \l__runner_forth_input_word_seq }
+      {
+        \l__runner_forth_input_word_end_int
+        - \l__runner_forth_input_word_begin_int
+      }
     \int_sub:Nn \l__runner_forth_data_text_int { \l__runner_tmpa_int #1 }
     \int_compare:nNnTF
       \l__runner_forth_data_text_int < \l__runner_forth_data_here_int
@@ -1608,7 +1646,9 @@
           }
         \int_set_eq:NN \l__runner_tmpb_int \l__runner_forth_data_text_int
         #3
-        \__runner_forth_store_seq:NN \l__runner_forth_input_word_seq
+        \__runner_forth_store_interval:NNN
+          \l__runner_forth_input_word_begin_int
+          \l__runner_forth_input_word_end_int
           \l__runner_tmpb_int
       }
   }
@@ -1955,15 +1995,23 @@
     \__runner_forth_input_until:n { `" }
     \__runner_forth_def_code:x
       {
-        \__runner_output_clist:n
-          { \seq_use:Nnnn \l__runner_forth_input_word_seq , , , }
+        \__runner_output_clist:x
+          {
+            \__runner_forth_interval_to_clist:NN
+              \l__runner_forth_input_word_begin_int
+              \l__runner_forth_input_word_end_int
+          }
       }
   }
 \__runner_forth_new_immediate_core:nn { .( }
   {
     \__runner_forth_input_until:n { `) }
-    \__runner_output_clist:n
-      { \seq_use:Nnnn \l__runner_forth_input_word_seq , , , }
+    \__runner_output_clist:x
+      {
+        \__runner_forth_interval_to_clist:NN
+          \l__runner_forth_input_word_begin_int
+          \l__runner_forth_input_word_end_int
+      }
   }
 \__runner_forth_new_core:nn { BL }
   { \__runner_forth_push:n { `\  } }
