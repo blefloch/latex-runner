@@ -159,8 +159,6 @@
 % \item In a |: X ... DOES> ... ;| construction, the definition of |X|
 %   can only be found after the semicolon.
 % \end{itemize}
-% ^^A todo: ensure that picnum buffer is >= 127 cells wide.
-% ^^A todo: ensure that input buffer and pad are >= 128 cells wide.
 %
 % Behaviour upon encountering ambiguous conditions.
 % \begin{itemize}
@@ -254,7 +252,6 @@
 \cs_generate_variant:Nn \tl_if_head_eq_meaning:nNTF { V }
 %    \end{macrocode}
 %
-% ^^A todo: try to only put the marker on actual definitions.
 % \begin{macro}[int]{\@@_forth_exit:, \@@_forth_exit_point:}
 %   When executing code given an execution token (see
 %   \cs{@@_forth_execute:n}), a \texttt{exit_point} marker is placed
@@ -536,6 +533,8 @@
 % \end{macro}
 %
 % ^^A todo: make the array size dynamical
+% ^^A todo: ensure that picnum buffer is >= 127 cells wide.
+% ^^A todo: ensure that input buffer and pad are >= 128 cells wide.
 %
 % \begin{variable}{\g_@@_forth_array}
 %   This array contains most of the data needed by Forth.  We also give
@@ -1139,8 +1138,6 @@
 %    \end{macrocode}
 % \end{macro}
 %
-% ^^A todo: document that |EVALUATE| can lead to |^^J| in the input buffer.
-%
 % \begin{macro}[int, TF]{\@@_forth_input_refill:}
 % \begin{macro}[aux]{\@@_forth_input_refill_get:, \@@_forth_term_refill:}
 %   This refills the input buffer, and returns \texttt{true} if
@@ -1535,6 +1532,8 @@
 % \end{macro}
 %
 % ^^A todo: normalize newlines?
+% ^^A todo: document that |EVALUATE| can lead to |^^J| in the input buffer.
+%
 % \begin{macro}[int]{\@@_forth_init:}
 %   Initialize the data space.  Initialize the code space.  Initialize
 %   the name space.  Store a |BASE| of \(10\) and an |>IN| value of
@@ -1755,7 +1754,6 @@
 %    \end{macrocode}
 % \end{macro}
 %
-% ^^A todo: division by zero?
 % \begin{macro}[int]{MOD}
 %   Pop two signed integers from the stack.  Push the remainder of \(a\)
 %   divided by \(b\) onto the stack.
@@ -1773,7 +1771,6 @@
 %    \end{macrocode}
 % \end{macro}
 %
-% ^^A todo: division by zero?
 % \begin{macro}[int]{/MOD}
 %   Get two signed integers from the stack, then perform the division,
 %   and put the remainder, then the quotient, on the stack.  Both
@@ -1799,8 +1796,6 @@
 %    \end{macrocode}
 % \end{macro}
 %
-% ^^A todo: division by zero?
-% ^^A todo: bug because of double rounding.  Later, fp will provide mod.
 % \begin{macro}[int]{*/}
 %   Pop three signed integers from the stack and compute \(a\times b/c\)
 %   using floating points.  The result is output, after rounding towards
@@ -1820,7 +1815,8 @@
 %    \end{macrocode}
 % \end{macro}
 %
-% ^^A todo: bug because of double rounding.  Later, fp will provide mod.
+% ^^A todo: bug because of double rounding (also applies to */).
+% ^^A Later, fp will provide mod.
 % \begin{macro}[aux]{\@@_forth_push_remquo:nNN}
 %   Given a (possibly large) integer expression |#1|, an integer |#2|,
 %   and a rounding direction |0| or |-|, compute using floating points
@@ -2565,7 +2561,6 @@
     \@@_forth_state_to_compile:
   }
 %    \end{macrocode}
-% ^^A todo: introduce state-switching auxiliaries.
 % \end{macro}
 % \end{macro}
 %
@@ -4392,7 +4387,6 @@
 %    \end{macrocode}
 % \end{macro}
 %
-% ^^A todo: factor out common part with UNTIL
 % \begin{macro}[int]{AGAIN, UNTIL}
 % \begin{macro}[int]{\@@_forth_again:Nn}
 % \begin{macro}[aux]{\@@_forth_compiled_again:n, \@@_forth_compiled_until:n}
