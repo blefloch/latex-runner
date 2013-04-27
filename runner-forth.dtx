@@ -3982,7 +3982,7 @@
 %   Output a new-line character.
 %    \begin{macrocode}
 \@@_forth_new_core:nn { CR }
-  { \@@_output:x { \iow_newline: } }
+  { \@@_output_char:n { 10 } }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -4002,7 +4002,7 @@
 %   Output a space.
 %    \begin{macrocode}
 \@@_forth_new_core:nn { SPACE }
-  { \@@_output:n { ~ } }
+  { \@@_output_char:n { 32 } }
 %    \end{macrocode}
 % \end{macro}
 %

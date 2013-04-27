@@ -1952,14 +1952,14 @@
 \__runner_forth_new_core:nn { BL }
   { \__runner_forth_push:n { `\  } }
 \__runner_forth_new_core:nn { CR }
-  { \__runner_output:x { \iow_newline: } }
+  { \__runner_output_char:n { 10 } }
 \__runner_forth_new_core:nn { EMIT }
   {
     \__runner_forth_pop_int:N \l__runner_tmpa_int
     \__runner_output_char:n { \l__runner_tmpa_int }
   }
 \__runner_forth_new_core:nn { SPACE }
-  { \__runner_output:n { ~ } }
+  { \__runner_output_char:n { 32 } }
 \__runner_forth_new_core:nn { SPACES }
   {
     \__runner_forth_pop_int:N \l__runner_tmpa_int
