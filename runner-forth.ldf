@@ -2242,6 +2242,217 @@
         \__runner_forth_compiled_repeat:nn {#1} {#2}
       }
   }
+\__runner_forth_new_core:nn { DABS }
+  {
+    \__runner_forth_pop_int:NN \l__runner_tmpa_int \l__runner_tmpb_int
+    \bool_if:nTF
+      {
+        \int_compare_p:nNn
+          \l__runner_tmpb_int < { \c__runner_forth_mod_int / \c_two }
+        ||
+        \int_compare_p:nNn
+          \l__runner_tmpb_int = { \c__runner_forth_mod_int / \c_two }
+        &&
+        \int_compare_p:nNn \l__runner_tmpa_int = \c_zero
+      }
+      { \__runner_forth_push:nn { \l__runner_tmpa_int } { \l__runner_tmpb_int } }
+      {
+        \__runner_forth_push:nn
+          { \c__runner_forth_mod_int - \l__runner_tmpa_int }
+          { \c__runner_forth_mod_int - 1 - \l__runner_tmpb_int }
+      }
+  }
+\__runner_forth_new_core:nn { DNEGATE }
+  {
+    \__runner_forth_pop_int:NN \l__runner_tmpa_int \l__runner_tmpb_int
+    \int_compare:nNnTF
+      { \l__runner_tmpa_int + \l__runner_tmpb_int } = \c_zero
+      { \__runner_forth_push:nn { \c_zero } { \c_zero } }
+      {
+        \__runner_forth_push:nn
+          { \c__runner_forth_mod_int - \l__runner_tmpa_int }
+          { \c__runner_forth_mod_int - 1 - \l__runner_tmpb_int }
+      }
+  }
+\__runner_forth_new_core:nn { D+ }
+  {
+    \__runner_forth_pop_int:NNNN
+      \l__runner_tmpa_int \l__runner_tmpb_int
+      \l__runner_tmpc_int \l__runner_tmpd_int
+    \int_add:Nn \l__runner_tmpa_int
+      { \l__runner_tmpc_int - \c__runner_forth_mod_int }
+    \int_add:Nn \l__runner_tmpb_int
+      {
+        \l__runner_tmpd_int - \c__runner_forth_mod_int
+        \int_compare:nNnF \l__runner_tmpa_int < \c_zero { + \c_one }
+      }
+    \__runner_forth_push_signed:n { \l__runner_tmpa_int }
+    \__runner_forth_push_signed:n { \l__runner_tmpb_int }
+  }
+\__runner_forth_new_core:nn { D- }
+  {
+    \__runner_forth_pop_int:NNNN
+      \l__runner_tmpa_int \l__runner_tmpb_int
+      \l__runner_tmpc_int \l__runner_tmpd_int
+    \int_sub:Nn \l__runner_tmpa_int \l__runner_tmpc_int
+    \int_add:Nn \l__runner_tmpb_int
+      {
+        \l__runner_tmpd_int
+        \int_compare:nNnT \l__runner_tmpa_int < \c_zero { - \c_one }
+      }
+    \__runner_forth_push_signed:n { \l__runner_tmpa_int }
+    \__runner_forth_push_signed:n { \l__runner_tmpb_int }
+  }
+\__runner_forth_new_core:nn { M+ }
+  {
+    \__runner_forth_pop_int:NNN
+      \l__runner_tmpa_int \l__runner_tmpb_int \l__runner_tmpc_int
+    \int_add:Nn \l__runner_tmpa_int
+      { \l__runner_tmpc_int - \c__runner_forth_mod_int }
+    \__runner_forth_push_signed:n { \l__runner_tmpa_int }
+    \__runner_forth_push_signed:n
+      {
+        \l__runner_tmpb_int - \c__runner_forth_mod_int
+        \int_compare:nNnF \l__runner_tmpa_int < \c_zero { + \c_one }
+      }
+  }
+\__runner_forth_new_core:nn { D2/ }
+  {
+    \__runner_forth_pop_int:NN \l__runner_tmpa_int \l__runner_tmpb_int
+    \int_if_even:nTF { \l__runner_tmpb_int }
+      { \int_set:Nn \l__runner_tmpb_int { \l__runner_tmpb_int / 2 } }
+      {
+        \int_add:Nn \l__runner_tmpa_int { \c__runner_forth_mod_int }
+        \int_set:Nn \l__runner_tmpb_int { ( \l__runner_tmpb_int - 1 ) / 2 }
+      }
+    \__runner_forth_push:nn
+      { ( \l__runner_tmpa_int + 1 ) / 2 - 1 }
+      { \l__runner_tmpb_int }
+  }
+\__runner_forth_new_core:nn { D2* }
+  {
+    \__runner_forth_pop_int:NN \l__runner_tmpa_int \l__runner_tmpb_int
+    \int_set:Nn \l__runner_tmpa_int { \l__runner_tmpa_int * \c_two }
+    \int_set:Nn \l__runner_tmpb_int { \l__runner_tmpb_int * \c_two }
+    \int_compare:nNnTF \l__runner_tmpa_int < \c__runner_forth_mod_int
+      { \int_incr:N \l__runner_tmpb_int }
+    \__runner_forth_push_signed:n
+      { \l__runner_tmpa_int - \c__runner_forth_mod_int }
+    \__runner_forth_push_signed:n
+      { \l__runner_tmpb_int - \c__runner_forth_mod_int }
+  }
+\__runner_forth_new_core:nn { D0= }
+  {
+    \__runner_forth_pop_int:NN \l__runner_tmpa_int \l__runner_tmpb_int
+    \bool_if:nTF
+      {
+        \int_compare_p:nNn \l__runner_tmpa_int = \c_zero
+        && \int_compare_p:nNn \l__runner_tmpb_int = \c_zero
+      }
+      { \__runner_forth_push_true: }
+      { \__runner_forth_push_false: }
+  }
+\__runner_forth_new_core:nn { D0< }
+  {
+    \__runner_forth_pop_int:NN \l__runner_tmpa_int \l__runner_tmpb_int
+    \int_compare:nNnTF
+      { \__runner_forth_signed:N \l__runner_tmpb_int } < \c_zero
+      { \__runner_forth_push_true: }
+      { \__runner_forth_push_false: }
+  }
+\__runner_forth_new_core:nn { D= }
+  {
+    \__runner_forth_pop_int:NNNN
+      \l__runner_tmpa_int \l__runner_tmpb_int
+      \l__runner_tmpc_int \l__runner_tmpd_int
+    \bool_if:nTF
+      {
+        \int_compare:nNnTF \l__runner_tmpa_int = \l__runner_tmpc_int
+        && \int_compare:nNnTF \l__runner_tmpb_int = \l__runner_tmpd_int
+      }
+      { \__runner_forth_push_true: }
+      { \__runner_forth_push_false: }
+  }
+\__runner_forth_new_core:nn { D< }
+  {
+    \__runner_forth_double_cmp:Nnn \__runner_forth_signed:N
+      \__runner_forth_push_true:
+      \__runner_forth_push_false:
+  }
+\__runner_forth_new_core:nn { DU< }
+  {
+    \__runner_forth_double_cmp:Nnn \prg_do_nothing:
+      \__runner_forth_push_true:
+      \__runner_forth_push_false:
+  }
+\__runner_forth_new_core:nn { DMAX }
+  {
+    \__runner_forth_double_cmp:Nnn \__runner_forth_signed:N
+      { \__runner_forth_push:nn \l__runner_tmpc_int \l__runner_tmpd_int }
+      { \__runner_forth_push:nn \l__runner_tmpa_int \l__runner_tmpb_int }
+  }
+\__runner_forth_new_core:nn { DMIN }
+  {
+    \__runner_forth_double_cmp:Nnn \__runner_forth_signed:N
+      { \__runner_forth_push:nn \l__runner_tmpa_int \l__runner_tmpb_int }
+      { \__runner_forth_push:nn \l__runner_tmpc_int \l__runner_tmpd_int }
+  }
+\cs_new_protected:Npn \__runner_forth_double_cmp:Nnn #1#2#3
+  {
+    \__runner_forth_pop_int:NNNN
+      \l__runner_tmpa_int \l__runner_tmpb_int
+      \l__runner_tmpc_int \l__runner_tmpd_int
+    \int_set:Nn \l__runner_tmpe_int
+      { #1 \l__runner_tmpb_int - #1 \l__runner_tmpd_int }
+    \int_compare:nNnTF { \l__runner_tmpe_int } < \c_zero
+      {#2}
+      {
+        \int_compare:nNnTF { \l__runner_tmpe_int } = \c_zero
+          {
+            \int_compare:nNnTF \l__runner_tmpa_int < \l__runner_tmpc_int
+              {#2} {#3}
+          }
+          {#3}
+      }
+  }
+\__runner_forth_new_core:nn { 2CONSTANT }
+  {
+    \__runner_forth_pop_int:NN \l__runner_tmpa_int \l__runner_tmpb_int
+    \__runner_forth_input_word:
+    \__runner_forth_set_word:ox \l__runner_forth_input_word_str
+      {
+        \__runner_forth_push:nn
+          { \int_use:N \l__runner_tmpa_int }
+          { \int_use:N \l__runner_tmpb_int }
+      }
+  }
+\__runner_forth_new_core:nn { 2VARIABLE }
+  {
+    \__runner_forth_create:
+    \__runner_forth_put_here:n { 0 }
+    \__runner_forth_put_here:n { 0 }
+  }
+\__runner_forth_new_compilation_core:nn { 2LITERAL }
+  {
+    \__runner_forth_pop_int:NN \l__runner_tmpa_int \l__runner_tmpb_int
+    \__runner_forth_def_code:x
+      {
+        \__runner_forth_push:nn
+          { \int_use:N \l__runner_tmpa_int }
+          { \int_use:N \l__runner_tmpb_int }
+      }
+  }
+\__runner_forth_core_alias:nn { D>S } { DROP }
+\__runner_forth_new_core:nn { 2ROT }
+  {
+    \__runner_forth_pop_int:NN \l__runner_tmpe_int \l__runner_tmpf_int
+    \__runner_forth_pop_int:NN \l__runner_tmpc_int \l__runner_tmpd_int
+    \__runner_forth_pop_int:NN \l__runner_tmpa_int \l__runner_tmpb_int
+    \__runner_forth_push:nnnnnn
+      \l__runner_tmpc_int \l__runner_tmpd_int
+      \l__runner_tmpe_int \l__runner_tmpf_int
+      \l__runner_tmpa_int \l__runner_tmpb_int
+  }
 \int_new:N \l__runner_forth_if_int
 \__runner_forth_new_immediate_core:nn { [IF] }
   {
