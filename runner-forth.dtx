@@ -3913,8 +3913,8 @@
 %
 % \subsubsection{Output}
 %
-% This section defines the words |.|, |U.|, |.R|, |U.R|, |."|, |.(|%^^A)
-% |BL|, |CR|, |EMIT|, |SPACE|, |SPACES|, |TYPE|.
+% This section defines the words |.|, |U.|, |.R|, |U.R|, |."|, |.(|,
+% |BL|, |CR|, |EMIT|, |SPACE|, |SPACES|, |TYPE|.%^^A)
 %
 % \begin{macro}[int]{., U.}
 % \begin{macro}[aux]{\@@_forth_outnum:n}
@@ -4472,7 +4472,72 @@
 % \end{macro}
 % \end{macro}
 %
-% \subsection{Additionnal words}
+% \subsection{Programming-Tools words}
+%
+% This section implements some of the programming tools words.  The
+% words |SEE|, |WORDS|, |;CODE|, |AHEAD|, |ASSEMBLER|, |CODE|,
+% |CS-PICK|, |CS-ROLL|, |EDITOR|, |FORGET|, |[IF]|, |[THEN]|, |[ELSE]|
+% are not implemented.
+%
+% \subsubsection{Output}
+%
+% This section implements the words |.S|, |?|, |DUMP|.
+%
+% \begin{macro}[int]{.S}
+%   Show the contents of the stack, in the current |BASE|.
+%    \begin{macrocode}
+\@@_forth_new_core:nn { .S }
+  {
+    \int_step_inline:nnnn
+      { \g_@@_forth_stack_min_int }
+      { 1 }
+      { \l_@@_forth_stack_here_int - 1 }
+      {
+        \@@_output:x
+          { \int_to_base:nn {#1} { \@@_forth_base: } ~ }
+      }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int]{?}
+%   Show the contents of an address cell.
+%    \begin{macrocode}
+\@@_forth_new_core:nn { ? }
+  {
+    \@@_forth_pop_int:N \l_@@_tmpa_int
+    \@@_output:x
+      {
+        \int_to_base:nn { \@@_forth_data_get:N \l_@@_tmpa_int }
+          { \@@_forth_base: } ~
+      }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int]{DUMP}
+%   Go from address~\(a\) to~\(a+b-1\), printing each cell's contents.
+%    \begin{macrocode}
+\@@_forth_new_core:nn { DUMP }
+  {
+    \@@_forth_pop_int:NN \l_@@_tmpa_int \l_@@_tmpb_int
+    \int_step_inline:nnnn
+      { \l_@@_tmpa_int }
+      { 1 }
+      { \l_@@_tmpa_int + \l_@@_tmpb_int - 1 }
+      {
+        \@@_output:x
+          {
+            \int_to_base:nn { \@@_forth_data_get:n {#1} }
+              { \@@_forth_base: } ~
+          }
+      }
+  }
+%    \end{macrocode}
+% ^^A todo: add auxiliary for outputting in the BASE.
+% \end{macro}
+%
+% \subsubsection{Quitting}
 %
 % \begin{macro}[int]{BYE}
 %   Set the \texttt{forth_stop} boolean to stop the interpreter loop.

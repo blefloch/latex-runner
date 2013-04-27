@@ -2240,6 +2240,41 @@
         \__runner_forth_compiled_repeat:nn {#1} {#2}
       }
   }
+\__runner_forth_new_core:nn { .S }
+  {
+    \int_step_inline:nnnn
+      { \g__runner_forth_stack_min_int }
+      { 1 }
+      { \l__runner_forth_stack_here_int - 1 }
+      {
+        \__runner_output:x
+          { \int_to_base:nn {#1} { \__runner_forth_base: } ~ }
+      }
+  }
+\__runner_forth_new_core:nn { ? }
+  {
+    \__runner_forth_pop_int:N \l__runner_tmpa_int
+    \__runner_output:x
+      {
+        \int_to_base:nn { \__runner_forth_data_get:N \l__runner_tmpa_int }
+          { \__runner_forth_base: } ~
+      }
+  }
+\__runner_forth_new_core:nn { DUMP }
+  {
+    \__runner_forth_pop_int:NN \l__runner_tmpa_int \l__runner_tmpb_int
+    \int_step_inline:nnnn
+      { \l__runner_tmpa_int }
+      { 1 }
+      { \l__runner_tmpa_int + \l__runner_tmpb_int - 1 }
+      {
+        \__runner_output:x
+          {
+            \int_to_base:nn { \__runner_forth_data_get:n {#1} }
+              { \__runner_forth_base: } ~
+          }
+      }
+  }
 \__runner_forth_new_core:nn { BYE }
   {
     \bool_set_true:N \l__runner_forth_stop_bool
