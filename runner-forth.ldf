@@ -2619,7 +2619,11 @@
       { \l__runner_forth_stack_here_int - 1 }
       {
         \__runner_output:x
-          { \int_to_base:nn {#1} { \__runner_forth_base: } ~ }
+          {
+            \int_to_base:nn
+              { \__runner_array_item:Nn \g__runner_forth_array {#1} }
+              { \__runner_forth_base: } ~
+          }
       }
   }
 \__runner_forth_new_core:nn { ? }

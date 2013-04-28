@@ -5124,7 +5124,11 @@
       { \l_@@_forth_stack_here_int - 1 }
       {
         \@@_output:x
-          { \int_to_base:nn {#1} { \@@_forth_base: } ~ }
+          {
+            \int_to_base:nn
+              { \@@_array_item:Nn \g_@@_forth_array {#1} }
+              { \@@_forth_base: } ~
+          }
       }
   }
 %    \end{macrocode}
