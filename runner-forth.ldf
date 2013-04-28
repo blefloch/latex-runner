@@ -26,6 +26,7 @@
 \cs_generate_variant:Nn \prop_put:Nnn { Nxx }
 \cs_generate_variant:Nn \tl_item:nn { o }
 \cs_generate_variant:Nn \tl_if_head_eq_meaning:nNTF { V }
+\cs_generate_variant:Nn \str_set_convert:Nnnn { Nxnn }
 \cs_new_protected:Npn \__runner_forth_exit:
   #1 \__runner_forth_exit_point: { }
 \cs_new_eq:NN \__runner_forth_exit_point: \scan_stop:
@@ -145,7 +146,7 @@
     \int_incr:N \l__runner_forth_data_here_int
     \__runner_forth_check_data_top:
   }
-\cs_new:Npn \__runner_forth_interval_to_clist:NN #1#2
+\cs_new:Npn \__runner_forth_interval_to_clist:nn #1#2
   {
     \int_step_function:nnnN {#1} { 1 } { #2 - 1 }
       \__runner_forth_interval_to_clist_aux:n
@@ -401,19 +402,6 @@
 \int_new:N \l__runner_forth_input_word_end_int
 \str_new:N \l__runner_forth_input_word_str
 \str_new:N \l__runner_forth_input_str
-\group_begin:
-  \char_set_catcode_other:n { 0 }
-  \cs_new_protected:Npn \__runner_forth_str_put_char:Nn #1#2
-    {
-      \group_begin:
-        \char_set_lccode:nn { 0 } {#2}
-        \tex_lowercase:D
-          {
-            \group_end:
-            \tl_put_right:Nn #1 { ^^@ }
-          }
-    }
-\group_end:
 \prg_new_protected_conditional:Npnn \__runner_forth_input_refill: { TF }
   {
     \tl_if_empty:NTF \l__runner_forth_input_str
@@ -493,9 +481,8 @@
       { \int_incr:N \l__runner_forth_source_parsed_int }
       { \bool_set_false:N \l__runner_tmpa_bool }
   }
-\cs_new_protected_nopar:Npn \__runner_forth_input_until:n
+\cs_new_protected:Npn \__runner_forth_input_until:n #1
   {
-    \tl_clear:N \l__runner_forth_input_word_str
     \__runner_forth_input_discard_aux:TFn
       {
         \bool_set_false:N \l__runner_tmpa_bool
@@ -503,11 +490,15 @@
           \l__runner_forth_source_parsed_int
         \int_incr:N \l__runner_forth_source_parsed_int
       }
+      { \int_incr:N \l__runner_forth_source_parsed_int }
+      {#1}
+    \str_set_convert:Nxnn \l__runner_forth_input_word_str
       {
-        \__runner_forth_str_put_char:Nn \l__runner_forth_input_word_str
-          { \l__runner_tmpc_int }
-        \int_incr:N \l__runner_forth_source_parsed_int
+        \__runner_forth_interval_to_clist:nn
+          \l__runner_forth_input_word_begin_int
+          \l__runner_forth_input_word_end_int
       }
+      { clist } { }
   }
 \cs_new_protected:Npn \__runner_forth_input_discard_aux:TFn #1#2#3
   {
@@ -1646,12 +1637,13 @@
     \int_set:Nn \l__runner_tmpb_int
       { \l__runner_tmpa_int + \__runner_forth_data_get:n { \l__runner_tmpa_int } }
     \tl_clear:N \l__runner_forth_find_word_str
-    \int_step_inline:nnnn
-      { \l__runner_tmpa_int + 1 } { 1 } { \l__runner_tmpb_int }
+    \str_set_convert:Nxnn \l__runner_forth_find_word_str
       {
-        \__runner_forth_str_put_char:Nn \l__runner_forth_find_word_str
-          { \__runner_forth_data_get:n {#1} }
+        \__runner_forth_interval_to_clist:nn
+          { \l__runner_tmpa_int + 1 }
+          { \l__runner_tmpb_int + 1 }
       }
+      { clist } { }
     \prop_get:NVNF
       \l__runner_forth_words_prop
       \l__runner_forth_find_word_str
@@ -2095,7 +2087,7 @@
       {
         \__runner_output_clist:x
           {
-            \__runner_forth_interval_to_clist:NN
+            \__runner_forth_interval_to_clist:nn
               \l__runner_forth_input_word_begin_int
               \l__runner_forth_input_word_end_int
           }
@@ -2106,7 +2098,7 @@
     \__runner_forth_input_until:n { `) }
     \__runner_output_clist:x
       {
-        \__runner_forth_interval_to_clist:NN
+        \__runner_forth_interval_to_clist:nn
           \l__runner_forth_input_word_begin_int
           \l__runner_forth_input_word_end_int
       }
@@ -2613,7 +2605,7 @@
       {
         #1
         \int_compare:nNnT { \l__runner_tmpa_tl } < \c_zero { 45 , }
-        \__runner_forth_interval_to_clist:NN
+        \__runner_forth_interval_to_clist:nn
           \l__runner_forth_picnum_here_int
           \g__runner_forth_picnum_max_int
         #2

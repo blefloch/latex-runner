@@ -327,6 +327,7 @@
 \cs_generate_variant:Nn \prop_put:Nnn { Nxx }
 \cs_generate_variant:Nn \tl_item:nn { o }
 \cs_generate_variant:Nn \tl_if_head_eq_meaning:nNTF { V }
+\cs_generate_variant:Nn \str_set_convert:Nnnn { Nxnn }
 %    \end{macrocode}
 %
 % \begin{macro}[int]{\@@_forth_exit:, \@@_forth_exit_point:}
@@ -746,11 +747,11 @@
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[int, rEXP]{\@@_forth_interval_to_clist:NN}
+% \begin{macro}[int, rEXP]{\@@_forth_interval_to_clist:nn}
 % \begin{macro}[aux, rEXP]{\@@_forth_interval_to_clist_aux:n}
 %   Build a comma-list from a region of memory.
 %    \begin{macrocode}
-\cs_new:Npn \@@_forth_interval_to_clist:NN #1#2
+\cs_new:Npn \@@_forth_interval_to_clist:nn #1#2
   {
     \int_step_function:nnnN {#1} { 1 } { #2 - 1 }
       \@@_forth_interval_to_clist_aux:n
@@ -1281,27 +1282,6 @@
 %    \end{macrocode}
 % \end{variable}
 %
-% \begin{macro}[int]{\@@_forth_str_put_char:Nn}
-%   Append to the string |#1| the character with character code~|#2|.
-%   This function is useful when converting from strings stored into
-%   cells to displayed strings.
-%    \begin{macrocode}
-\group_begin:
-  \char_set_catcode_other:n { 0 }
-  \cs_new_protected:Npn \@@_forth_str_put_char:Nn #1#2
-    {
-      \group_begin:
-        \char_set_lccode:nn { 0 } {#2}
-        \tex_lowercase:D
-          {
-            \group_end:
-            \tl_put_right:Nn #1 { ^^@ }
-          }
-    }
-\group_end:
-%    \end{macrocode}
-% \end{macro}
-%
 % \begin{macro}[int, TF]{\@@_forth_input_refill:}
 % \begin{macro}[aux]{\@@_forth_input_refill_get:, \@@_forth_term_refill:}
 %   This refills the input buffer, and returns \texttt{true} if
@@ -1445,9 +1425,8 @@
       { \int_incr:N \l_@@_forth_source_parsed_int }
       { \bool_set_false:N \l_@@_tmpa_bool }
   }
-\cs_new_protected_nopar:Npn \@@_forth_input_until:n
+\cs_new_protected:Npn \@@_forth_input_until:n #1
   {
-    \tl_clear:N \l_@@_forth_input_word_str
     \@@_forth_input_discard_aux:TFn
       {
         \bool_set_false:N \l_@@_tmpa_bool
@@ -1455,11 +1434,15 @@
           \l_@@_forth_source_parsed_int
         \int_incr:N \l_@@_forth_source_parsed_int
       }
+      { \int_incr:N \l_@@_forth_source_parsed_int }
+      {#1}
+    \str_set_convert:Nxnn \l_@@_forth_input_word_str
       {
-        \@@_forth_str_put_char:Nn \l_@@_forth_input_word_str
-          { \l_@@_tmpc_int }
-        \int_incr:N \l_@@_forth_source_parsed_int
+        \@@_forth_interval_to_clist:nn
+          \l_@@_forth_input_word_begin_int
+          \l_@@_forth_input_word_end_int
       }
+      { clist } { }
   }
 \cs_new_protected:Npn \@@_forth_input_discard_aux:TFn #1#2#3
   {
@@ -3499,12 +3482,13 @@
     \int_set:Nn \l_@@_tmpb_int
       { \l_@@_tmpa_int + \@@_forth_data_get:n { \l_@@_tmpa_int } }
     \tl_clear:N \l_@@_forth_find_word_str
-    \int_step_inline:nnnn
-      { \l_@@_tmpa_int + 1 } { 1 } { \l_@@_tmpb_int }
+    \str_set_convert:Nxnn \l_@@_forth_find_word_str
       {
-        \@@_forth_str_put_char:Nn \l_@@_forth_find_word_str
-          { \@@_forth_data_get:n {#1} }
+        \@@_forth_interval_to_clist:nn
+          { \l_@@_tmpa_int + 1 }
+          { \l_@@_tmpb_int + 1 }
       }
+      { clist } { }
     \prop_get:NVNF
       \l_@@_forth_words_prop
       \l_@@_forth_find_word_str
@@ -4326,7 +4310,7 @@
       {
         \@@_output_clist:x
           {
-            \@@_forth_interval_to_clist:NN
+            \@@_forth_interval_to_clist:nn
               \l_@@_forth_input_word_begin_int
               \l_@@_forth_input_word_end_int
           }
@@ -4337,7 +4321,7 @@
     \@@_forth_input_until:n { `) }
     \@@_output_clist:x
       {
-        \@@_forth_interval_to_clist:NN
+        \@@_forth_interval_to_clist:nn
           \l_@@_forth_input_word_begin_int
           \l_@@_forth_input_word_end_int
       }
@@ -5172,7 +5156,7 @@
       {
         #1
         \int_compare:nNnT { \l_@@_tmpa_tl } < \c_zero { 45 , }
-        \@@_forth_interval_to_clist:NN
+        \@@_forth_interval_to_clist:nn
           \l_@@_forth_picnum_here_int
           \g_@@_forth_picnum_max_int
         #2
