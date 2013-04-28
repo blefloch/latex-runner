@@ -85,10 +85,7 @@
 % \item The core extension words |EXPECT|, |QUERY|, |RESTORE-INPUT|,
 %   |SAVE-INPUT|, |SPAN| are not implemented.
 % \item The environment variable |/COUNTED-STRING| is not recognized.
-% \item The text interpreter does not accept the syntax
-%   \meta{digits}\texttt{.} to input double-cell integers: one should
-%   build those explicitly from two single-cell integers.
-% \item The double-number words |D.|, |D.R|, |M*/| are not implemented.
+% \item The double-number word |M*/| is not implemented.
 % \end{itemize}
 % Additionally, the interpreter provides the Programming-Tools words
 % |.S|, |?|, |DUMP|, |[IF]|, |[THEN]|, |[ELSE]|, |BYE|.
@@ -5008,6 +5005,59 @@
       }
   }
 %    \end{macrocode}
+% \end{macro}
+%
+% \subsubsection{Output}
+%
+% This section defines the words |D.|, |D.R|.
+%
+% \begin{macro}[int]{D., D.R}
+% \begin{macro}[aux]{\@@_forth_outdouble:nn}
+%   Display a double-cell number.
+%    \begin{macrocode}
+\@@_forth_new_core:nn { D. }
+  { \@@_forth_outdouble:nn { } { , 32 } }
+\@@_forth_new_core:nn { D.R }
+  {
+    \@@_forth_pop_int:N \l_@@_tmpe_int
+    \@@_forth_outdouble:nn
+      {
+        \prg_replicate:nn
+          {
+            \int_max:nn
+              { \c_zero }
+              {
+                \l_@@_tmpe_int
+                - \g_@@_forth_picnum_max_int
+                + \l_@@_forth_picnum_here_int
+              }
+          }
+          { 32 , }
+      }
+      { }
+  }
+\cs_new_protected:Npn \@@_forth_outdouble:nn #1#2
+  {
+    \@@_forth_pop_int:NN \l_@@_tmpc_int \l_@@_tmpd_int
+    \int_set_eq:NN \l_@@_forth_picnum_here_int
+      \g_@@_forth_picnum_max_int
+    \tl_set:Nx \l_@@_tmpa_tl { \@@_forth_signed:N \l_@@_tmpc_int }
+    \int_set:Nn \l_@@_tmpb_int { \@@_forth_base: }
+    \int_while_do:nNnn
+      { \l_@@_tmpc_int + \l_@@_tmpd_int } > \c_zero
+      { \@@_forth_picnum_aux: }
+    \@@_output_clist:x
+      {
+        #1
+        \int_compare:nNnT { \l_@@_tmpa_tl } < \c_zero { 45 , }
+        \@@_forth_interval_to_clist:NN
+          \l_@@_forth_picnum_here_int
+          \g_@@_forth_picnum_max_int
+        #2
+      }
+  }
+%    \end{macrocode}
+% \end{macro}
 % \end{macro}
 %
 % \subsubsection{Stacks}

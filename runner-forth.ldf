@@ -2561,6 +2561,47 @@
           { \int_use:N \l__runner_tmpb_int }
       }
   }
+\__runner_forth_new_core:nn { D. }
+  { \__runner_forth_outdouble:nn { } { , 32 } }
+\__runner_forth_new_core:nn { D.R }
+  {
+    \__runner_forth_pop_int:N \l__runner_tmpe_int
+    \__runner_forth_outdouble:nn
+      {
+        \prg_replicate:nn
+          {
+            \int_max:nn
+              { \c_zero }
+              {
+                \l__runner_tmpe_int
+                - \g__runner_forth_picnum_max_int
+                + \l__runner_forth_picnum_here_int
+              }
+          }
+          { 32 , }
+      }
+      { }
+  }
+\cs_new_protected:Npn \__runner_forth_outdouble:nn #1#2
+  {
+    \__runner_forth_pop_int:NN \l__runner_tmpc_int \l__runner_tmpd_int
+    \int_set_eq:NN \l__runner_forth_picnum_here_int
+      \g__runner_forth_picnum_max_int
+    \tl_set:Nx \l__runner_tmpa_tl { \__runner_forth_signed:N \l__runner_tmpc_int }
+    \int_set:Nn \l__runner_tmpb_int { \__runner_forth_base: }
+    \int_while_do:nNnn
+      { \l__runner_tmpc_int + \l__runner_tmpd_int } > \c_zero
+      { \__runner_forth_picnum_aux: }
+    \__runner_output_clist:x
+      {
+        #1
+        \int_compare:nNnT { \l__runner_tmpa_tl } < \c_zero { 45 , }
+        \__runner_forth_interval_to_clist:NN
+          \l__runner_forth_picnum_here_int
+          \g__runner_forth_picnum_max_int
+        #2
+      }
+  }
 \__runner_forth_core_alias:nn { D>S } { DROP }
 \__runner_forth_new_core:nn { 2ROT }
   {
