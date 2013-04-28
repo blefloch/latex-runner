@@ -240,6 +240,11 @@
 \runner{forth}[output = \result, program = {123}]|456 . .|||
 \typeout{\result}
 
+\runner{forth}[output = \result, output-encoding = utf8/hex]|
+  1234 . 1234 EMIT
+|||
+\typeout{\result}
+
 \runner{forth}[output, output-stream = \z@]|
   564 . 453 . boom CR boom 897 .
 |||
