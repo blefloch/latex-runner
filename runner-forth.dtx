@@ -567,6 +567,14 @@
 %    \end{macrocode}
 % \end{variable}
 %
+% \begin{variable}{\l_@@_forth_fp_seq}
+%   The floating point stack stores floating point numbers as token
+%   lists (through \cs{fp_to_tl:n}).
+%    \begin{macrocode}
+\seq_new:N \l_@@_forth_fp_seq
+%    \end{macrocode}
+% \end{variable}
+%
 % \subsubsection{Manipulating data space}
 %
 % \begin{macro}[int, EXP]{\@@_forth_data_get:N, \@@_forth_data_get:n}
@@ -1374,69 +1382,241 @@
 %
 % \subsubsection{Numbers}
 %
-% \begin{macro}[int, TF]{\@@_forth_get_number:nN}
-% \begin{macro}[int]{\@@_forth_get_number_aux:nNN}
-%   Look for (and remove) a sign, and provide \(\pm 1\) as an argument
-%   to \cs{@@_forth_get_number_aux:nNN}.  This auxiliary reads the
-%   number itself, and builds it into \texttt{tmpa}.  The base is stored
-%   in \texttt{tmpb} once and for all.  Find the bounds on allowed
-%   digits: from |`0| to |`9| or less if the base is small, and from
-%   |`A| to |`A| plus the base minus \(11\) (this works both for small
-%   and large bases).  The upper bounds of those two ranges are stored
-%   as \texttt{tmpc} and \texttt{tmpd}.  Loop through characters in the
-%   string (we assume there is no space): for valid digits multiply
-%   \texttt{tmpa} by the base and add the value of the digit (the
-%   formula is different in the two ranges of digits).  Upon
-%   encountering an invalid digit, set the boolean \texttt{tmpa}, which
-%   marks a success, as false, and exit the loop.  Eventually, combine
-%   the integer and the sign into |#3|, and return the value of the
-%   \texttt{tmpa} boolean.
+% \begin{macro}[int]{\@@_forth_to_number:}
+% \begin{macro}[aux]{\@@_forth_to_number_aux:n}
+%   This function should be called with the temporary integers \((c,d)\)
+%   set to a cell pair, and \(e\) and \(f\) set to addresses (\(f\) can
+%   be out of bounds).  Characters are read starting with the
+%   cell~\(e\).  If the character~\(a\) is a valid digit in the current
+%   base (which we store as~\(b\)), then update \((c,d)\) by multiplying
+%   it by~\(b\) then adding the value~\(a-48\) or \(a-55\) of the digit.
+%   Some care is needed for the carry.  The loop stops either when the
+%   address~\(e\) (which we increment at each step) reaches the
+%   end-address~\(f\), or when a non-digit is found.
 %    \begin{macrocode}
-\prg_new_protected_conditional:Npnn \@@_forth_get_number:nN #1#2 { TF }
+\cs_new_protected_nopar:Npn \@@_forth_to_number:
   {
-    \tl_if_head_eq_charcode:nNTF {#1} -
-      {
-        \exp_args:No \@@_forth_get_number_aux:nNN
-          { \use_none:n #1 } - #2
-      }
-      { \@@_forth_get_number_aux:nNN {#1} + #2 }
-  }
-\cs_new_protected:Npn \@@_forth_get_number_aux:nNN #1#2#3
-  {
-    \int_zero:N \l_@@_tmpa_int
     \int_set:Nn \l_@@_tmpb_int { \@@_forth_base: }
-    \int_set:Nn \l_@@_tmpc_int
-      { \int_min:nn { `9 } { `0 + \l_@@_tmpb_int - 1 } }
-    \int_set:Nn \l_@@_tmpd_int { `A + \l_@@_tmpb_int - 11 }
-    \bool_set_true:N \l_@@_tmpa_bool
-    \tl_map_inline:nn {#1}
+    \int_while_do:nNnn \l_@@_tmpe_int < \l_@@_tmpf_int
       {
-        \int_compare:nTF { `0 <= `##1 <= \l_@@_tmpc_int }
+        \int_set:Nn \l_@@_tmpa_int
+          { \@@_forth_data_get:n { \l_@@_tmpe_int } }
+        \int_compare:nTF
+          { 65 <= \l_@@_tmpa_int < 55 + \l_@@_tmpb_int }
+          { \@@_forth_to_number_aux:n { \l_@@_tmpa_int - 55 } }
           {
-            \int_set:Nn \l_@@_tmpa_int
-              { \l_@@_tmpa_int * \l_@@_tmpb_int }
-            \int_add:Nn \l_@@_tmpa_int { `##1 - `0 }
+            \int_compare:nTF
+              { 48 <= \l_@@_tmpa_int < 48 + \l_@@_tmpb_int }
+              { \@@_forth_to_number_aux:n { \l_@@_tmpa_int - 48 } }
+              { \@@_break:n { } }
           }
-          {
-            \int_compare:nTF { `A <= `##1 <= \l_@@_tmpd_int }
-              {
-                \int_set:Nn \l_@@_tmpa_int
-                  { \l_@@_tmpa_int * \l_@@_tmpb_int }
-                \int_add:Nn \l_@@_tmpa_int { `##1 - `A + 10 }
-              }
-              {
-                \bool_set_false:N \l_@@_tmpa_bool
-                \tl_map_break:
-              }
-          }
+        \int_incr:N \l_@@_tmpe_int
       }
-    \tl_set:Nx #3 { #2 \int_use:N \l_@@_tmpa_int }
-    \bool_if:NTF \l_@@_tmpa_bool
-      { \prg_return_true: }
-      { \prg_return_false: }
+    \@@_break_point:n { }
+  }
+\cs_new_protected:Npn \@@_forth_to_number_aux:n #1
+  {
+    \int_set:Nn \l_@@_tmpc_int
+      { \l_@@_tmpb_int * \l_@@_tmpc_int + #1 }
+    \int_set:Nn \l_@@_tmpd_int
+      {
+        \l_@@_tmpb_int * \l_@@_tmpd_int
+        + \int_div_truncate:nn
+          { \l_@@_tmpc_int } { \c_@@_forth_mod_int }
+      }
+    \int_set:Nn \l_@@_tmpc_int
+      { \int_mod:nn { \l_@@_tmpc_int } { \c_@@_forth_mod_int } }
   }
 %    \end{macrocode}
 % \end{macro}
+% \end{macro}
+%
+% \begin{macro}[int]{\@@_forth_get_number:N}
+% \begin{macro}[aux]{\@@_forth_get_number_aux:NN}
+%   When this function is called, the word just read lies between
+%   positions \texttt{input_word_begin} (included), which we store
+%   as~\(e\), and \texttt{input_word_end} (excluded), which we store
+%   as~\(f\).  We will use the \texttt{to_number} auxiliary, with
+%   initial value \((c,d)=(0,0)\) and addresses~\(e\) and~\(f\)
+%   delimiting the word just found.  Before this,
+%   \texttt{get_number_sign} looks for a leading sign, and updates~\(e\)
+%   accordingly.  The token list \texttt{tmpa} then contains the
+%   function~|#1| (which distinguishes between compilation and
+%   interpretation), and the sign |+| or~|-|.  After reading digits,
+%   check if we are done (\(e=f\)): in that case, the
+%   \texttt{get_number_aux} auxiliary gets the sign and function from
+%   the \texttt{tmpa} token list, and does the appropriate operation.
+%   If \(e\neq f\), dispatch, calling \texttt{get_double} upon seeing a
+%   dot, \texttt{get_exponent} upon seeing an exponent mark, and an
+%   error otherwise.
+%    \begin{macrocode}
+\cs_new_protected:Npn \@@_forth_get_number:N #1
+  {
+    \tl_set:Nn \l_@@_tmpa_tl {#1}
+    \int_zero:N \l_@@_tmpc_int
+    \int_zero:N \l_@@_tmpd_int
+    \int_set_eq:NN \l_@@_tmpe_int \l_@@_forth_input_word_begin_int
+    \int_set_eq:NN \l_@@_tmpf_int \l_@@_forth_input_word_end_int
+    \@@_forth_get_number_sign:
+    \@@_forth_to_number:
+    \int_compare:nNnTF \l_@@_tmpe_int = \l_@@_tmpf_int
+      { \exp_after:wN \@@_forth_get_number_aux:NN \l_@@_tmpa_tl }
+      {
+        \int_case:nnn { \@@_forth_data_get:N \l_@@_tmpe_int }
+          {
+            { `. }
+              { \exp_args:NV \@@_forth_get_double:n \l_@@_tmpe_int }
+            { `E } { \@@_forth_get_exponent:n { 0 } }
+            { `e } { \@@_forth_get_exponent:n { 0 } }
+          }
+          {
+            \msg_error:nnx { runner/forth } { unknown-word }
+              { \l_@@_forth_input_word_str }
+          }
+      }
+  }
+\cs_new_protected:Npn \@@_forth_get_number_aux:NN #1#2
+  { #1 { \@@_forth_push_signed:n { #2 \int_use:N \l_@@_tmpc_int } } }
+%    \end{macrocode}
+% \end{macro}
+% \end{macro}
+%
+% \begin{macro}[aux]{\@@_forth_get_number_sign:}
+%   Read zero or one sign at~\(e\), increment~\(e\) if a sign was found,
+%   and append |+| or~|-| to the token list \texttt{tmpa}.
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \@@_forth_get_number_sign:
+  {
+    \int_compare:nNnTF \l_@@_tmpe_int = \l_@@_tmpf_int
+      { \tl_put_right:Nn \l_@@_tmpa_tl { + } }
+      {
+        \int_case:nnn { \@@_forth_data_get:N \l_@@_tmpe_int }
+          {
+            { `- } { \tl_put_right:Nn \l_@@_tmpa_tl { - } }
+            { `+ } { \tl_put_right:Nn \l_@@_tmpa_tl { + } }
+          }
+          {
+            \tl_put_right:Nn \l_@@_tmpa_tl { + }
+            \int_decr:N \l_@@_tmpe_int
+          }
+        \int_incr:N \l_@@_tmpe_int
+      }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[aux]{\@@_forth_get_double:n, \@@_forth_get_double_aux:NN}
+%   When this function is called, the \texttt{tmpa} token list contains
+%   a function and a sign, we have just read some digits, and
+%   \(e\)~points to a period.  The argument is the current value
+%   of~\(e\).  If there is nothing after the dot, we found a double-cell
+%   integer.  Otherwise, read more digits, and call the
+%   \texttt{get_float} function to do some checks and possibly look for
+%   an exponent.
+%    \begin{macrocode}
+\cs_new_protected:Npn \@@_forth_get_double:n #1
+  {
+    \int_incr:N \l_@@_tmpe_int
+    \int_compare:nNnTF \l_@@_tmpe_int = \l_@@_tmpf_int
+      { \exp_after:wN \@@_forth_get_double_aux:NN \l_@@_tmpa_tl }
+      {
+        \@@_to_number:
+        \exp_args:Nx \@@_forth_get_float:n
+          { \int_eval:n { \l_@@_tmpe_int - #1 - 1 } }
+      }
+  }
+\cs_new_protected:Npn \@@_forth_get_double_aux:NN #1#2
+  {
+    \token_if_eq_charcode:NNF #2 +
+      {
+        \int_set:Nn \l_@@_tmpc_int
+          { \c_@@_forth_mod_int - \l_@@_tmpc_int }
+        \int_set:Nn \l_@@_tmpd_int
+          { \c_@@_forth_mod_int - 1 - \l_@@_tmpd_int }
+      }
+    #1
+      {
+        \@@_forth_push:n { \int_use:N \l_@@_tmpc_int }
+        \@@_forth_push:n
+          { \int_mod:nn \l_@@_tmpd_int \c_@@_forth_mod_int }
+      }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[aux]
+%   {
+%     \@@_forth_get_float:n,
+%     \@@_forth_get_exponent:n,
+%     \@@_forth_get_float_aux:NNnnnN,
+%   }
+%   If after reading the fractional part we reach the end of the word,
+%   the float has no exponent.  If the next character is |E| or~|e|,
+%   read an exponent.  Otherwise, complain.  The argument of the
+%   \texttt{get_float} and \texttt{get_exponent} functions is the number
+%   of digits after the period.  The exponent is read in the same basis,
+%   using \texttt{to_number}.  Before this, save in the \texttt{tmpa}
+%   token list \(c\), \(d\) and the shift in exponent due to the
+%   fractional part, then zero the two integers.  If \texttt{to_number}
+%   fails to convert all characters, complain.  Otherwise, compute the
+%   value of the floating point number, and store it in the floating
+%   point stack.
+%    \begin{macrocode}
+\cs_new_protected:Npn \@@_forth_get_float:n #1
+  {
+    \int_compare:nNnTF \l_@@_tmpe_int = \l_@@_tmpf_int
+      {
+        \int_decr:N \l_@@_tmpe_int
+        \@@_forth_get_exponent:n {#1}
+      }
+      {
+        \int_case:nnn { \@@_forth_data_get:N \l_@@_tmpe_int }
+          {
+            { `E } { \@@_forth_get_exponent:n {#1} }
+            { `e } { \@@_forth_get_exponent:n {#1} }
+          }
+          {
+            \msg_error:nnx { runner/forth } { unknown-word }
+              { \l_@@_forth_input_word_str }
+          }
+      }
+  }
+\cs_new_protected:Npn \@@_forth_get_exponent:n #1
+  {
+    \int_incr:N \l_@@_tmpe_int
+    \tl_put_right:Nx \l_@@_tmpa_tl
+      {
+        { \int_use:N \l_@@_tmpc_int }
+        { \int_use:N \l_@@_tmpd_int }
+        { - #1 }
+      }
+    \int_zero:N \l_@@_tmpc_int
+    \int_zero:N \l_@@_tmpd_int
+    \@@_forth_get_number_sign:
+    \@@_to_number:
+    \int_compare:nNnTF \l_@@_tmpe_int = \l_@@_tmpf_int
+      { \exp_after:wN \@@_forth_get_float_aux:NNnnn \l_@@_tmpa_tl }
+      {
+        \msg_error:nnx { runner/forth } { unknown-word }
+          { \l_@@_forth_input_word_str }
+      }
+  }
+\cs_new_protected:Npn \@@_forth_get_float_aux:NNnnnN #1#2#3#4#5#6
+  {
+    \seq_push:Nx \l_@@_forth_fp_seq
+      {
+        \fp_eval:n
+          {
+            #2 ( #3 + \c_@@_forth_mod_int * #4 )
+            * \l_@@_tmpb_int ^ (
+              - #5
+              #6 \l_@@_tmpc_int
+              #6 \c_@@_forth_mod_int * \l_@@_tmpd_int
+            )
+          }
+      }
+  }
+%    \end{macrocode}
 % \end{macro}
 %
 % \subsubsection{Misc}
@@ -1636,11 +1816,7 @@
   {
     \prop_get:NnNTF \l_@@_forth_words_prop {#1} \l_@@_tmpa_tl
       { \@@_forth_execute:n { \tl_tail:N \l_@@_tmpa_tl } }
-      {
-        \@@_forth_get_number:nNTF {#1} \l_@@_tmpa_tl
-          { \@@_forth_push:n { \l_@@_tmpa_tl } }
-          { \msg_error:nnn { runner/forth } { unknown-word } {#1} }
-      }
+      { \@@_forth_get_number:N \use:n }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -1659,14 +1835,7 @@
   {
     \prop_get:NnNTF \l_@@_forth_words_prop {#1} \l_@@_tmpa_tl
       { \exp_after:wN \@@_forth_compile:Nw \l_@@_tmpa_tl \q_stop }
-      {
-        \@@_forth_get_number:nNTF {#1} \l_@@_tmpa_tl
-          {
-            \@@_forth_def_code:x
-              { \@@_forth_push:n { \l_@@_tmpa_tl } }
-          }
-          { \msg_error:nnn { runner/forth } { unknown-word } {#1} }
-      }
+      { \@@_forth_get_number:N \@@_forth_def_code:x }
   }
 \cs_new_protected:Npn \@@_forth_compile:Nw #1#2 \q_stop
   {
@@ -3909,10 +4078,12 @@
 %    \end{macrocode}
 % \end{macro}
 %
-% ^^A todo: combine \cs{@@_forth_get_number:nNTF} and |>NUMBER|.
+% ^^A todo: combine \cs{@@_forth_get_number:N} and |>NUMBER|.
 % \begin{macro}[int]{>NUMBER, CONVERT}
+% \begin{macro}[aux]{\@@_forth_to_number:}
 % \begin{macro}[aux]{\@@_forth_to_number_aux:n}
-%   See also \cs{@@_forth_get_number:nNTF}.  Get a double cell integer
+%   ^^A todo: redoc
+%   See also \cs{@@_forth_get_number:N}.  Get a double cell integer
 %   \((a,b)\), an address \(c\) and a length \(d\).  Set \(d\) to the
 %   last address in the string (plus~\(1\)).  Store the base as the
 %   \texttt{tmpb} token list.  Then loop through the string, until the
@@ -3936,59 +4107,24 @@
 \@@_forth_new_core:nn { >NUMBER }
   {
     \@@_forth_pop_int:NNNN
-      \l_@@_tmpa_int \l_@@_tmpb_int
       \l_@@_tmpc_int \l_@@_tmpd_int
+      \l_@@_tmpe_int \l_@@_tmpf_int
+    \int_add:Nn \l_@@_tmpf_int { \l_@@_tmpe_int }
     \@@_forth_to_number:
-    \@@_forth_push:n { \l_@@_tmpd_int - \l_@@_tmpc_int }
+    \@@_forth_push:nnnn
+      { \l_@@_tmpc_int } { \l_@@_tmpd_int }
+      { \l_@@_tmpe_int } { \l_@@_tmpf_int - \l_@@_tmpe_int }
   }
 \@@_forth_new_core:nn { CONVERT }
   {
     \@@_forth_pop_int:NNN
-      \l_@@_tmpa_int \l_@@_tmpb_int \l_@@_tmpc_int
-    \int_incr:N \l_@@_tmpc_int
-    \int_set_eq:NN \l_@@_tmpd_int \c_@@_forth_mod_int
+      \l_@@_tmpc_int \l_@@_tmpd_int \l_@@_tmpe_int
+    \int_incr:N \l_@@_tmpe_int
+    \int_set_eq:NN \l_@@_tmpf_int \c_@@_forth_mod_int
     \@@_forth_to_number:
-  }
-\cs_new_protected_nopar:Npn \@@_forth_to_number:
-  {
-    \int_add:Nn \l_@@_tmpd_int { \l_@@_tmpc_int }
-    \tl_set:Nx \l_@@_tmpb_tl { \@@_forth_base: }
-    \int_while_do:nNnn \l_@@_tmpc_int < \l_@@_tmpd_int
-      {
-        \tl_set:Nx \l_@@_tmpa_tl
-          { \@@_forth_data_get:n { \l_@@_tmpc_int } }
-        \int_compare:nTF
-          { `0 <= \l_@@_tmpa_tl < `0 + \l_@@_tmpb_tl }
-          { \@@_forth_to_number_aux:n { \l_@@_tmpa_tl - `0 } }
-          {
-            \int_compare:nTF
-              { `A <= \l_@@_tmpa_tl < `A + \l_@@_tmpb_tl - 10 }
-              { \@@_forth_to_number_aux:n { \l_@@_tmpa_tl - `A + 10 } }
-              { \@@_break:n { } }
-          }
-        \int_incr:N \l_@@_tmpc_int
-      }
-    \@@_break_point:n { }
     \@@_forth_push:nnn
-      { \l_@@_tmpa_int } { \l_@@_tmpb_int } { \l_@@_tmpc_int }
+      { \l_@@_tmpc_int } { \l_@@_tmpd_int } { \l_@@_tmpe_int }
   }
-\cs_new_protected:Npn \@@_forth_to_number_aux:n #1
-  {
-    \int_set:Nn \l_@@_tmpa_int
-      {
-        \l_@@_tmpb_tl * \l_@@_tmpa_int
-        + #1
-      }
-    \int_set:Nn \l_@@_tmpb_int
-      {
-        \l_@@_tmpb_tl * \l_@@_tmpb_int
-        + \int_div_truncate:nn
-          { \l_@@_tmpa_int } { \c_@@_forth_mod_int }
-      }
-    \int_set:Nn \l_@@_tmpa_int
-      { \int_mod:nn { \l_@@_tmpa_int } { \c_@@_forth_mod_int } }
-  }
-%    \end{macrocode}
 % \end{macro}
 % \end{macro}
 %
