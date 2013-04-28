@@ -133,12 +133,12 @@
       }
       {
         \tl_set:Nx \l__runner_tmpa_tl
-          { \str_head:N \l__runner_input_str }
-        \tl_set:Nx \l__runner_input_str
-          { \str_tail:N \l__runner_input_str }
+          { ` \str_head:N \l__runner_input_str }
         \__runner_array_gset:Nnn \g__runner_brainfuck_array
           \l__runner_brainfuck_cell_int
-          { \exp_after:wN ` \l__runner_tmpa_tl }
+          { \l__runner_tmpa_tl }
+        \tl_set:Nx \l__runner_input_str
+          { \str_tail:N \l__runner_input_str }
       }
   }
 \cs_new_nopar:cpn { __runner_brainfuck_[_code: }
@@ -155,6 +155,8 @@
       \l__runner_brainfuck_max_cell_int
       { \__runner_array_gset:Nnn \g__runner_brainfuck_array {##1} { 0 } }
   }
+\msg_new:nnn { runner/brainfuck } { unmatched }
+  { Unmatched~'#1'~in~'...#2...'. }
 %% 
 %%
 %% End of file `runner-brainfuck.ldf'.
