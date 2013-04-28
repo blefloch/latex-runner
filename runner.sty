@@ -66,6 +66,7 @@
 \clist_new:N \l__runner_output_line_clist
 \tl_new:N \l__runner_output_encoding_tl
 \str_new:N \l__runner_output_str
+\bool_new:N \l__runner_output_rescan_bool
 \tl_new:N \g__runner_output_tl
 \tl_new:N \l__runner_tmpa_tl
 \tl_new:N \l__runner_tmpb_tl
@@ -109,6 +110,8 @@
     output         .default:n = { } ,
     output-file    .clist_set:N = \l__runner_output_file_clist  ,
     output-stream  .tl_set:N    = \l__runner_output_stream_tl   ,
+    output-encoding .tl_set:N   = \l__runner_output_encoding_tl ,
+    output-rescan  .bool_set:N  = \l__runner_output_rescan_bool ,
     interactive .bool_set:N = \l__runner_interactive_bool
   }
 \cs_new_protected:Npn \__runner_get_line_next_source:NTF #1

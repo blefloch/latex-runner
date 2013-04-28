@@ -89,6 +89,16 @@
 %   To store the result for later reuse, use the \texttt{output} key.
 % \end{function}
 %
+% \begin{function}{\RunnerOptions}
+%   Expects a comma-list of key--value pairs.  Sets (locally) the
+%   options for all \cs{runner} commands.
+% \end{function}
+%
+% \begin{function}{\runner:nnnn}
+%   This is a programming-level version of \cs{runner}, which takes the
+%   same arguments.
+% \end{function}
+%
 % ^^A todo: not implemented.
 % \begin{function}{\NewRunner, \RenewRunner, \DeclareRunner}
 %   \textcolor{red}{Not implemented.}
@@ -99,16 +109,6 @@
 %   \end{verbatim}
 %   will leave ``\texttt{some input}'' to be processed by \TeX{}, then
 %   store ``\texttt{other input}'' in the macro \cs{result}.
-% \end{function}
-%
-% \begin{function}{\RunnerOptions}
-%   Expects a comma-list of key--value pairs.  Sets (locally) the
-%   options for all \cs{runner} commands.
-% \end{function}
-%
-% \begin{function}{\runner:nnnn}
-%   This is a programming-level version of \cs{runner}, which takes the
-%   same arguments.
 % \end{function}
 %
 % \subsection{Program keys}
@@ -217,11 +217,19 @@
 %   \texttt{interactive} key.
 % \end{function}
 %
+% \begin{function}{output-encoding}
+%   The value of this key indicates how the output should be encoded
+%   before being processed further (for instance, before being sent to
+%   the |output-stream|, or to the |output-file|).  See the
+%   documentation of \pkg{l3str-convert} for a list of allowed values.
+% \end{function}
+%
 % \begin{function}{output-rescan}
 %   If this boolean is set to \texttt{true}, the output obtained by
 %   running the program is read again with the current category codes
 %   (see \cs{tl_set_rescan:Nnn}), before being either stored in a macro
-%   or used as \TeX{} code.
+%   or used as \TeX{} code.  Rescanning happens after the output is
+%   encoded to the given |output-encoding|.
 % \end{function}
 %
 % \subsection{Other keys}
@@ -439,7 +447,16 @@
 \tl_new:N \l_@@_output_encoding_tl
 \str_new:N \l_@@_output_str
 %    \end{macrocode}
-% ^^A todo: add an output-encoding key.  Should it be file-wise?  Also input?
+% ^^A todo: Should output-encoding be file-wise?  Also input?
+% \end{variable}
+%
+% \begin{variable}[int]{\l_@@_output_rescan_bool}
+%   The value of the |output-rescan| key, indicating whether the output
+%   should be rescanned before being stored in a macro or used in the
+%   \TeX{} document.
+%    \begin{macrocode}
+\bool_new:N \l_@@_output_rescan_bool
+%    \end{macrocode}
 % \end{variable}
 %
 % \begin{variable}[int]{\g_@@_output_tl}
@@ -521,7 +538,7 @@
 %     runner/program, runner/program-file, runner/program-stream,
 %     runner/input  , runner/input-file  , runner/input-stream  ,
 %     runner/output , runner/output-file , runner/output-stream ,
-%     runner/output-rescan, runner/interactive
+%     runner/output-encoding, runner/output-rescan, runner/interactive
 %   }
 %   Simply store the values provided by the user.  The |program| and
 %   |input| keys expand their values before storing.  The |output| key
@@ -553,6 +570,8 @@
     output         .default:n = { } ,
     output-file    .clist_set:N = \l_@@_output_file_clist  ,
     output-stream  .tl_set:N    = \l_@@_output_stream_tl   ,
+    output-encoding .tl_set:N   = \l_@@_output_encoding_tl ,
+    output-rescan  .bool_set:N  = \l_@@_output_rescan_bool ,
     interactive .bool_set:N = \l_@@_interactive_bool
   }
 %    \end{macrocode}
