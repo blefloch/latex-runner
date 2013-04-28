@@ -27,7 +27,10 @@
 % \begin{itemize}
 % \item The core word |KEY| is not implemented.
 % \item The core extension words |EXPECT|, |QUERY|, |RESTORE-INPUT|,
-%   |SAVE-INPUT|, |SPAN| are not implemented.
+%   |SAVE-INPUT|, |SPAN| are not implemented.\footnote{Some of those
+%     words, and others are marked by the ANS 1994 standard as
+%     obsolescent, namely \texttt{\#TIB}, \texttt{TIB}, \texttt{EXPECT},
+%     \texttt{QUERY}, \texttt{SPAN}, \texttt{CONVERT}, \texttt{FORGET}.}
 % \item The environment variable |/COUNTED-STRING| is not recognized.
 % \item The double-number word |M*/| is not implemented.
 % \end{itemize}
@@ -112,8 +115,8 @@
 %   |n1 * n2 / n3|.
 % \item |M*|, |UM*| have stack effect |(n1 n2 -- d)| where the
 %   double-cell integer |d| is |n1 * n2|.
-% \item |FM/MOD|, |SM/REM|, |UM/MOD| have stack effect |(d n1 -- n2
-%   n3)|, where |n3| is the quotient, and |n2| the remainder, of |d/n1|.
+% \item |FM/MOD|, |SM/REM|, |UM/MOD| do |(d n1 -- n2 n3)|, where |n3| is
+%   the quotient, and |n2| the remainder, of |d/n1|.
 % \item |*/MOD|
 % \end{itemize}
 %
@@ -306,17 +309,8 @@
 %
 % \section{\plang{forth} implementation}
 %
-% Sections to be re-read:
-% \begin{itemize}
-% \item 3.1.5. System types
-% \item 3.2.1.2. Digit conversion
-% \item 3.2.3.3. Return stack
-% \item 3.2.4. Operator terminal (decide whether the Forth program can
-%   change where it gets its input from)
-% \end{itemize}
-%
-% The ANS 1994 standard designates the words |#TIB|, |TIB|, |EXPECT|,
-% |QUERY|, |SPAN|, |CONVERT|, and |FORGET| (15.6.2.1580) as obsolescent.
+% ^^A todo: normalize newlines?
+% ^^A todo: document that |EVALUATE| can lead to |^^J| in the input buffer.
 %
 % \subsection{Generic helpers}
 %
@@ -324,35 +318,17 @@
 %    \begin{macrocode}
 \cs_generate_variant:Nn \prop_gput:Nnn { Nx }
 \cs_generate_variant:Nn \prop_get:NnNTF { Nx }
+\cs_generate_variant:Nn \prop_get:NnNF { No }
 \cs_generate_variant:Nn \prop_put:Nnn { Nxx }
 \cs_generate_variant:Nn \tl_item:nn { o }
 \cs_generate_variant:Nn \tl_if_head_eq_meaning:nNTF { V }
 \cs_generate_variant:Nn \str_set_convert:Nnnn { Nxnn }
 %    \end{macrocode}
 %
-% \begin{macro}[int]{\@@_forth_exit:, \@@_forth_exit_point:}
-%   When executing code given an execution token (see
-%   \cs{@@_forth_execute:n}), a \texttt{exit_point} marker is placed
-%   after the code, so that |EXIT| can safely leave definitions.
-%    \begin{macrocode}
-\cs_new_protected:Npn \@@_forth_exit:
-  #1 \@@_forth_exit_point: { }
-\cs_new_eq:NN \@@_forth_exit_point: \scan_stop:
-%    \end{macrocode}
-% \end{macro}
-%
-% \begin{macro}[int]{\@@_forth_quit:, \@@_forth_quit_point:}
-%   A \texttt{quit_point} marker is placed at every iteration of the
-%   interpreter/compiler loop, so that |QUIT| can safely cleanup all
-%   remaining code and go to the next iteration.
-%    \begin{macrocode}
-\cs_new_protected:Npn \@@_forth_quit:
-  #1 \@@_forth_quit_point: { }
-\cs_new_eq:NN \@@_forth_quit_point: \scan_stop:
-%    \end{macrocode}
-% \end{macro}
-%
 % \subsection{Data structures}
+%
+% ^^A todo: convert the control-flow stack to be a simple tl.
+% ^^A todo: what is the return stack used for.
 %
 % The data necessary to run Forth consists of
 % \begin{itemize}
@@ -387,7 +363,7 @@
 % of \(24\)-bit unsigned integers.  See \texttt{runner.dtx} for the
 % array implementation.
 %
-% \subsubsection{Defining data space and stacks}
+% \subsubsection{Data space and stacks}
 %
 % The array \cs{g_@@_forth_array} is split into several regions, in the
 % following order (from low-numbered to high-numbered items).  For
@@ -670,7 +646,7 @@
 %    \end{macrocode}
 % \end{macro}
 %
-% \subsubsection{Bound-checking}
+% \subsubsection{Bound checking}
 %
 % \begin{macro}[int]
 %   {\@@_forth_check_data_bottom:, \@@_forth_check_data_top:}
@@ -713,7 +689,7 @@
 %    \end{macrocode}
 % \end{macro}
 %
-% \subsubsection{Manipulating data space}
+% \subsubsection{Data space}
 %
 % \begin{macro}[int, EXP]{\@@_forth_data_get:N, \@@_forth_data_get:n}
 %   Retrieving unsigned integers from data space.
@@ -735,7 +711,7 @@
 %
 % \begin{macro}[int]{\@@_forth_put_here:n}
 %   Put a value at the position given by the \texttt{data_here} integer,
-%   then increment that integer.  Check before-hand that we do not reach
+%   then increment that integer.  Check afterwards that we do not reach
 %   the region occupied by text literals.
 %    \begin{macrocode}
 \cs_new_protected:Npn \@@_forth_put_here:n #1
@@ -762,7 +738,7 @@
 % \end{macro}
 % \end{macro}
 %
-% \subsubsection{Manipulating the data stack}
+% \subsubsection{Data stack}
 %
 % \begin{macro}[int]{\@@_forth_pop_int_unsafe:N}
 %   Pop an unsigned integer from the stack, with no bound-checking.
@@ -959,6 +935,9 @@
 % \end{variable}
 %
 % \begin{macro}[int]{\@@_forth_push_fp:n, \@@_forth_push_fp_mod:n}
+%   Convert a floating point expression to an integer, or an integer
+%   after reducing it modulo \(2^{24}\), for use in some computations
+%   involving intermediate double-cell results.
 %    \begin{macrocode}
 \cs_new_protected:Npn \@@_forth_push_fp:n #1
   { \@@_forth_push:n { \fp_to_int:n {#1} } }
@@ -974,7 +953,7 @@
 %    \end{macrocode}
 % \end{macro}
 %
-% \subsubsection{Manipulating the control-flow stack}
+% \subsubsection{Control-flow stack}
 %
 % \begin{macro}[int]{\@@_forth_control_open:n}
 %   All ``opening'' control words (|BEGIN|, |DO|, and so on) store the
@@ -1032,7 +1011,7 @@
 % \end{macro}
 % \end{macro}
 %
-% \subsubsection{Manipulating the return stack}
+% \subsubsection{Return stack}
 %
 % \begin{macro}[int]{\@@_forth_return_pop_int:N}
 %   Get data from the return stack.  The return stack is empty if
@@ -1069,7 +1048,7 @@
 %    \end{macrocode}
 % \end{macro}
 %
-% \subsubsection{Name space and code space variables}
+% \subsection{Defining words: name space and code space}
 %
 % The \TeX{} code to execute Forth words is stored within \tn{toks}
 % registers, labelled by so-called ``execution tokens''.  An execution
@@ -1095,6 +1074,40 @@
 %   semantics follows in the next \tn{toks} register.
 % \end{itemize}
 %
+% \subsubsection{Code space}
+%
+% \begin{variable}{\l_@@_forth_toks_int, \g_@@_forth_core_toks_int}
+%   The next free \tn{toks} register, for use to store the code
+%   corresponding to execution tokens.
+%    \begin{macrocode}
+\int_new:N \l_@@_forth_toks_int
+\int_new:N \g_@@_forth_core_toks_int
+%    \end{macrocode}
+% \end{variable}
+%
+% \begin{variable}{\g_@@_forth_init_toks_tl}
+%   Token list containing part of the initialization code, currently
+%   many assignments to \tn{toks} registers.
+%    \begin{macrocode}
+\tl_new:N \g_@@_forth_init_toks_tl
+%    \end{macrocode}
+% \end{variable}
+%
+% ^^A todo: expand this section
+% \begin{macro}[int]{\@@_forth_execute:n}
+%   Run the code saved in the \tn{toks} with number~|#1|.  This is
+%   protected, which simplifies handling of expansion.  The trailing
+%   \texttt{exit_point} (equal to \cs{scan_stop:}) terminates the number
+%   returned by \cs{int_eval:n}, and serves as a marker to which |EXIT|
+%   can jump.
+%    \begin{macrocode}
+\cs_new_protected:Npn \@@_forth_execute:n #1
+  { \tex_the:D \tex_toks:D \int_eval:n {#1} \@@_forth_exit_point: }
+%    \end{macrocode}
+% \end{macro}
+%
+% \subsubsection{Name space}
+%
 % \begin{variable}{\l_@@_forth_words_prop, \g_@@_forth_core_words_prop}
 %   Keys of the \texttt{words} property list are words known to Forth at
 %   a given time during the execution of the code.  Keys of the
@@ -1115,41 +1128,8 @@
 %    \end{macrocode}
 % \end{variable}
 %
-% \begin{variable}{\l_@@_forth_toks_int, \g_@@_forth_core_toks_int}
-%   The next free \tn{toks} register, for use to store the code
-%   corresponding to execution tokens.
-%    \begin{macrocode}
-\int_new:N \l_@@_forth_toks_int
-\int_new:N \g_@@_forth_core_toks_int
-%    \end{macrocode}
-% \end{variable}
-%
-% \begin{variable}{\g_@@_forth_init_toks_tl}
-%   Token list containing part of the initialization code, currently
-%   many assignments to \tn{toks} registers.
-%    \begin{macrocode}
-\tl_new:N \g_@@_forth_init_toks_tl
-%    \end{macrocode}
-% \end{variable}
-%
-% \subsubsection{Accessing the code space}
-%
-% ^^A todo: expand this section
-% \begin{macro}[int]{\@@_forth_execute:n}
-%   Run the code saved in the \tn{toks} with number~|#1|.  This is
-%   protected, which simplifies handling of expansion.  The trailing
-%   \texttt{exit_point} (equal to \cs{scan_stop:}) terminates the number
-%   returned by \cs{int_eval:n}, and serves as a marker to which |EXIT|
-%   can jump.
-%    \begin{macrocode}
-\cs_new_protected:Npn \@@_forth_execute:n #1
-  { \tex_the:D \tex_toks:D \int_eval:n {#1} \@@_forth_exit_point: }
-%    \end{macrocode}
-% \end{macro}
-%
-% \subsubsection{Adding to the name space}
-%
 % \begin{macro}[int]{\@@_forth_chk_if_core_free:n}
+%   Each core word should only be defined once.
 %    \begin{macrocode}
 \cs_new_protected:Npn \@@_forth_chk_if_core_free:n #1
   {
@@ -1240,6 +1220,44 @@
 %
 % \subsection{Helpers}
 %
+% \begin{macro}[int]{\@@_forth_input_word_and_set:x}
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \@@_forth_input_word_and_set:x
+  {
+    \@@_forth_input_word:
+    \@@_forth_input_set_word:
+    \@@_forth_set_word:ox \l_@@_forth_input_word_str
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int]{\@@_forth_input_word_xt:N}
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \@@_forth_input_word_xt:N #1
+  {
+    \@@_forth_input_word:
+    \@@_forth_input_set_word:
+    \prop_get:NoNF \l_@@_forth_words_prop
+      \l_@@_forth_input_word_str #1
+      { \@@_forth_abort_unknown_word: }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int]{\@@_forth_last_def_xt:N}
+%    \begin{macrocode}
+\cs_new_protected:Npn \@@_forth_last_def_xt:N #1
+  {
+    \prop_get:NoNF \l_@@_forth_words_prop
+      \l_@@_forth_def_name_str #1
+      {
+        \@@_forth_abort:nx { unknown-word }
+          { \l_@@_forth_def_name_str }
+      }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
 % ^^A todo: also empty the def_code etc.?
 % \begin{macro}[int]{\@@_forth_abort:nx}
 %   Some ambiguous conditions lead the interpreter to balk and go away
@@ -1251,6 +1269,19 @@
     \int_set_eq:NN \l_@@_forth_stack_here_int
       \g_@@_forth_stack_min_int
     \@@_forth_do_quit:
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int]{\@@_forth_abort_unknown_word:}
+%   After attempting to parse a word as a number and failing, this error
+%   is raised.
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \@@_forth_abort_unknown_word:
+  {
+    \@@_forth_input_set_word:
+    \@@_forth_abort:nx { unknown-word }
+      { \l_@@_forth_input_word_str }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -1436,13 +1467,6 @@
       }
       { \int_incr:N \l_@@_forth_source_parsed_int }
       {#1}
-    \str_set_convert:Nxnn \l_@@_forth_input_word_str
-      {
-        \@@_forth_interval_to_clist:nn
-          \l_@@_forth_input_word_begin_int
-          \l_@@_forth_input_word_end_int
-      }
-      { clist } { }
   }
 \cs_new_protected:Npn \@@_forth_input_discard_aux:TFn #1#2#3
   {
@@ -1481,6 +1505,24 @@
 % \end{macro}
 % \end{macro}
 %
+% \begin{macro}[int]{\@@_forth_input_set_word:}
+%   Once the word has been found by \cs{@@_forth_input_until:n}, this
+%   function stores the actual characters in
+%   \cs{l_@@_forth_input_word_str}.
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \@@_forth_input_set_word:
+  {
+    \str_set_convert:Nxnn \l_@@_forth_input_word_str
+      {
+        \@@_forth_interval_to_clist:nn
+          \l_@@_forth_input_word_begin_int
+          \l_@@_forth_input_word_end_int
+      }
+      { clist } { }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
 % \begin{macro}[int]{\@@_forth_input_word:}
 %   Many functions read a word from the input.  This is a short-hand for
 %   the task.  After its operation, the word is stored as the
@@ -1498,6 +1540,29 @@
 %
 % \subsubsection{Numbers}
 %
+% \begin{variable}{\l_@@_forth_base_address_int}
+%   Address of the cell at which the base of the number system is stored.
+%    \begin{macrocode}
+\int_new:N \l_@@_forth_base_address_int
+%    \end{macrocode}
+% \end{variable}
+%
+% \begin{macro}[int, EXP]{\@@_forth_base:}
+%   As the value of the base can be altered directly by the programmer,
+%   we must fetch it before every conversion.  This function restricts
+%   the base to the interval \([2, 36]\).
+%    \begin{macrocode}
+\cs_new:Npn \@@_forth_base:
+  {
+    \int_min:nn { 36 }
+      {
+        \int_max:nn { 2 }
+          { \@@_forth_data_get:N \l_@@_forth_base_address_int }
+      }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
 % \begin{macro}[int]{\@@_forth_to_number:}
 % \begin{macro}[aux]{\@@_forth_to_number_aux:n}
 %   This function should be called with the temporary integers \((c,d)\)
@@ -1508,7 +1573,10 @@
 %   it by~\(b\) then adding the value~\(a-48\) or \(a-55\) of the digit.
 %   Some care is needed for the carry.  The loop stops either when the
 %   address~\(e\) (which we increment at each step) reaches the
-%   end-address~\(f\), or when a non-digit is found.
+%   end-address~\(f\), or when a non-digit is found.  It turns out that
+%   one can safely jump outside the loop with a \cs{@@_break:n} \ldots{}
+%   \cs{@@_break_point:n} construction (because \cs{int_while_do:nNnn}
+%   is expandable, hence side-effect free).
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \@@_forth_to_number:
   {
@@ -1585,10 +1653,7 @@
             { `E } { \@@_forth_get_exponent:n { 0 } }
             { `e } { \@@_forth_get_exponent:n { 0 } }
           }
-          {
-            \@@_forth_abort:nx { unknown-word }
-              { \l_@@_forth_input_word_str }
-          }
+          { \@@_forth_abort_unknown_word: }
       }
   }
 \cs_new_protected:Npn \@@_forth_get_number_aux:NN #1#2
@@ -1691,10 +1756,7 @@
             { `E } { \@@_forth_get_exponent:n {#1} }
             { `e } { \@@_forth_get_exponent:n {#1} }
           }
-          {
-            \@@_forth_abort:nx { unknown-word }
-              { \l_@@_forth_input_word_str }
-          }
+          { \@@_forth_abort_unknown_word: }
       }
   }
 \cs_new_protected:Npn \@@_forth_get_exponent:n #1
@@ -1712,10 +1774,7 @@
     \@@_to_number:
     \int_compare:nNnTF \l_@@_tmpe_int = \l_@@_tmpf_int
       { \exp_after:wN \@@_forth_get_float_aux:NNnnn \l_@@_tmpa_tl }
-      {
-        \@@_forth_abort:nx { unknown-word }
-          { \l_@@_forth_input_word_str }
-      }
+      { \@@_forth_abort_unknown_word: }
   }
 \cs_new_protected:Npn \@@_forth_get_float_aux:NNnnnN #1#2#3#4#5#6
   {
@@ -1737,33 +1796,6 @@
 %
 % \subsubsection{Misc}
 %
-% \begin{variable}{\l_@@_forth_stop_bool}
-%   This boolean is set to be true by an empty word, which ends the
-%   input.  This occurrence marks the end of the Forth code.
-%    \begin{macrocode}
-\bool_new:N \l_@@_forth_stop_bool
-%    \end{macrocode}
-% \end{variable}
-%
-% \begin{variable}{\l_@@_forth_base_address_int}
-% \begin{macro}[int, EXP]{\@@_forth_base:}
-%   The address at which the base of the number system is stored, and a
-%   function to retreive the base, reducing it to the interval \([2,
-%   36]\).
-%    \begin{macrocode}
-\int_new:N \l_@@_forth_base_address_int
-\cs_new:Npn \@@_forth_base:
-  {
-    \int_min:nn { 36 }
-      {
-        \int_max:nn { 2 }
-          { \@@_forth_data_get:N \l_@@_forth_base_address_int }
-      }
-  }
-%    \end{macrocode}
-% \end{macro}
-% \end{variable}
-%
 % \begin{variable}
 %   {
 %     \l_@@_forth_state_address_int,
@@ -1777,27 +1809,6 @@
 \int_new:N \l_@@_forth_tib_size_address_int
 %    \end{macrocode}
 % \end{variable}
-%
-% \begin{macro}[int]
-%   {\@@_forth_state_to_interpret:, \@@_forth_state_to_compile:}
-%   Change the value at |STATE|, and redefine \cs{@@_forth_perform:n},
-%   to interpret or to compile the words found in the input.
-%    \begin{macrocode}
-\cs_new_protected_nopar:Npn \@@_forth_state_to_interpret:
-  {
-    \@@_forth_data_gset:nn
-      { \l_@@_forth_state_address_int } { 0 }
-    \cs_set_eq:NN \@@_forth_perform:n \@@_forth_interpret:n
-  }
-\cs_new_protected_nopar:Npn \@@_forth_state_to_compile:
-  {
-    \@@_forth_data_gset:nn
-      { \l_@@_forth_state_address_int }
-      { \c_@@_forth_mod_int - \c_one }
-    \cs_set_eq:NN \@@_forth_perform:n \@@_forth_compile:n
-  }
-%    \end{macrocode}
-% \end{macro}
 %
 % \begin{macro}[int]
 %   {
@@ -1849,53 +1860,24 @@
 % \subsection{Running the interpreter}
 %
 % \begin{macro}[int]{\@@_forth_run:}
-% \begin{macro}[aux]{\@@_forth_run_aux:TF}
-%   The interpreter is an infinite loop retrieving a word at each
-%   iteration.  If the \texttt{input_word} is empty (end of line, tested
-%   by comparing the begin and end positions of the parsed region),
-%   refill the input buffer.  When there is nothing left, set the
-%   \texttt{forth_stop} boolean, to stop the loop.
+%   After initializing many of the variables, start the text interpreter
+%   loop, which stops when there is no input left.
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \@@_forth_run:
   {
-    \@@_forth_init:
-    \bool_set_false:N \l_@@_forth_stop_bool
-    \bool_until_do:Nn \l_@@_forth_stop_bool
-      {
-        \@@_forth_run_aux:TF
-          { \@@_forth_perform:V \l_@@_forth_input_word_str }
-          { \bool_set_true:N \l_@@_forth_stop_bool }
-        \@@_forth_quit_point:
-      }
-  }
-\cs_new_protected_nopar:Npn \@@_forth_run_aux:TF
-  {
-    \@@_forth_input_word:
-    \int_compare:nNnTF
-      \l_@@_forth_input_word_begin_int
-      < \l_@@_forth_input_word_end_int
-      { \use_i:nn }
-      {
-        \@@_forth_input_refill:TF
-          { \@@_forth_run_aux:TF }
-          { \use_ii:nn }
-      }
+    \@@_forth_run_init:
+    \@@_forth_run_loop:
   }
 %    \end{macrocode}
 % \end{macro}
-% \end{macro}
 %
-% ^^A todo: normalize newlines?
-% ^^A todo: document that |EVALUATE| can lead to |^^J| in the input buffer.
-%
-% \begin{macro}[int]{\@@_forth_init:}
+% \begin{macro}[int]{\@@_forth_run_init:}
 %   Initialize the data space.  Initialize the code space.  Initialize
 %   the name space.  Store a |BASE| of \(10\) and an |>IN| value of
 %   \(0\), a |STATE| flag of \texttt{false} (0), and a |#TIB| of \(0\),
-%   starting interpretation.  Concatenate the program string and the
-%   input string, with a newline in between and at the end.
+%   starting interpretation.
 %    \begin{macrocode}
-\cs_new_protected_nopar:Npn \@@_forth_init:
+\cs_new_protected_nopar:Npn \@@_forth_run_init:
   {
     \tl_set:Nn \l_@@_prompt_code_tl
       { \tex_message:D { ok ~ } }
@@ -1919,58 +1901,116 @@
     \int_set_eq:NN \l_@@_forth_tib_size_address_int
       \l_@@_forth_data_here_int
     \@@_forth_put_here:n { 0 }
-    \cs_set_eq:NN \@@_forth_perform:n \@@_forth_interpret:n
+    \@@_forth_state_to_interpret:
   }
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[int]{\@@_forth_interpret:n}
-%   Use the interpretation semantics of |#1|.  If this fails, we hope to
-%   have a number, which should be parsed as such.
+% \begin{macro}[int]{\@@_forth_run_loop:}
+%   The interpreter is a loop retrieving a word at each iteration, and
+%   performing it.  If the \texttt{input_word} is empty (end of line,
+%   tested by comparing the begin and end positions of the parsed
+%   region), refill the input buffer.  When there is nothing left,
+%   remove the \texttt{quit_point} (a dummy marker) and the
+%   \texttt{run_loop} function from the input stream to stop the loop.
 %    \begin{macrocode}
-\cs_new_protected:Npn \@@_forth_interpret:n #1
+\cs_new_protected_nopar:Npn \@@_forth_run_loop:
   {
-    \prop_get:NnNTF \l_@@_forth_words_prop {#1} \l_@@_tmpa_tl
-      { \@@_forth_execute:n { \tl_tail:N \l_@@_tmpa_tl } }
-      { \@@_forth_get_number:N \use:n }
+    \@@_forth_input_word:
+    \int_compare:nNnTF
+      \l_@@_forth_input_word_begin_int
+      < \l_@@_forth_input_word_end_int
+      { \@@_forth_perform: }
+      { \@@_forth_input_refill:TF { } { \use_none:nn } }
+    \@@_forth_quit_point:
+    \@@_forth_run_loop:
   }
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[int]{\@@_forth_compile:n}
-% \begin{macro}[aux]{\@@_forth_compile:Nw}
-%   This is very similar to \cs{@@_forth_interpret:n}.  Try to find the
-%   word in the dictionary.  If it is present, split its value into \(1
-%   + 5\) digits: if the first is \(1\), simply add to the current
-%   definition; if the first is \(2\) perform the execution semantics,
-%   and if it is \(3\), the word is a special word, and we perform the
-%   compilation semantics.  Otherwise, we try to interpret the word as a
-%   number.
+% \begin{macro}[int]{\@@_forth_quit:, \@@_forth_quit_point:}
+%   A \texttt{quit_point} marker is placed at every iteration of the
+%   \cs{@@_forth_run_loop:} function, so that |QUIT|, |ABORT| and
+%   |ABORT"| can safely cleanup all remaining code and go to the next
+%   iteration.
 %    \begin{macrocode}
-\cs_new_protected:Npn \@@_forth_compile:n #1
+\cs_new_protected:Npn \@@_forth_quit:
+  #1 \@@_forth_quit_point: { }
+\cs_new_eq:NN \@@_forth_quit_point: \scan_stop:
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int]{\@@_forth_perform:}
+% \begin{macro}[int]
+%   {\@@_forth_state_to_interpret:, \@@_forth_state_to_compile:}
+%   The \texttt{perform} function is alternatively set equal to the
+%   \texttt{interpret} or the \texttt{compile} functions.  We must keep
+%   track of the state by storing \(0\) (false) or \(-1\) (true) at a
+%   given address, because the state must be visible to the
+%   \plang{forth} programmer.
+%    \begin{macrocode}
+\cs_new_eq:NN \@@_forth_perform: ?
+\cs_new_protected_nopar:Npn \@@_forth_state_to_interpret:
   {
-    \prop_get:NnNTF \l_@@_forth_words_prop {#1} \l_@@_tmpa_tl
-      { \exp_after:wN \@@_forth_compile:Nw \l_@@_tmpa_tl \q_stop }
-      { \@@_forth_get_number:N \@@_forth_def_code:x }
+    \@@_forth_data_gset:nn
+      { \l_@@_forth_state_address_int } { 0 }
+    \cs_set_eq:NN \@@_forth_perform: \@@_forth_interpret:
   }
-\cs_new_protected:Npn \@@_forth_compile:Nw #1#2 \q_stop
+\cs_new_protected_nopar:Npn \@@_forth_state_to_compile:
   {
-    \int_case:nnn {#1}
+    \@@_forth_data_gset:nn
+      { \l_@@_forth_state_address_int }
+      { \c_@@_forth_mod_int - \c_one }
+    \cs_set_eq:NN \@@_forth_perform: \@@_forth_compile:
+  }
+%    \end{macrocode}
+% \end{macro}
+% \end{macro}
+%
+% \begin{macro}[int]{\@@_forth_interpret:, \@@_forth_compile:}
+% \begin{macro}[int]{\@@_forth_perform:Nn}
+% \begin{macro}[int, EXP]{\@@_forth_perform_case:Nn}
+%   When those functions are called, the \texttt{input_word_begin} and
+%   \texttt{input_word_end} integers are set to the end-points of the
+%   word just found.  Build a string out of the character codes, and
+%   search for it in the words property list.  If the word is known,
+%   then the \texttt{tmpa} token list is set to a digit \(1\) (normal
+%   word), \(2\) (immediate word), or \(3\) (special word), followed by
+%   an execution token.  Normal words are either performed immediately
+%   or this action is stored in the current definition's code
+%   (controlled by the function~|#1|).  Immediate words are performed
+%   right away.  For special words, the execution tokens for the
+%   execution semantics and the compilation semantics follow each other,
+%   and we perform the appropriate one thanks to the possible
+%   shift~|#2|.  Finally, if the word was not found, try to parse it as
+%   a number.
+%    \begin{macrocode}
+\cs_new_protected:Npn \@@_forth_interpret:
+  { \@@_forth_perform:Nn \use:n { } }
+\cs_new_protected:Npn \@@_forth_compile:
+  { \@@_forth_perform:Nn \@@_forth_def_code:x { + 1 } }
+\cs_new_protected:Npn \@@_forth_perform:Nn #1#2
+  {
+    \@@_forth_input_set_word:
+    \prop_get:NoNTF
+      \l_@@_forth_words_prop
+      \l_@@_forth_input_word_str
+      \l_@@_tmpa_tl
+      { \@@_forth_perform_case:Nn #1 {#2} }
+      { \@@_forth_get_number:N #1 }
+  }
+\cs_new:Npn \@@_forth_perform_case:Nn #1#2
+  {
+    \int_case:nnn { \tl_head:N \l_@@_tmpa_tl }
       {
-        { 1 } { \@@_forth_def_code:x { \@@_forth_execute:n {#2} } }
-        { 2 } { \@@_forth_execute:n {#2} }
+        { 1 } { #1 { \@@_forth_execute:n { \tl_tail:N \l_@@_tmpa_tl } } }
+        { 2 } { \@@_forth_execute:n { \tl_tail:N \l_@@_tmpa_tl } }
       }
-      { \@@_forth_execute:n { \int_eval:n { #2 + 1 } } }
+      { \@@_forth_execute:n { \tl_tail:N \l_@@_tmpa_tl #2 } }
   }
 %    \end{macrocode}
 % \end{macro}
 % \end{macro}
-%
-% \begin{macro}[int]{\@@_forth_perform:n, \@@_forth_perform:V}
-%    \begin{macrocode}
-\cs_new_eq:NN \@@_forth_perform:n ?
-\cs_generate_variant:Nn \@@_forth_perform:n { V }
-%    \end{macrocode}
 % \end{macro}
 %
 % \subsection{Core words}
@@ -2735,8 +2775,7 @@
 \@@_forth_new_core:nn { CONSTANT }
   {
     \@@_forth_pop_int:N \l_@@_tmpa_int
-    \@@_forth_input_word:
-    \@@_forth_set_word:ox \l_@@_forth_input_word_str
+    \@@_forth_input_word_and_set:x
       { \@@_forth_push:n { \int_use:N \l_@@_tmpa_int } }
   }
 %    \end{macrocode}
@@ -2759,8 +2798,7 @@
   }
 \cs_new_protected_nopar:Npn \@@_forth_create:
   {
-    \@@_forth_input_word:
-    \@@_forth_set_word:ox \l_@@_forth_input_word_str
+    \@@_forth_input_word_and_set:x
       {
         \@@_forth_push:n
           { \int_use:N \l_@@_forth_data_here_int }
@@ -2792,8 +2830,7 @@
 %    \begin{macrocode}
 \@@_forth_new_core:nn { VALUE }
   {
-    \@@_forth_input_word:
-    \@@_forth_set_word:ox \l_@@_forth_input_word_str
+    \@@_forth_input_word_and_set:x
       {
         \@@_forth_push_value:n
           { \int_use:N \l_@@_forth_data_here_int }
@@ -2822,36 +2859,24 @@
 %    \begin{macrocode}
 \@@_forth_new_immediate_core:nn { TO }
   {
-    \@@_forth_input_word:
-    \prop_get:NVNTF
-      \l_@@_forth_words_prop
-      \l_@@_forth_input_word_str
-      \l_@@_tmpa_tl
+    \@@_forth_input_word_xt:N \l_@@_tmpa_tl
+    \tl_set:Nx \l_@@_tmpb_tl
+      { \tex_the:D \tex_toks:D \tl_tail:N \l_@@_tmpa_tl }
+    \tl_if_head_eq_meaning:VNTF
+      \l_@@_tmpb_tl \@@_forth_push_value:n
       {
-        \tl_set:Nx \l_@@_tmpb_tl
-          { \tex_the:D \tex_toks:D \tl_tail:N \l_@@_tmpa_tl }
-        \tl_if_head_eq_meaning:VNTF
-          \l_@@_tmpb_tl \@@_forth_push_value:n
+        \int_set:Nn \l_@@_tmpa_int
+          { \tl_item:Nn \l_@@_tmpb_tl { 2 } }
+        \token_if_eq_meaning:NNTF
+          \@@_forth_perform:
+          \@@_forth_interpret:
+          { \exp_args:NV \@@_forth_to:n \l_@@_tmpa_int }
           {
-            \int_set:Nn \l_@@_tmpa_int
-              { \tl_item:Nn \l_@@_tmpb_tl { 2 } }
-            \token_if_eq_meaning:NNTF
-              \@@_forth_perform:n
-              \@@_forth_interpret:n
-              {
-                \exp_args:NV \@@_forth_to:n \l_@@_tmpa_int
-              }
-              {
-                \@@_forth_def_code:x
-                  { \@@_forth_to:n { \int_use:N \l_@@_tmpa_int } }
-              }
+            \@@_forth_def_code:x
+              { \@@_forth_to:n { \int_use:N \l_@@_tmpa_int } }
           }
-          { \@@_forth_abort:nx { to-non-value } { } }
       }
-      {
-        \@@_forth_abort:nx { unknown-word }
-          { \l_@@_forth_input_word_str }
-      }
+      { \@@_forth_abort:nx { to-non-value } { } }
   }
 \cs_new_protected:Npn \@@_forth_to:n #1
   {
@@ -2887,6 +2912,7 @@
 \@@_forth_new_core:nn { : }
   {
     \@@_forth_input_word:
+    \@@_forth_input_set_word:
     \exp_args:Nx \@@_forth_colon:n
       {
         \@@_forth_set_word_token:nn
@@ -2986,21 +3012,12 @@
   }
 \cs_new_protected:Npn \@@_forth_compiled_does:n #1
   {
-    \prop_get:NVNTF
-      \l_@@_forth_words_prop
-      \l_@@_forth_def_name_str
-      \l_@@_tmpa_tl
+    \@@_forth_last_def_xt:N \l_@@_tmpa_tl
+    \@@_forth_set_word:ox \l_@@_forth_def_name_str
       {
-        \@@_forth_set_word:ox \l_@@_forth_def_name_str
-          {
-            \tex_the:D \tex_toks:D
-              \tl_tail:N \l_@@_tmpa_tl \c_space_tl
-            #1
-          }
-      }
-      {
-        \@@_forth_abort:nx { unknown-word }
-          { \l_@@_forth_def_name_str }
+        \tex_the:D \tex_toks:D
+          \tl_tail:N \l_@@_tmpa_tl \c_space_tl
+        #1
       }
   }
 %    \end{macrocode}
@@ -3012,20 +3029,11 @@
 %    \begin{macrocode}
 \@@_forth_new_core:nn { IMMEDIATE }
   {
-    \prop_get:NVNTF
+    \@@_forth_last_def_xt:N \l_@@_tmpa_tl
+    \prop_put:Nxx
       \l_@@_forth_words_prop
-      \l_@@_forth_def_name_str
-      \l_@@_tmpa_tl
-      {
-        \prop_put:Nxx
-          \l_@@_forth_words_prop
-          { \l_@@_forth_def_name_str }
-          { 2 \tl_tail:N \l_@@_tmpa_tl }
-      }
-      {
-        \@@_forth_abort:nx { no-def-immediate }
-          { \l_@@_forth_def_name_str }
-      }
+      { \l_@@_forth_def_name_str }
+      { 2 \tl_tail:N \l_@@_tmpa_tl }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -3048,8 +3056,7 @@
 %    \begin{macrocode}
 \@@_forth_new_core:nn { MARKER }
   {
-    \@@_forth_input_word:
-    \@@_forth_set_word:ox \l_@@_forth_input_word_str
+    \@@_forth_input_word_and_set:x
       {
         \int_set:Nn \l_@@_forth_toks_int
           { \int_use:N \l_@@_forth_toks_int }
@@ -3071,28 +3078,10 @@
   { \@@_forth_postpone:N \use:n }
 \cs_new_protected:Npn \@@_forth_postpone:N #1
   {
-    \@@_forth_input_word:
-    \prop_get:NoN
-      \l_@@_forth_words_prop
-      \l_@@_forth_input_word_str
-      \l_@@_tmpa_tl
-    \@@_forth_def_code:x
-      {
-        \exp_after:wN \@@_forth_postpone:NwN
-          \l_@@_tmpa_tl \q_stop #1
-      }
-  }
-\cs_new:Npn \@@_forth_postpone:NwN #1#2 \q_stop #3
-  {
-    \int_case:nnn {#1}
-      {
-        { 1 } { #3 { \@@_forth_execute:n {#2} } }
-        { 2 } { \@@_forth_execute:n {#2} }
-      }
-      { \@@_forth_execute:n { \int_eval:n { #2 + 1 } } }
+    \@@_forth_input_word_xt:N \l_@@_tmpa_tl
+    \@@_forth_def_code:x { \@@_forth_perform_case:Nn #1 { + 1 } }
   }
 %    \end{macrocode}
-% ^^A todo: \@@_forth_postpone:Nw ~ \@@_forth_compile:Nw.
 % \end{macro}
 % \end{macro}
 %
@@ -3263,11 +3252,8 @@
   { \@@_forth_def_code:x { \@@_forth_ij:N 3 } }
 \cs_new_protected:Npn \@@_forth_ij:N #1
   {
-    \@@_forth_push:n
-      {
-        \@@_array_item:Nn \g_@@_forth_array
-          { \l_@@_forth_return_here_int - #1 }
-      }
+    \@@_forth_push_value:n
+      { \l_@@_forth_return_here_int - #1 }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -3422,11 +3408,7 @@
 %    \begin{macrocode}
 \@@_forth_new_core:nn { ' }
   {
-    \@@_forth_input_word:
-    \prop_get:NoN
-      \l_@@_forth_words_prop
-      \l_@@_forth_input_word_str
-      \l_@@_tmpa_tl
+    \@@_forth_input_word_xt:N \l_@@_tmpa_tl
     \@@_forth_push:n { \tl_tail:N \l_@@_tmpa_tl }
   }
 %    \end{macrocode}
@@ -3439,11 +3421,7 @@
 %    \begin{macrocode}
 \@@_forth_new_compilation_core:nn { ['] }
   {
-    \@@_forth_input_word:
-    \prop_get:NoN
-      \l_@@_forth_words_prop
-      \l_@@_forth_input_word_str
-      \l_@@_tmpa_tl
+    \@@_forth_input_word_xt:N \l_@@_tmpa_tl
     \@@_forth_def_code:x
       { \@@_forth_push:n { \tl_tail:N \l_@@_tmpa_tl } }
   }
@@ -3462,13 +3440,6 @@
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{variable}{\l_@@_forth_find_word_str}
-%   String given to |FIND|, converted to a user representation.
-%    \begin{macrocode}
-\str_new:N \l_@@_forth_find_word_str
-%    \end{macrocode}
-% \end{variable}
-%
 % \begin{macro}[int]{FIND}
 %   Pop the address \(a\) of a counted string from the stack, and let
 %   \(v\) be the value at \(a\) (length of the string).  The string
@@ -3479,19 +3450,17 @@
 \@@_forth_new_core:nn { FIND }
   {
     \@@_forth_pop_int:N \l_@@_tmpa_int
-    \int_set:Nn \l_@@_tmpb_int
-      { \l_@@_tmpa_int + \@@_forth_data_get:n { \l_@@_tmpa_int } }
-    \tl_clear:N \l_@@_forth_find_word_str
-    \str_set_convert:Nxnn \l_@@_forth_find_word_str
+    \int_set:Nn \l_@@_forth_input_word_begin_int
+      { \l_@@_tmpa_int + \c_one }
+    \int_set:Nn \l_@@_forth_input_word_end_int
       {
-        \@@_forth_interval_to_clist:nn
-          { \l_@@_tmpa_int + 1 }
-          { \l_@@_tmpb_int + 1 }
+        \l_@@_forth_input_word_begin_int
+        + \@@_forth_data_get:n { \l_@@_tmpa_int }
       }
-      { clist } { }
+    \@@_forth_input_set_word:
     \prop_get:NVNF
       \l_@@_forth_words_prop
-      \l_@@_forth_find_word_str
+      \l_@@_forth_input_word_str
       \l_@@_tmpa_tl
       { \tl_set:Nn \l_@@_tmpa_tl { 3 } }
     \int_compare:nNnTF { \tl_head:N \l_@@_tmpa_tl } = { 3 }
@@ -3561,11 +3530,7 @@
 \@@_forth_new_core:nn { CHAR }
   {
     \@@_forth_input_word:
-    \@@_forth_push:n
-      {
-        \@@_array_item:Nn \g_@@_forth_array
-          { \l_@@_forth_input_word_begin_int }
-      }
+    \@@_forth_push_value:n { \l_@@_forth_input_word_begin_int }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -3579,11 +3544,8 @@
     \@@_forth_input_word:
     \@@_forth_def_code:x
       {
-        \@@_forth_push:n
-          {
-            \@@_array_item:Nn \g_@@_forth_array
-              { \l_@@_forth_input_word_begin_int }
-          }
+        \@@_forth_push_value:n
+          { \int_use:N \l_@@_forth_input_word_begin_int }
       }
   }
 %    \end{macrocode}
@@ -3621,9 +3583,10 @@
   {
     \@@_forth_pop_int:N \l_@@_tmpa_int
     \int_set_eq:NN \l_@@_tmpb_int \l_@@_forth_source_parsed_int
-    \@@_forth_push:n { \l_@@_tmpb_int }
     \@@_forth_input_until:n { \l_@@_tmpa_int }
-    \@@_forth_push:n { \l_@@_forth_source_parsed_int - \l_@@_tmpb_int }
+    \@@_forth_push:nn
+      { \l_@@_tmpb_int }
+      { \l_@@_forth_source_parsed_int - \l_@@_tmpb_int }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -4181,8 +4144,8 @@
 \exp_args:Nx \@@_forth_new_core:nn { \iow_char:N \# > }
   {
     \@@_forth_pop_int:NN \l_@@_tmpa_int \l_@@_tmpb_int
-    \@@_forth_push:n { \l_@@_forth_picnum_here_int }
-    \@@_forth_push:n
+    \@@_forth_push:nn
+      { \l_@@_forth_picnum_here_int }
       {
         \g_@@_forth_picnum_max_int
         - \l_@@_forth_picnum_here_int
@@ -4191,31 +4154,17 @@
 %    \end{macrocode}
 % \end{macro}
 %
-% ^^A todo: combine \cs{@@_forth_get_number:N} and |>NUMBER|.
 % \begin{macro}[int]{>NUMBER, CONVERT}
-% \begin{macro}[aux]{\@@_forth_to_number:}
-% \begin{macro}[aux]{\@@_forth_to_number_aux:n}
-%   ^^A todo: redoc
-%   See also \cs{@@_forth_get_number:N}.  Get a double cell integer
-%   \((a,b)\), an address \(c\) and a length \(d\).  Set \(d\) to the
-%   last address in the string (plus~\(1\)).  Store the base as the
-%   \texttt{tmpb} token list.  Then loop through the string, until the
-%   end is reached.  It turns out that one can safely jump outside the
-%   loop with a \cs{@@_break:n} \ldots{} \cs{@@_break_point:n}
-%   construction (because \cs{int_while_do:nNnn} is expandable, hence
-%   side-effect free).  For each character, store the character code
-%   into the \texttt{tmpa} token list to avoid fetching it multiple
-%   times; if it fits among the \([0,9]\) digits allowed in the base,
-%   update the integers \((a,b)\) using the value \texttt{tmpa} minus
-%   the character code of~|0|; if it fits among the allowed alphabetic
-%   characters, update the integers \((a,b)\) using the appropriate
-%   value for that digit.  Updating is done by an auxiliary, which
-%   multiplies \(a\) by the base, adding the argument~|#1|, multiplies
-%   \(b\) by the base, adding the carry from \(a\), and subtracts the
-%   carry from \(a\).  At the end of the day, push the resulting
-%   double-cell number, and the address of the first character that was
-%   not converted.  For |>NUMBER|, also push the length of the
-%   non-converted string.
+%   Get a double cell integer \((c,d)\), an address \(e\) and a length
+%   \(f\).  Set \(f\) to point just after the end of the string.  Then
+%   the \texttt{to_number} function reads digits as defined by the
+%   standard, multiplying \((c,d)\) by the base and adding the digit
+%   found at each step.  The integers \(a\) and \(b\) are used
+%   internally by this function, \(c\) and \(d\) are affected, and \(e\)
+%   is incremented at each step.  At the end of the day,
+%   push the resulting double-cell number, and the address of the first
+%   character that was not converted.  For |>NUMBER|, also push the
+%   length of the non-converted string.
 %    \begin{macrocode}
 \@@_forth_new_core:nn { >NUMBER }
   {
@@ -4238,7 +4187,7 @@
     \@@_forth_push:nnn
       { \l_@@_tmpc_int } { \l_@@_tmpd_int } { \l_@@_tmpe_int }
   }
-% \end{macro}
+%    \end{macrocode}
 % \end{macro}
 %
 % \subsubsection{Output}
@@ -4401,6 +4350,17 @@
 %
 % This section defines the words |EXIT|, |QUIT|, |ABORT|, |ABORT"|.
 %
+% \begin{macro}[int]{\@@_forth_exit:, \@@_forth_exit_point:}
+%   When executing code given an execution token (see
+%   \cs{@@_forth_execute:n}), an \texttt{exit_point} marker is placed
+%   after the code, so that |EXIT| can safely leave definitions.
+%    \begin{macrocode}
+\cs_new_protected:Npn \@@_forth_exit:
+  #1 \@@_forth_exit_point: { }
+\cs_new_eq:NN \@@_forth_exit_point: \scan_stop:
+%    \end{macrocode}
+% \end{macro}
+%
 % ^^A todo: doc that EXIT is allowed in interpretation mode.
 % \begin{macro}[int]{EXIT}
 %   Leave the current definition.  See \cs{@@_forth_exit:} and
@@ -4442,6 +4402,7 @@
 \@@_forth_new_compilation_core:nn { ABORT" }
   {
     \@@_forth_input_until:n { `" }
+    \@@_forth_input_set_word:
     \@@_forth_def_code:x
       { \@@_forth_abort_quote:n { \l_@@_forth_input_word_str } }
   }
@@ -5073,8 +5034,7 @@
 \@@_forth_new_core:nn { 2CONSTANT }
   {
     \@@_forth_pop_int:NN \l_@@_tmpa_int \l_@@_tmpb_int
-    \@@_forth_input_word:
-    \@@_forth_set_word:ox \l_@@_forth_input_word_str
+    \@@_forth_input_word_and_set:x
       {
         \@@_forth_push:nn
           { \int_use:N \l_@@_tmpa_int }
@@ -5247,6 +5207,7 @@
     \int_until_do:nNnn \l_@@_forth_if_int < \c_zero
       {
         \@@_forth_input_word:
+        \@@_forth_input_set_word:
         \str_case:onn { \l_@@_forth_input_word_str }
           {
             { }
@@ -5331,13 +5292,14 @@
 %
 % This section defines the word |BYE|.
 %
+% ^^A todo: conceptually, BYE means 'no input left', should be done by runner.
 % \begin{macro}[int]{BYE}
-%   Set the \texttt{forth_stop} boolean to stop the interpreter loop.
-%   Perform the action of |ABORT|.
+%   Set the \texttt{run_loop} function to do nothing, to stop the
+%   interpreter loop.  Perform the action of |ABORT|.
 %    \begin{macrocode}
 \@@_forth_new_core:nn { BYE }
   {
-    \bool_set_true:N \l_@@_forth_stop_bool
+    \cs_set_eq:NN \@@_forth_run_loop: \prg_do_nothing:
     \int_set_eq:NN \l_@@_forth_stack_here_int
       \g_@@_forth_stack_min_int
     \@@_forth_do_quit:
