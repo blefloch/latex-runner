@@ -17,6 +17,33 @@
 %
 % \section{The \plang{forth} language}
 %
+% ^^A todo: make ACCEPT unavailable in non-interactive mode.
+%
+% In interactive mode, invoked as |\runner{forth}[interactive]''''|,
+% this \plang{forth} interpreter is a Standard System Subset, as defined
+% by the ANS Forth 1994 specification, providing the majority of the
+% Core, Core Extensions, Double-Number, and Double-Number Extensions
+% word set, with the following exceptions.
+% \begin{itemize}
+% \item The core word |KEY| is not implemented.
+% \item The core extension words |EXPECT|, |QUERY|, |RESTORE-INPUT|,
+%   |SAVE-INPUT|, |SPAN| are not implemented.
+% \item The environment variable |/COUNTED-STRING| is not recognized.
+% \item The double-number word |M*/| is not implemented.
+% \end{itemize}
+% Additionally, the interpreter provides the Programming-Tools words
+% |.S|, |?|, |DUMP|, |[IF]|, |[THEN]|, |[ELSE]|, |BYE|.
+%
+% In non-interactive mode (common case within a \TeX{} document), the
+% system reads \plang{forth} code and input from files, or obtains them
+% from \TeX{}, hence it has no prompt.  This mode is otherwise
+% identical to interactive mode.
+%
+% Single-cell integers are \(24\) bits wide, as are characters.
+% Double-cell integers are \(48\) bits wide.  More details on the
+% implementation-defined behaviours and features can be found in
+% section~\ref{seq:forth-details}.
+%
 % \subsection{Introduction to \plang{forth}}
 %
 % This is not the place for an introduction to Forth, many can be found
@@ -69,32 +96,93 @@
 % orig, dest, loop-sys, nest-sys.  Additionally, i*x is used to
 % represent an arbitrary number of cells.
 %
-% \subsection{Details of the interpreter}
+% \subsection{Words}
 %
-% The \plang{forth} interpreter can be called in interactive or in
-% non-interactive mode.  In interactive mode, invoked with the command
-% \begin{verbatim}
-%   \runner{forth}[interactive]||||
-% \end{verbatim}
-% the interpreter is a Standard System Subset (as defined by the ANS
-% Forth 1994 specification), providing the Core and Core Extensions word
-% set, and the Double-Number and Double-Number Extensions, with the
-% following exceptions.
-% \begin{itemize}
-% \item The core word |KEY| is not implemented.
-% \item The core extension words |EXPECT|, |QUERY|, |RESTORE-INPUT|,
-%   |SAVE-INPUT|, |SPAN| are not implemented.
-% \item The environment variable |/COUNTED-STRING| is not recognized.
-% \item The double-number word |M*/| is not implemented.
-% \end{itemize}
-% Additionally, the interpreter provides the Programming-Tools words
-% |.S|, |?|, |DUMP|, |[IF]|, |[THEN]|, |[ELSE]|, |BYE|.
-%
-% In non-interactive mode, the interpreter does not have a prompt, but
-% otherwise behaves as a standard system subset, subject to the
-% restrictions above.
-%
+% ^^A todo: check which arguments are signed/unsigned.
 % ^^A todo: document all words.
+%
+% Arithmetic operations take arguments from the stack and push their
+% result back onto the stack.
+% \begin{itemize}
+% \item |ABS| and |NEGATE| are both unary: |(n -- n)|.
+% \item |MAX|, |MIN|, |-|, |+|, |*|, |/|, and |MOD| are binary: |(n1 n2 -- n)|
+% \item |/MOD| has stack effect |(n1 n2 -- n3 n4)| where |n4| is the
+%   quotient and |n3| the remainder.
+% \item |*/| is ternary: |(n1 n2 n3 -- n)| where |n| is obtained from
+%   |n1 * n2 / n3|.
+% \item |M*|, |UM*| have stack effect |(n1 n2 -- d)| where the
+%   double-cell integer |d| is |n1 * n2|.
+% \item |FM/MOD|, |SM/REM|, |UM/MOD| have stack effect |(d n1 -- n2
+%   n3)|, where |n3| is the quotient, and |n2| the remainder, of |d/n1|.
+% \item |*/MOD|
+% \end{itemize}
+%
+% Bit operations take arguments from the stack and push their result
+% back onto the stack.
+% \begin{itemize}
+% \item |1+| and |1-| add or subtract~\(1\) from the top of stack.
+% \item |2*| and |2/| shift the top of stack by one bit to the left/right.
+% \item |D2/| and |D2*| shift the topmost double-cell by one bit.
+% \item |INVERT| changes all bits of the top of stack.
+% \item |AND|, |OR| and |XOR| are binary: |(n1 n2 -- n3)|.
+% \item |LSHIFT| and |RSHIFT| have stack effect |(x1 u -- x2)|.
+% \end{itemize}
+%
+% Comparisons take arguments from the stack and push flags (false:
+% \(0\), true: \(-1\)) onto the stack.
+% \begin{itemize}
+% \item |FALSE|, |TRUE| always push \(0\), \(-1\).
+% \item |0=| and |0<>| have stack effect |(x -- flag)|.
+% \item |0<| and |0>| have stack effect |(n -- flag)|.
+% \item |=| and |<>| have stack effect |(x1 x2 -- flag)|.
+% \item |U<| and |U>| have stack effect |(u1 u2 -- flag)|.
+% \item |<| and |>| have stack effect |(n1 n2 -- flag)|.
+% \item |WITHIN| has stack effect |(n1 n2 n3 -- flag)|.
+% \item |?DUP| duplicates the top-most cell if it is not zero.
+% \item |D0=| and |D0<| have stack effect |(d -- flag)|
+% \item |D=|, |D<|, |DMAX|, and |DMIN| have stack effect |(d1 d2 -- flag)|.
+% \item |DU<|
+% \end{itemize}
+%
+% Conditionals can be compiled as are |IF|, |ELSE|, |THEN|, |CASE|,
+% |OF|, |ENDOF|, |ENDCASE|, or immediate, as are |[IF]|, |[ELSE]|,
+% |[THEN]|.
+%
+% Defining words: |CONSTANT|, |2CONSTANT|, |CREATE|, |VARIABLE|,
+% |2VARIABLE|, |>BODY|, |VALUE|, |TO|, |:NONAME|, |:|, |DOES>|, |;|,
+% |IMMEDIATE|, |LITERAL|, |2LITERAL|, |MARKER|, |POSTPONE|, |[COMPILE]|,
+% |RECURSE|, |COMPILE,|, |STATE|, |[|, |]|.
+%
+% Do loops: |DO|, |?DO|, |LOOP|, |+LOOP|, |I|, |J|, |LEAVE|, |UNLOOP|.
+%
+% Environmental queries: |PAD|, |ENVIRONMENT?|.
+%
+% Execution tokens: |'|, |[']|, |EXECUTE|, |FIND|.
+%
+% Input: |>IN|, |SOURCE|, |TIB|, |#TIB|, |CHAR|, |[CHAR]|, |(|, |\|,
+% |PARSE|, |WORD|, |COUNT|, |S"|, |EVALUATE|, |ACCEPT|, |SOURCE-ID|,
+% |REFILL|.  ^^A)
+%
+% Memory cells: |ALIGN|, |ALIGNED|, |CELL+|, |CHAR+|, |CELLS|, |CHARS|,
+% |HERE|, |UNUSED|, |,|, |C,|, |@|, |C@|, |2@|, |!|, |C!|, |2!|, |+!|,
+% |ALLOT|, |ERASE|, |FILL|, |MOVE|.
+%
+% Number conversion: |BASE|, |DECIMAL|, |HEX|, |<#|, |SIGN|, |HOLD|, |#|,
+% |#S|, |#>|, |>NUMBER|.
+%
+% Output: |.|, |U.|, |.R|, |U.R|, |D.|, |D.R|, |.S|, |."|, |.(|, |BL|,
+% |CR|, |EMIT|, |SPACE|, |SPACES|, |TYPE|, |?|, |DUMP|. ^^A)
+%
+% Quitting: |EXIT|, |QUIT|, |ABORT|, |ABORT"|, |BYE|.
+%
+% Stacks: |DEPTH|, |DROP|, |2DROP|, |NIP|, |SWAP|, |2SWAP|, |ROT|,
+% |DUP|, |2DUP|, |OVER|, |2OVER|, |TUCK|, |PICK|, |ROLL|, |R>|, |2R>|,
+% |R@|, |2R@|, |>R|, |2>R|, |S>D|, |D>S|, |2ROT|.
+%
+% While loops: |BEGIN|, |AGAIN|, |UNTIL|, |WHILE|, |REPEAT|.
+%
+% \subsection{Details of the interpreter}
+% \label{seq:forth-details}
 %
 % ^^A todo: clarify what to do with character code points >= 256.
 %
@@ -225,18 +313,10 @@
 % \item 3.2.3.3. Return stack
 % \item 3.2.4. Operator terminal (decide whether the Forth program can
 %   change where it gets its input from)
-% \item 3.3.
 % \end{itemize}
 %
 % The ANS 1994 standard designates the words |#TIB|, |TIB|, |EXPECT|,
-% |QUERY|, |SPAN|, |CONVERT|, and |FORGET (15.6.2.1580) as obsolescent.
-%
-% The standard says ``char'' is a subtype of ``+n'', so characters are
-% only allowed to take values in the range \([0, 2^{23}-1]\)?  Addresses
-% are only allowed to take values in the range \([-2^{23}, 2^{23}-1]\)?
-%
-% Am I allowed to always consider the data-space pointer to be aligned,
-% separating cells by \(1\) address unit?
+% |QUERY|, |SPAN|, |CONVERT|, and |FORGET| (15.6.2.1580) as obsolescent.
 %
 % \subsection{Generic helpers}
 %
@@ -4697,7 +4777,7 @@
 %
 % \subsubsection{Arithmetic}
 %
-% This section implements the words |DABS|, |DNEGATE| |D+|, |D-|, |M+|.
+% This section defines the words |DABS|, |DNEGATE| |D+|, |D-|, |M+|.
 %
 % \begin{macro}[int]{DABS}
 %   If the cell pair \((a,b)\) has \(b < 2^{23}\), it represents a
@@ -5097,7 +5177,7 @@
 %
 % \subsubsection{Conditionals}
 %
-% This section implements the words |[IF]|, |[THEN]|, |[ELSE]|.
+% This section defines the words |[IF]|, |[THEN]|, |[ELSE]|.
 %
 % \begin{variable}{\l_@@_forth_if_int}
 %   Nesting level of conditionals.
@@ -5161,7 +5241,7 @@
 %
 % \subsubsection{Output}
 %
-% This section implements the words |.S|, |?|, |DUMP|.
+% This section defines the words |.S|, |?|, |DUMP|.
 %
 % \begin{macro}[int]{.S}
 %   Show the contents of the stack, in the current |BASE|.
@@ -5222,6 +5302,8 @@
 % \end{macro}
 %
 % \subsubsection{Quitting}
+%
+% This section defines the word |BYE|.
 %
 % \begin{macro}[int]{BYE}
 %   Set the \texttt{forth_stop} boolean to stop the interpreter loop.
