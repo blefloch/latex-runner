@@ -679,13 +679,11 @@
 %    \begin{macrocode}
 \cs_new_protected:Npn \@@_forth_put_here:n #1
   {
-    \int_compare:nNnTF
+    \int_compare:nNnF
       \l_@@_forth_data_here_int < \l_@@_forth_data_text_int
-      {
-        \@@_forth_data_gset:nn { \l_@@_forth_data_here_int } {#1}
-        \int_incr:N \l_@@_forth_data_here_int
-      }
-      { \msg_error:nn { runner/forth } { out-of-memory } }
+      { \@@_forth_abort:nx { out-of-memory } { } }
+    \@@_forth_data_gset:nn { \l_@@_forth_data_here_int } {#1}
+    \int_incr:N \l_@@_forth_data_here_int
   }
 %    \end{macrocode}
 % \end{macro}
@@ -707,23 +705,30 @@
 %
 % \subsubsection{Manipulating the data stack}
 %
+% \begin{macro}[int]{\@@_forth_pop_int_unsafe:N}
+%    \begin{macrocode}
+\cs_new_protected:Npn \@@_forth_pop_int_unsafe:N #1
+  {
+    \int_decr:N \l_@@_forth_stack_here_int
+    \int_set:Nn #1
+      {
+        \@@_array_item:NN \g_@@_forth_array
+          \l_@@_forth_stack_here_int
+      }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
 % \begin{macro}[int]{\@@_forth_pop_int:N}
 %   Get data from the stack.  The stack is empty if \texttt{stack_here}
 %   is \texttt{stack_min}.
 %    \begin{macrocode}
 \cs_new_protected:Npn \@@_forth_pop_int:N #1
   {
-    \int_compare:nNnTF
+    \int_compare:nNnF
       \l_@@_forth_stack_here_int > \g_@@_forth_stack_min_int
-      {
-        \int_decr:N \l_@@_forth_stack_here_int
-        \int_set:Nn #1
-          {
-            \@@_array_item:NN \g_@@_forth_array
-              \l_@@_forth_stack_here_int
-          }
-      }
-      { \msg_error:nn { runner/forth } { empty-stack } }
+      { \@@_forth_abort:nx { empty-stack } { } }
+    \@@_forth_pop_int_unsafe:N #1
   }
 %    \end{macrocode}
 % \end{macro}
@@ -766,14 +771,12 @@
 %    \begin{macrocode}
 \cs_new_protected:Npn \@@_forth_push:n #1
   {
-    \int_compare:nNnTF
+    \int_compare:nNnF
       \l_@@_forth_stack_here_int < \g_@@_forth_stack_max_int
-      {
-        \@@_array_gset:Nnn \g_@@_forth_array
-          \l_@@_forth_stack_here_int {#1}
-        \int_incr:N \l_@@_forth_stack_here_int
-      }
-      { \msg_error:nn { runner/forth } { out-of-memory } }
+      { \@@_forth_abort:nx { out-of-memory } { } }
+    \@@_array_gset:Nnn \g_@@_forth_array
+      \l_@@_forth_stack_here_int {#1}
+    \int_incr:N \l_@@_forth_stack_here_int
   }
 %    \end{macrocode}
 % \end{macro}
@@ -939,14 +942,12 @@
   {
     \seq_push:NV \l_@@_forth_def_seq \l_@@_forth_def_code_tl
     \tl_clear:N \l_@@_forth_def_code_tl
-    \int_compare:nNnTF
+    \int_compare:nNnF
       \l_@@_forth_control_here_int < \g_@@_forth_control_max_int
-      {
-        \@@_array_gset:Nnn \g_@@_forth_array
-          \l_@@_forth_control_here_int {#1}
-        \int_incr:N \l_@@_forth_control_here_int
-      }
-      { \msg_error:nn { runner/forth } { out-of-memory } }
+      { \@@_forth_abort:nx { out-of-memory } { } }
+    \@@_array_gset:Nnn \g_@@_forth_array
+      \l_@@_forth_control_here_int {#1}
+    \int_incr:N \l_@@_forth_control_here_int
   }
 %    \end{macrocode}
 % \end{macro}
@@ -994,17 +995,15 @@
 %    \begin{macrocode}
 \cs_new_protected:Npn \@@_forth_return_pop_int:N #1
   {
-    \int_compare:nNnTF
+    \int_compare:nNnF
       \l_@@_forth_return_here_int > \g_@@_forth_return_min_int
+      { \@@_forth_abort:nx { empty-return-stack } { } }
+    \int_decr:N \l_@@_forth_return_here_int
+    \int_set:Nn #1
       {
-        \int_decr:N \l_@@_forth_return_here_int
-        \int_set:Nn #1
-          {
-            \@@_array_item:NN \g_@@_forth_array
-              \l_@@_forth_return_here_int
-          }
+        \@@_array_item:NN \g_@@_forth_array
+          \l_@@_forth_return_here_int
       }
-      { \msg_error:nn { runner/forth } { empty-return-stack } }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -1015,14 +1014,12 @@
 %    \begin{macrocode}
 \cs_new_protected:Npn \@@_forth_return_push:n #1
   {
-    \int_compare:nNnTF
+    \int_compare:nNnF
       \l_@@_forth_return_here_int < \g_@@_forth_return_max_int
-      {
-        \@@_array_gset:Nnn \g_@@_forth_array
-          \l_@@_forth_return_here_int {#1}
-        \int_incr:N \l_@@_forth_return_here_int
-      }
-      { \msg_error:nn { runner/forth } { out-of-memory } }
+      { \@@_forth_abort:nx { out-of-memory } { } }
+    \@@_array_gset:Nnn \g_@@_forth_array
+      \l_@@_forth_return_here_int {#1}
+    \int_incr:N \l_@@_forth_return_here_int
   }
 %    \end{macrocode}
 % \end{macro}
@@ -1132,7 +1129,7 @@
 \cs_new_protected:Npn \@@_forth_new_compilation_core:nn #1#2
   {
     \@@_forth_new_aux:nnn { 3 } {#1}
-      { \msg_error:nnn { runner/forth } { no-interpretation } {#1} }
+      { \@@_forth_abort:nx { no-interpretation } {#1} }
     \tl_gput_right:Nx \g_@@_forth_init_toks_tl
       {
         \tex_toks:D \int_use:N \g_@@_forth_core_toks_int
@@ -1197,6 +1194,21 @@
 % \end{macro}
 %
 % \subsection{Helpers}
+%
+% ^^A todo: also empty the def_code etc.?
+% \begin{macro}[int]{\@@_forth_abort:nx}
+%   Some ambiguous conditions lead the interpreter to balk and go away
+%   from all words being executed, emptying all stacks.
+%    \begin{macrocode}
+\cs_new_protected:Npn \@@_forth_abort:nx #1#2
+  {
+    \msg_error:nnx { runner/forth } {#1} {#2}
+    \int_set_eq:NN \l_@@_forth_stack_here_int
+      \g_@@_forth_stack_min_int
+    \@@_forth_do_quit:
+  }
+%    \end{macrocode}
+% \end{macro}
 %
 % \subsubsection{Input}
 %
@@ -1547,7 +1559,7 @@
             { `e } { \@@_forth_get_exponent:n { 0 } }
           }
           {
-            \msg_error:nnx { runner/forth } { unknown-word }
+            \@@_forth_abort:nx { unknown-word }
               { \l_@@_forth_input_word_str }
           }
       }
@@ -1653,7 +1665,7 @@
             { `e } { \@@_forth_get_exponent:n {#1} }
           }
           {
-            \msg_error:nnx { runner/forth } { unknown-word }
+            \@@_forth_abort:nx { unknown-word }
               { \l_@@_forth_input_word_str }
           }
       }
@@ -1674,7 +1686,7 @@
     \int_compare:nNnTF \l_@@_tmpe_int = \l_@@_tmpf_int
       { \exp_after:wN \@@_forth_get_float_aux:NNnnn \l_@@_tmpa_tl }
       {
-        \msg_error:nnx { runner/forth } { unknown-word }
+        \@@_forth_abort:nx { unknown-word }
           { \l_@@_forth_input_word_str }
       }
   }
@@ -2498,7 +2510,7 @@
   {
     \@@_forth_control_close:nTF { 2 }
       { \@@_forth_control_open:n { 3 } }
-      { \msg_error:nnn { runner/forth } { misplaced } { ELSE } }
+      { \@@_forth_abort:nx { misplaced } { ELSE } }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -2529,7 +2541,7 @@
             \exp_args:NVV \@@_forth_compile_then:TF
               \l_@@_tmpa_tl \l_@@_forth_def_code_tl
           }
-          { \msg_error:nnn { runner/forth } { misplaced } { THEN } }
+          { \@@_forth_abort:nx { misplaced } { THEN } }
       }
   }
 \cs_new_protected:Npn \@@_forth_compile_then:TF #1#2
@@ -2571,7 +2583,7 @@
   {
     \@@_forth_control_if:nTF { 4 }
       { \@@_forth_control_open:n { 5 } }
-      { \msg_error:nnn { runner/forth } { misplaced } { OF } }
+      { \@@_forth_abort:nx { misplaced } { OF } }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -2596,7 +2608,7 @@
         \@@_forth_def_code:x
           { \@@_forth_compiled_of:n { \l_@@_tmpa_tl } }
       }
-      { \msg_error:nnn { runner/forth } { misplaced } { ENDOF } }
+      { \@@_forth_abort:nx { misplaced } { ENDOF } }
   }
 \cs_new_protected:Npn \@@_forth_compiled_of:n #1
   {
@@ -2629,7 +2641,7 @@
         \@@_forth_def_code:x
           { \@@_forth_compiled_case:n { \l_@@_tmpa_tl } }
       }
-      { \msg_error:nnn { runner/forth } { misplaced } { ENDCASE } }
+      { \@@_forth_abort:nx { misplaced } { ENDCASE } }
   }
 \cs_new_protected:Npn \@@_forth_compiled_case:n #1
   {
@@ -2807,10 +2819,10 @@
                   { \@@_forth_to:n { \int_use:N \l_@@_tmpa_int } }
               }
           }
-          { \msg_error:nn { runner/forth } { to-non-value } }
+          { \@@_forth_abort:nx { to-non-value } { } }
       }
       {
-        \msg_error:nnx { runner/forth } { unknown-word }
+        \@@_forth_abort:nx { unknown-word }
           { \l_@@_forth_input_word_str }
       }
   }
@@ -2878,7 +2890,7 @@
   {
     \@@_forth_control_close:nTF { 0 }
       { \@@_forth_control_open:n { 1 } }
-      { \msg_error:nnn { runner/forth } { misplaced } { DOES> } }
+      { \@@_forth_abort:nx { misplaced } { DOES> } }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -2901,7 +2913,7 @@
       {
         \@@_forth_control_close:nTF { 1 }
           { \@@_forth_compile_does: }
-          { \msg_error:nnn { runner/forth } { misplaced } { ; } }
+          { \@@_forth_abort:nx { misplaced } { ; } }
       }
   }
 \cs_new_protected:Npn \@@_forth_compile_semicolon:x #1
@@ -2960,7 +2972,7 @@
           }
       }
       {
-        \msg_error:nnx { runner/forth } { unknown-word }
+        \@@_forth_abort:nx { unknown-word }
           { \l_@@_forth_def_name_str }
       }
   }
@@ -2984,7 +2996,7 @@
           { 2 \tl_tail:N \l_@@_tmpa_tl }
       }
       {
-        \msg_error:nnx { runner/forth } { no-def-immediate }
+        \@@_forth_abort:nx { no-def-immediate }
           { \l_@@_forth_def_name_str }
       }
   }
@@ -3165,7 +3177,7 @@
             \@@_forth_def_code:x
               { \@@_forth_compiled_qdo:nn { \l_@@_tmpa_tl } {#1} }
           }
-          { \msg_error:nnn { runner/forth } { misplaced } { LOOP } }
+          { \@@_forth_abort:nx { misplaced } { LOOP } }
       }
   }
 %    \end{macrocode}
@@ -3617,7 +3629,7 @@
       { \l_@@_forth_data_word_int - \l_@@_forth_data_here_int - 1 }
     \int_compare:nNnT
       \l_@@_forth_data_word_int > \l_@@_forth_data_text_int
-      { \msg_error:nn { runner/forth } { out-of-memory } }
+      { \@@_forth_abort:nx { out-of-memory } { } }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -3677,9 +3689,9 @@
     \int_compare:nNnTF
       \l_@@_forth_data_text_int < \l_@@_forth_data_here_int
       {
-        \msg_error:nn { runner/forth } { out-of-memory }
         \int_set_eq:NN \l_@@_forth_data_text_int
           \l_@@_forth_data_here_int
+        \@@_forth_abort:nx { out-of-memory } { }
       }
       {
         \@@_forth_def_code:x
@@ -3944,21 +3956,19 @@
     \@@_forth_pop_int:N \l_@@_tmpa_int
     \int_add:Nn \l_@@_forth_data_here_int
       { \@@_forth_signed:N \l_@@_tmpa_int }
-    \int_compare:nNnTF
+    \int_compare:nNnT
       \l_@@_forth_data_here_int < \g_@@_forth_data_min_int
       {
-        \msg_error:nn { runner/forth } { out-of-bounds }
         \int_set_eq:NN \l_@@_forth_data_here_int
           \g_@@_forth_data_min_int
+        \@@_forth_abort:nx { out-of-bounds } { }
       }
+    \int_compare:nNnT
+      \l_@@_forth_data_here_int > \l_@@_forth_data_text_int
       {
-        \int_compare:nNnT
-          \l_@@_forth_data_here_int > \l_@@_forth_data_text_int
-          {
-            \msg_error:nn { runner/forth } { out-of-memory }
-            \int_set_eq:NN \l_@@_forth_data_here_int
-              \l_@@_forth_data_text_int
-          }
+        \int_set_eq:NN \l_@@_forth_data_here_int
+          \l_@@_forth_data_text_int
+        \@@_forth_abort:nx { out-of-memory } { }
       }
   }
 %    \end{macrocode}
@@ -4552,43 +4562,39 @@
 \@@_forth_new_core:nn { PICK }
   {
     \@@_forth_pop_int:N \l_@@_tmpa_int
-    \int_compare:nNnTF
+    \int_compare:nNnF
       { \l_@@_forth_stack_here_int - \l_@@_tmpa_int }
       > \g_@@_forth_stack_min_int
+      { \@@_forth_abort:nx { pick-too-far } { } }
+    \@@_forth_push:n
       {
-        \@@_forth_push:n
-          {
-            \@@_array_item:Nn \g_@@_forth_array
-              { \l_@@_forth_stack_here_int - \l_@@_tmpa_int - 1 }
-          }
+        \@@_array_item:Nn \g_@@_forth_array
+          { \l_@@_forth_stack_here_int - \l_@@_tmpa_int - 1 }
       }
-      { \msg_error:nn { runner/forth } { pick-too-far } }
   }
 \@@_forth_new_core:nn { ROLL }
   {
     \@@_forth_pop_int:N \l_@@_tmpa_int
-    \int_compare:nNnTF
+    \int_compare:nNnF
       { \l_@@_forth_stack_here_int - \l_@@_tmpa_int }
       > \g_@@_forth_stack_min_int
+      { \@@_forth_abort:nx { pick-too-far } { } }
+    \int_set:Nn \l_@@_tmpb_int
       {
-        \int_set:Nn \l_@@_tmpb_int
-          {
-            \@@_array_item:Nn \g_@@_forth_array
-              { \l_@@_forth_stack_here_int - \l_@@_tmpa_int - 1 }
-          }
-        \int_step_inline:nnnn
-          { \l_@@_forth_stack_here_int - \l_@@_tmpa_int }
-          { 1 }
-          { \l_@@_forth_stack_here_int - 1 }
-          {
-            \@@_array_gset:Nnn \g_@@_forth_array { #1 - 1 }
-              { \@@_array_item:Nn \g_@@_forth_array {#1} }
-          }
-        \@@_array_gset:Nnn \g_@@_forth_array
-          { \l_@@_forth_stack_here_int - 1 }
-          { \l_@@_tmpb_int }
+        \@@_array_item:Nn \g_@@_forth_array
+          { \l_@@_forth_stack_here_int - \l_@@_tmpa_int - 1 }
       }
-      { \msg_error:nn { runner/forth } { pick-too-far } }
+    \int_step_inline:nnnn
+      { \l_@@_forth_stack_here_int - \l_@@_tmpa_int }
+      { 1 }
+      { \l_@@_forth_stack_here_int - 1 }
+      {
+        \@@_array_gset:Nnn \g_@@_forth_array { #1 - 1 }
+          { \@@_array_item:Nn \g_@@_forth_array {#1} }
+      }
+    \@@_array_gset:Nnn \g_@@_forth_array
+      { \l_@@_forth_stack_here_int - 1 }
+      { \l_@@_tmpb_int }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -4707,7 +4713,7 @@
         \seq_pop:NN \l_@@_forth_def_seq \l_@@_forth_def_code_tl
         \@@_forth_def_code:x { #1 { \l_@@_tmpa_tl } }
       }
-      { \msg_error:nnn { runner/forth } { misplaced } {#2} }
+      { \@@_forth_abort:nx { misplaced } {#2} }
   }
 \cs_new_protected:Npn \@@_forth_compiled_again:n #1
   {
@@ -4742,7 +4748,7 @@
   {
     \@@_forth_control_close:nTF { 8 }
       { \@@_forth_control_open:n { 9 } }
-      { \msg_error:nnn { runner/forth } { misplaced } { WHILE } }
+      { \@@_forth_abort:nx { misplaced } { WHILE } }
   }
 \@@_forth_new_compilation_core:nn { REPEAT }
   {
@@ -4757,7 +4763,7 @@
               { \l_@@_tmpa_tl } { \l_@@_tmpb_tl }
           }
       }
-      { \msg_error:nnn { runner/forth } { misplaced } { REPEAT } }
+      { \@@_forth_abort:nx { misplaced } { REPEAT } }
   }
 \cs_new_protected:Npn \@@_forth_compiled_repeat:nn #1#2
   {
