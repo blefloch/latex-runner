@@ -50,7 +50,7 @@
 % \tableofcontents
 %
 % \begin{documentation}
-%
+% ^^A todo: add the "use" key for "use in the TeX document".
 % \section{\pkg{runner} documentation}
 %
 % This package aims to provide interpreters for various languages, with
@@ -61,6 +61,8 @@
 %   \runnerMapPlang{\item \plang{#1},}
 % \end{itemize}
 % and more will be added as I get time.
+%
+% \subsection{Commands}
 %
 % \begin{function}{\runner}
 %   The main command, \cs{runner}, expects four arguments (or three,
@@ -263,7 +265,10 @@
 % Some support packages are loaded first, then declare the package's
 % name, date, version, and purpose.
 %
+%    \begin{macrocode}
 %<*package>
+%    \end{macrocode}
+%
 %    \begin{macrocode}
 \RequirePackage{expl3}[2012/12/21]
 \RequirePackage{l3str}[2013/01/20]
@@ -1311,7 +1316,9 @@
 % \runnerDisableDoc
 % \runnerMapPlang{\input{runner-#1.dtx}}
 %
+%    \begin{macrocode}
 %</package>
+%    \end{macrocode}
 %
 % \end{implementation}
 %
