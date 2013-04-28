@@ -24,6 +24,10 @@
 \runner{forth}[output = \result]|5 6 + 7 8 + * .|||
 \typeout{\result}
 
+\runner{forth}[output = \result]|||
+  123456789. 67891234567. D+ <# #S #> TYPE|
+\typeout{\result}
+
 \runner{forth}[output = \result]|||: hi ." ho"; hi|
 \typeout{\result}
 
