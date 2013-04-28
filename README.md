@@ -31,8 +31,8 @@ The `\runner` command expects
 
 1.  The name of the language as a braced argument.
 
-2.  An optional list of key--values pairs (currently only `output = ...`
-is supported), within brackets.
+2.  An optional list of key--values pairs (such as program-file, output,
+interactive, ...), within square brackets.
 
 3.  The program code in the given language: this is put within two
 identical delimiters, similarly to LaTeX's `\verb` command.  In the
@@ -44,7 +44,7 @@ example, we used `|...|`.
 Languages supported so far:
 
 - Brainfuck
-- Forth (work in progress, aiming to get the full Core word set).
+- Forth
 
 This package requires up-to-date versions of the `l3kernel`,
 `l3packages` and `l3experimental` bundles.
