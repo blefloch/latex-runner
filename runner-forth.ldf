@@ -100,8 +100,39 @@
 \int_gset:Nn \g__runner_forth_return_min_int { 65408 }
 \int_gset:Nn \g__runner_forth_return_max_int { 65536 }
 \__runner_array_new:Nn \g__runner_forth_array { 65536 }
-\int_const:Nn \c__runner_forth_mod_int { 16777216 }
 \seq_new:N \l__runner_forth_fp_seq
+\int_const:Nn \c__runner_forth_mod_int { 16777216 }
+\cs_new:Npn \__runner_forth_signed:N #1
+  {
+    \int_eval:n
+      { #1 - #1 / \c__runner_forth_mod_int * \c__runner_forth_mod_int }
+  }
+\cs_new_protected_nopar:Npn \__runner_forth_check_data_bottom:
+  {
+    \int_compare:nNnT
+      \l__runner_forth_data_here_int < \g__runner_forth_data_min_int
+      { \__runner_forth_abort:nx { out-of-bounds } { } }
+  }
+\cs_new_protected_nopar:Npn \__runner_forth_check_data_top:
+  {
+    \int_compare:nNnT
+      \l__runner_forth_data_here_int > \l__runner_forth_data_text_int
+      { \__runner_forth_abort:nx { out-of-memory } { } }
+  }
+\cs_new_protected:Npn \__runner_forth_check_stack_bottom:n #1
+  {
+    \int_compare:nNnT
+      \l__runner_forth_stack_here_int
+      < { \g__runner_forth_stack_min_int + #1 }
+      { \__runner_forth_abort:nx { empty-stack } { } }
+  }
+\cs_new_protected:Npn \__runner_forth_check_stack_top:n #1
+  {
+    \int_compare:nNnT
+      { \l__runner_forth_stack_here_int + #1 }
+      > \g__runner_forth_stack_max_int
+      { \__runner_forth_abort:nx { out-of-memory } { } }
+  }
 \cs_new_nopar:Npn \__runner_forth_data_get:N
   { \__runner_array_item:NN \g__runner_forth_array }
 \cs_new_nopar:Npn \__runner_forth_data_get:n
@@ -110,11 +141,9 @@
   { \__runner_array_gset:Nnn \g__runner_forth_array }
 \cs_new_protected:Npn \__runner_forth_put_here:n #1
   {
-    \int_compare:nNnF
-      \l__runner_forth_data_here_int < \l__runner_forth_data_text_int
-      { \__runner_forth_abort:nx { out-of-memory } { } }
     \__runner_forth_data_gset:nn { \l__runner_forth_data_here_int } {#1}
     \int_incr:N \l__runner_forth_data_here_int
+    \__runner_forth_check_data_top:
   }
 \cs_new:Npn \__runner_forth_interval_to_clist:NN #1#2
   {
@@ -132,86 +161,91 @@
           \l__runner_forth_stack_here_int
       }
   }
-\cs_new_protected:Npn \__runner_forth_pop_int:N #1
+\cs_new_protected:Npn \__runner_forth_push_unsafe:n #1
   {
-    \int_compare:nNnF
-      \l__runner_forth_stack_here_int > \g__runner_forth_stack_min_int
-      { \__runner_forth_abort:nx { empty-stack } { } }
-    \__runner_forth_pop_int_unsafe:N #1
-  }
-\cs_new_protected:Npn \__runner_forth_pop_int:NN #1#2
-  {
-    \__runner_forth_pop_int:N #2
-    \__runner_forth_pop_int:N #1
-  }
-\cs_new_protected:Npn \__runner_forth_pop_int:NNN #1#2#3
-  {
-    \__runner_forth_pop_int:N #3
-    \__runner_forth_pop_int:N #2
-    \__runner_forth_pop_int:N #1
-  }
-\cs_new_protected:Npn \__runner_forth_pop_int:NNNN #1#2#3#4
-  {
-    \__runner_forth_pop_int:N #4
-    \__runner_forth_pop_int:N #3
-    \__runner_forth_pop_int:N #2
-    \__runner_forth_pop_int:N #1
-  }
-\cs_new_protected:Npn \__runner_forth_push:n #1
-  {
-    \int_compare:nNnF
-      \l__runner_forth_stack_here_int < \g__runner_forth_stack_max_int
-      { \__runner_forth_abort:nx { out-of-memory } { } }
     \__runner_array_gset:Nnn \g__runner_forth_array
       \l__runner_forth_stack_here_int {#1}
     \int_incr:N \l__runner_forth_stack_here_int
   }
+\cs_new_protected:Npn \__runner_forth_pop_int:N #1
+  {
+    \__runner_forth_check_stack_bottom:n \c_one
+    \__runner_forth_pop_int_unsafe:N #1
+  }
+\cs_new_protected:Npn \__runner_forth_pop_int:NN #1#2
+  {
+    \__runner_forth_check_stack_bottom:n \c_two
+    \__runner_forth_pop_int_unsafe:N #2
+    \__runner_forth_pop_int_unsafe:N #1
+  }
+\cs_new_protected:Npn \__runner_forth_pop_int:NNN #1#2#3
+  {
+    \__runner_forth_check_stack_bottom:n \c_three
+    \__runner_forth_pop_int_unsafe:N #3
+    \__runner_forth_pop_int_unsafe:N #2
+    \__runner_forth_pop_int_unsafe:N #1
+  }
+\cs_new_protected:Npn \__runner_forth_pop_int:NNNN #1#2#3#4
+  {
+    \__runner_forth_check_stack_bottom:n \c_four
+    \__runner_forth_pop_int_unsafe:N #4
+    \__runner_forth_pop_int_unsafe:N #3
+    \__runner_forth_pop_int_unsafe:N #2
+    \__runner_forth_pop_int_unsafe:N #1
+  }
+\cs_new_protected:Npn \__runner_forth_push:n #1
+  {
+    \__runner_forth_check_stack_top:n \c_one
+    \__runner_forth_push_unsafe:n {#1}
+  }
 \cs_new_protected:Npn \__runner_forth_push:nn #1#2
   {
-    \__runner_forth_push:n {#1}
-    \__runner_forth_push:n {#2}
+    \__runner_forth_check_stack_top:n \c_two
+    \__runner_forth_push_unsafe:n {#1}
+    \__runner_forth_push_unsafe:n {#2}
   }
 \cs_new_protected:Npn \__runner_forth_push:nnn #1#2#3
   {
-    \__runner_forth_push:n {#1}
-    \__runner_forth_push:n {#2}
-    \__runner_forth_push:n {#3}
+    \__runner_forth_check_stack_top:n \c_three
+    \__runner_forth_push_unsafe:n {#1}
+    \__runner_forth_push_unsafe:n {#2}
+    \__runner_forth_push_unsafe:n {#3}
   }
 \cs_new_protected:Npn \__runner_forth_push:nnnn #1#2#3#4
   {
-    \__runner_forth_push:n {#1}
-    \__runner_forth_push:n {#2}
-    \__runner_forth_push:n {#3}
-    \__runner_forth_push:n {#4}
+    \__runner_forth_check_stack_top:n \c_four
+    \__runner_forth_push_unsafe:n {#1}
+    \__runner_forth_push_unsafe:n {#2}
+    \__runner_forth_push_unsafe:n {#3}
+    \__runner_forth_push_unsafe:n {#4}
   }
 \cs_new_protected:Npn \__runner_forth_push:nnnnn #1#2#3#4#5
   {
-    \__runner_forth_push:n {#1}
-    \__runner_forth_push:n {#2}
-    \__runner_forth_push:n {#3}
-    \__runner_forth_push:n {#4}
-    \__runner_forth_push:n {#5}
+    \__runner_forth_check_stack_top:n \c_five
+    \__runner_forth_push_unsafe:n {#1}
+    \__runner_forth_push_unsafe:n {#2}
+    \__runner_forth_push_unsafe:n {#3}
+    \__runner_forth_push_unsafe:n {#4}
+    \__runner_forth_push_unsafe:n {#5}
   }
 \cs_new_protected:Npn \__runner_forth_push:nnnnnn #1#2#3#4#5#6
   {
-    \__runner_forth_push:n {#1}
-    \__runner_forth_push:n {#2}
-    \__runner_forth_push:n {#3}
-    \__runner_forth_push:n {#4}
-    \__runner_forth_push:n {#5}
-    \__runner_forth_push:n {#6}
+    \__runner_forth_check_stack_top:n \c_six
+    \__runner_forth_push_unsafe:n {#1}
+    \__runner_forth_push_unsafe:n {#2}
+    \__runner_forth_push_unsafe:n {#3}
+    \__runner_forth_push_unsafe:n {#4}
+    \__runner_forth_push_unsafe:n {#5}
+    \__runner_forth_push_unsafe:n {#6}
   }
+\cs_new_protected:Npn \__runner_forth_push_value:n #1
+  { \__runner_forth_push:n { \__runner_forth_data_get:n {#1} } }
 \cs_new_protected_nopar:Npn \__runner_forth_push_false:
   { \__runner_forth_push:n { 0 } }
 \cs_new_protected_nopar:Npx \__runner_forth_push_true:
   {
     \__runner_forth_push:n
       { \int_eval:n { \c__runner_forth_mod_int - 1 } }
-  }
-\cs_new:Npn \__runner_forth_signed:N #1
-  {
-    \int_eval:n
-      { #1 - #1 / \c__runner_forth_mod_int * \c__runner_forth_mod_int }
   }
 \cs_new_protected:Npn \__runner_forth_push_signed:n #1
   {
@@ -243,8 +277,6 @@
              * round- ( \l__runner_forth_push_fp / \c__runner_forth_mod_int )
       }
   }
-\cs_new_protected:Npn \__runner_forth_push_value:n #1
-  { \__runner_forth_push:n { \__runner_forth_data_get:n {#1} } }
 \cs_new_protected:Npn \__runner_forth_control_open:n #1
   {
     \seq_push:NV \l__runner_forth_def_seq \l__runner_forth_def_code_tl
@@ -1735,26 +1767,24 @@
         - \l__runner_forth_input_word_begin_int
       }
     \int_sub:Nn \l__runner_forth_data_text_int { \l__runner_tmpa_int #1 }
-    \int_compare:nNnTF
+    \int_compare:nNnT
       \l__runner_forth_data_text_int < \l__runner_forth_data_here_int
       {
         \int_set_eq:NN \l__runner_forth_data_text_int
           \l__runner_forth_data_here_int
         \__runner_forth_abort:nx { out-of-memory } { }
       }
+    \__runner_forth_def_code:x
       {
-        \__runner_forth_def_code:x
-          {
-            \__runner_forth_push:n { \int_use:N \l__runner_forth_data_text_int }
-            #2
-          }
-        \int_set_eq:NN \l__runner_tmpb_int \l__runner_forth_data_text_int
-        #3
-        \__runner_forth_store_interval:NNN
-          \l__runner_forth_input_word_begin_int
-          \l__runner_forth_input_word_end_int
-          \l__runner_tmpb_int
+        \__runner_forth_push:n { \int_use:N \l__runner_forth_data_text_int }
+        #2
       }
+    \int_set_eq:NN \l__runner_tmpb_int \l__runner_forth_data_text_int
+    #3
+    \__runner_forth_store_interval:NNN
+      \l__runner_forth_input_word_begin_int
+      \l__runner_forth_input_word_end_int
+      \l__runner_tmpb_int
   }
 \__runner_forth_new_core:nn { EVALUATE }
   {
@@ -2137,7 +2167,7 @@
     \__runner_forth_pop_int:N \l__runner_tmpa_int
     \int_compare:nNnF \l__runner_tmpa_int = \c_zero
       {
-        \msg_term:n { ABORT~( \int_use:N \l__runner_tmpa_int ): ~ #1 }
+        \msg_term:n { ABORT~( \__runner_forth_signed:N \l__runner_tmpa_int ): ~ #1 }
         \int_set_eq:NN \l__runner_forth_stack_here_int
           \g__runner_forth_stack_min_int
         \__runner_forth_do_quit:
@@ -2167,7 +2197,7 @@
     \__runner_forth_pop_int:NNNN
       \l__runner_tmpa_int \l__runner_tmpb_int
       \l__runner_tmpc_int \l__runner_tmpd_int
-    \__runner_forth_push:nn
+    \__runner_forth_push:nnnn
       { \l__runner_tmpc_int } { \l__runner_tmpd_int }
       { \l__runner_tmpa_int } { \l__runner_tmpb_int }
   }
@@ -2215,11 +2245,8 @@
 \__runner_forth_new_core:nn { PICK }
   {
     \__runner_forth_pop_int:N \l__runner_tmpa_int
-    \int_compare:nNnF
-      { \l__runner_forth_stack_here_int - \l__runner_tmpa_int }
-      > \g__runner_forth_stack_min_int
-      { \__runner_forth_abort:nx { pick-too-far } { } }
-    \__runner_forth_push:n
+    \__runner_forth_check_stack_bottom:n { \l__runner_tmpa_int + \c_one }
+    \__runner_forth_push_unsafe:n
       {
         \__runner_array_item:Nn \g__runner_forth_array
           { \l__runner_forth_stack_here_int - \l__runner_tmpa_int - 1 }
@@ -2228,10 +2255,7 @@
 \__runner_forth_new_core:nn { ROLL }
   {
     \__runner_forth_pop_int:N \l__runner_tmpa_int
-    \int_compare:nNnF
-      { \l__runner_forth_stack_here_int - \l__runner_tmpa_int }
-      > \g__runner_forth_stack_min_int
-      { \__runner_forth_abort:nx { pick-too-far } { } }
+    \__runner_forth_check_stack_bottom:n { \l__runner_tmpa_int + \c_one }
     \int_set:Nn \l__runner_tmpb_int
       {
         \__runner_array_item:Nn \g__runner_forth_array

@@ -636,6 +636,16 @@
 %    \end{macrocode}
 % \end{variable}
 %
+% \begin{variable}{\l_@@_forth_fp_seq}
+%   The floating point stack stores floating point numbers as token
+%   lists (through \cs{fp_to_tl:n}).
+%    \begin{macrocode}
+\seq_new:N \l_@@_forth_fp_seq
+%    \end{macrocode}
+% \end{variable}
+%
+% \subsubsection{Integers modulo \(2^{24}\)}
+%
 % \begin{variable}{\c_@@_forth_mod_int}
 %   Cells can take up to \(2^{24}\) values.  Arithmetic is often
 %   performed modulo that number.
@@ -644,13 +654,63 @@
 %    \end{macrocode}
 % \end{variable}
 %
-% \begin{variable}{\l_@@_forth_fp_seq}
-%   The floating point stack stores floating point numbers as token
-%   lists (through \cs{fp_to_tl:n}).
+% \begin{macro}[int, EXP]{\@@_forth_signed:N}
+%   Turn the unsigned |#1| into a signed number, by subtracting
+%   \(2^{24}\) if it is not less than \(2^{23}\).  We make use of
+%   \eTeX{}'s rounding behaviour: dividing |#1| by \(2^{24}\) yields
+%   \(0\) for numbers less than \(2^{23}\) and \(1\) for numbers in
+%   \([2^{23}, 2^{24}-1]\).
 %    \begin{macrocode}
-\seq_new:N \l_@@_forth_fp_seq
+\cs_new:Npn \@@_forth_signed:N #1
+  {
+    \int_eval:n
+      { #1 - #1 / \c_@@_forth_mod_int * \c_@@_forth_mod_int }
+  }
 %    \end{macrocode}
-% \end{variable}
+% \end{macro}
+%
+% \subsubsection{Bound-checking}
+%
+% \begin{macro}[int]
+%   {\@@_forth_check_data_bottom:, \@@_forth_check_data_top:}
+%   After the |HERE| pointer is updated, it may lie outside the allowed
+%   range from \texttt{data_min} to \texttt{data_text}.
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \@@_forth_check_data_bottom:
+  {
+    \int_compare:nNnT
+      \l_@@_forth_data_here_int < \g_@@_forth_data_min_int
+      { \@@_forth_abort:nx { out-of-bounds } { } }
+  }
+\cs_new_protected_nopar:Npn \@@_forth_check_data_top:
+  {
+    \int_compare:nNnT
+      \l_@@_forth_data_here_int > \l_@@_forth_data_text_int
+      { \@@_forth_abort:nx { out-of-memory } { } }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int]
+%   {\@@_forth_check_stack_bottom:n, \@@_forth_check_stack_top:n}
+%   Check that we can pop/push |#1| items from/onto the stack.
+%    \begin{macrocode}
+\cs_new_protected:Npn \@@_forth_check_stack_bottom:n #1
+  {
+    \int_compare:nNnT
+      \l_@@_forth_stack_here_int
+      < { \g_@@_forth_stack_min_int + #1 }
+      { \@@_forth_abort:nx { empty-stack } { } }
+  }
+\cs_new_protected:Npn \@@_forth_check_stack_top:n #1
+  {
+    \int_compare:nNnT
+      { \l_@@_forth_stack_here_int + #1 }
+      > \g_@@_forth_stack_max_int
+      { \@@_forth_abort:nx { out-of-memory } { } }
+  }
+%    \end{macrocode}
+% \end{macro}
 %
 % \subsubsection{Manipulating data space}
 %
@@ -679,11 +739,9 @@
 %    \begin{macrocode}
 \cs_new_protected:Npn \@@_forth_put_here:n #1
   {
-    \int_compare:nNnF
-      \l_@@_forth_data_here_int < \l_@@_forth_data_text_int
-      { \@@_forth_abort:nx { out-of-memory } { } }
     \@@_forth_data_gset:nn { \l_@@_forth_data_here_int } {#1}
     \int_incr:N \l_@@_forth_data_here_int
+    \@@_forth_check_data_top:
   }
 %    \end{macrocode}
 % \end{macro}
@@ -706,6 +764,7 @@
 % \subsubsection{Manipulating the data stack}
 %
 % \begin{macro}[int]{\@@_forth_pop_int_unsafe:N}
+%   Pop an unsigned integer from the stack, with no bound-checking.
 %    \begin{macrocode}
 \cs_new_protected:Npn \@@_forth_pop_int_unsafe:N #1
   {
@@ -719,61 +778,11 @@
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[int]{\@@_forth_pop_int:N}
-%   Get data from the stack.  The stack is empty if \texttt{stack_here}
-%   is \texttt{stack_min}.
+% \begin{macro}[int]{\@@_forth_push_unsafe:n}
+%   Push an unsigned integer onto the stack, with no bound-checking.
 %    \begin{macrocode}
-\cs_new_protected:Npn \@@_forth_pop_int:N #1
+\cs_new_protected:Npn \@@_forth_push_unsafe:n #1
   {
-    \int_compare:nNnF
-      \l_@@_forth_stack_here_int > \g_@@_forth_stack_min_int
-      { \@@_forth_abort:nx { empty-stack } { } }
-    \@@_forth_pop_int_unsafe:N #1
-  }
-%    \end{macrocode}
-% \end{macro}
-%
-% ^^A todo: Improve bound-checking.
-% ^^A todo: Are the multi-pop useful?  Yes, if single bound checking.
-% \begin{macro}[int]
-%   {
-%     \@@_forth_pop_int:NN,
-%     \@@_forth_pop_int:NNN,
-%     \@@_forth_pop_int:NNNN
-%   }
-%   Get multiple integers from stack.  Note that things are popped
-%   backwards, so that the last argument gets the top of the stack.
-%    \begin{macrocode}
-\cs_new_protected:Npn \@@_forth_pop_int:NN #1#2
-  {
-    \@@_forth_pop_int:N #2
-    \@@_forth_pop_int:N #1
-  }
-\cs_new_protected:Npn \@@_forth_pop_int:NNN #1#2#3
-  {
-    \@@_forth_pop_int:N #3
-    \@@_forth_pop_int:N #2
-    \@@_forth_pop_int:N #1
-  }
-\cs_new_protected:Npn \@@_forth_pop_int:NNNN #1#2#3#4
-  {
-    \@@_forth_pop_int:N #4
-    \@@_forth_pop_int:N #3
-    \@@_forth_pop_int:N #2
-    \@@_forth_pop_int:N #1
-  }
-%    \end{macrocode}
-% \end{macro}
-%
-% \begin{macro}[int]{\@@_forth_push:n}
-%   Push an unsigned integer onto the stack, at \texttt{stack_here},
-%   failing if the stack is full.
-%    \begin{macrocode}
-\cs_new_protected:Npn \@@_forth_push:n #1
-  {
-    \int_compare:nNnF
-      \l_@@_forth_stack_here_int < \g_@@_forth_stack_max_int
-      { \@@_forth_abort:nx { out-of-memory } { } }
     \@@_array_gset:Nnn \g_@@_forth_array
       \l_@@_forth_stack_here_int {#1}
     \int_incr:N \l_@@_forth_stack_here_int
@@ -783,49 +792,109 @@
 %
 % \begin{macro}[int]
 %   {
+%     \@@_forth_pop_int:N,
+%     \@@_forth_pop_int:NN,
+%     \@@_forth_pop_int:NNN,
+%     \@@_forth_pop_int:NNNN
+%   }
+%   Get multiple integers from stack, after checking that the stack has
+%   enough items.  Note that things are popped backwards, so that the
+%   last argument gets the top of the stack.
+%    \begin{macrocode}
+\cs_new_protected:Npn \@@_forth_pop_int:N #1
+  {
+    \@@_forth_check_stack_bottom:n \c_one
+    \@@_forth_pop_int_unsafe:N #1
+  }
+\cs_new_protected:Npn \@@_forth_pop_int:NN #1#2
+  {
+    \@@_forth_check_stack_bottom:n \c_two
+    \@@_forth_pop_int_unsafe:N #2
+    \@@_forth_pop_int_unsafe:N #1
+  }
+\cs_new_protected:Npn \@@_forth_pop_int:NNN #1#2#3
+  {
+    \@@_forth_check_stack_bottom:n \c_three
+    \@@_forth_pop_int_unsafe:N #3
+    \@@_forth_pop_int_unsafe:N #2
+    \@@_forth_pop_int_unsafe:N #1
+  }
+\cs_new_protected:Npn \@@_forth_pop_int:NNNN #1#2#3#4
+  {
+    \@@_forth_check_stack_bottom:n \c_four
+    \@@_forth_pop_int_unsafe:N #4
+    \@@_forth_pop_int_unsafe:N #3
+    \@@_forth_pop_int_unsafe:N #2
+    \@@_forth_pop_int_unsafe:N #1
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int]
+%   {
+%     \@@_forth_push:n,
 %     \@@_forth_push:nn,
 %     \@@_forth_push:nnn,
 %     \@@_forth_push:nnnn,
 %     \@@_forth_push:nnnnn,
 %     \@@_forth_push:nnnnnn,
 %   }
-%   Push multiple unsigned integers.
+%   Check that there is enough space, then push one or more unsigned
+%   integers onto the stack.
 %    \begin{macrocode}
+\cs_new_protected:Npn \@@_forth_push:n #1
+  {
+    \@@_forth_check_stack_top:n \c_one
+    \@@_forth_push_unsafe:n {#1}
+  }
 \cs_new_protected:Npn \@@_forth_push:nn #1#2
   {
-    \@@_forth_push:n {#1}
-    \@@_forth_push:n {#2}
+    \@@_forth_check_stack_top:n \c_two
+    \@@_forth_push_unsafe:n {#1}
+    \@@_forth_push_unsafe:n {#2}
   }
 \cs_new_protected:Npn \@@_forth_push:nnn #1#2#3
   {
-    \@@_forth_push:n {#1}
-    \@@_forth_push:n {#2}
-    \@@_forth_push:n {#3}
+    \@@_forth_check_stack_top:n \c_three
+    \@@_forth_push_unsafe:n {#1}
+    \@@_forth_push_unsafe:n {#2}
+    \@@_forth_push_unsafe:n {#3}
   }
 \cs_new_protected:Npn \@@_forth_push:nnnn #1#2#3#4
   {
-    \@@_forth_push:n {#1}
-    \@@_forth_push:n {#2}
-    \@@_forth_push:n {#3}
-    \@@_forth_push:n {#4}
+    \@@_forth_check_stack_top:n \c_four
+    \@@_forth_push_unsafe:n {#1}
+    \@@_forth_push_unsafe:n {#2}
+    \@@_forth_push_unsafe:n {#3}
+    \@@_forth_push_unsafe:n {#4}
   }
 \cs_new_protected:Npn \@@_forth_push:nnnnn #1#2#3#4#5
   {
-    \@@_forth_push:n {#1}
-    \@@_forth_push:n {#2}
-    \@@_forth_push:n {#3}
-    \@@_forth_push:n {#4}
-    \@@_forth_push:n {#5}
+    \@@_forth_check_stack_top:n \c_five
+    \@@_forth_push_unsafe:n {#1}
+    \@@_forth_push_unsafe:n {#2}
+    \@@_forth_push_unsafe:n {#3}
+    \@@_forth_push_unsafe:n {#4}
+    \@@_forth_push_unsafe:n {#5}
   }
 \cs_new_protected:Npn \@@_forth_push:nnnnnn #1#2#3#4#5#6
   {
-    \@@_forth_push:n {#1}
-    \@@_forth_push:n {#2}
-    \@@_forth_push:n {#3}
-    \@@_forth_push:n {#4}
-    \@@_forth_push:n {#5}
-    \@@_forth_push:n {#6}
+    \@@_forth_check_stack_top:n \c_six
+    \@@_forth_push_unsafe:n {#1}
+    \@@_forth_push_unsafe:n {#2}
+    \@@_forth_push_unsafe:n {#3}
+    \@@_forth_push_unsafe:n {#4}
+    \@@_forth_push_unsafe:n {#5}
+    \@@_forth_push_unsafe:n {#6}
   }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int]{\@@_forth_push_value:n}
+%   Push the value at a given address onto the stack.
+%    \begin{macrocode}
+\cs_new_protected:Npn \@@_forth_push_value:n #1
+  { \@@_forth_push:n { \@@_forth_data_get:n {#1} } }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -840,21 +909,6 @@
   {
     \@@_forth_push:n
       { \int_eval:n { \c_@@_forth_mod_int - 1 } }
-  }
-%    \end{macrocode}
-% \end{macro}
-%
-% \begin{macro}[int, EXP]{\@@_forth_signed:N}
-%   Turn the unsigned |#1| into a signed number, by subtracting
-%   \(2^{24}\) if it is not less than \(2^{23}\).  We make use of
-%   \eTeX{}'s rounding behaviour: dividing |#1| by \(2^{24}\) yields
-%   \(0\) for numbers less than \(2^{23}\) and \(1\) for numbers in
-%   \([2^{23}, 2^{24}-1]\).
-%    \begin{macrocode}
-\cs_new:Npn \@@_forth_signed:N #1
-  {
-    \int_eval:n
-      { #1 - #1 / \c_@@_forth_mod_int * \c_@@_forth_mod_int }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -896,10 +950,8 @@
 % \end{macro}
 %
 % \begin{variable}{\l_@@_forth_push_fp}
-%   When turning a signed number to an unsigned value for pushing onto
-%   the stack, one cannot use \cs{l_@@_tmpa_int}, as it may be used by
-%   the caller.  Similarly for outputting floating points modulo some
-%   number.
+%   This floating point variable is used when pushing a floating point
+%   expression converted to an integer onto the stack.
 %    \begin{macrocode}
 \fp_new:N \l_@@_forth_push_fp
 %    \end{macrocode}
@@ -918,14 +970,6 @@
              * round- ( \l_@@_forth_push_fp / \c_@@_forth_mod_int )
       }
   }
-%    \end{macrocode}
-% \end{macro}
-%
-% \begin{macro}[int]{\@@_forth_push_value:n}
-%   Push the value at a given address onto the stack.
-%    \begin{macrocode}
-\cs_new_protected:Npn \@@_forth_push_value:n #1
-  { \@@_forth_push:n { \@@_forth_data_get:n {#1} } }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -3686,26 +3730,24 @@
         - \l_@@_forth_input_word_begin_int
       }
     \int_sub:Nn \l_@@_forth_data_text_int { \l_@@_tmpa_int #1 }
-    \int_compare:nNnTF
+    \int_compare:nNnT
       \l_@@_forth_data_text_int < \l_@@_forth_data_here_int
       {
         \int_set_eq:NN \l_@@_forth_data_text_int
           \l_@@_forth_data_here_int
         \@@_forth_abort:nx { out-of-memory } { }
       }
+    \@@_forth_def_code:x
       {
-        \@@_forth_def_code:x
-          {
-            \@@_forth_push:n { \int_use:N \l_@@_forth_data_text_int }
-            #2
-          }
-        \int_set_eq:NN \l_@@_tmpb_int \l_@@_forth_data_text_int
-        #3
-        \@@_forth_store_interval:NNN
-          \l_@@_forth_input_word_begin_int
-          \l_@@_forth_input_word_end_int
-          \l_@@_tmpb_int
+        \@@_forth_push:n { \int_use:N \l_@@_forth_data_text_int }
+        #2
       }
+    \int_set_eq:NN \l_@@_tmpb_int \l_@@_forth_data_text_int
+    #3
+    \@@_forth_store_interval:NNN
+      \l_@@_forth_input_word_begin_int
+      \l_@@_forth_input_word_end_int
+      \l_@@_tmpb_int
   }
 %    \end{macrocode}
 % \end{macro}
@@ -4424,7 +4466,7 @@
     \@@_forth_pop_int:N \l_@@_tmpa_int
     \int_compare:nNnF \l_@@_tmpa_int = \c_zero
       {
-        \msg_term:n { ABORT~( \int_use:N \l_@@_tmpa_int ): ~ #1 }
+        \msg_term:n { ABORT~( \@@_forth_signed:N \l_@@_tmpa_int ): ~ #1 }
         \int_set_eq:NN \l_@@_forth_stack_here_int
           \g_@@_forth_stack_min_int
         \@@_forth_do_quit:
@@ -4484,7 +4526,7 @@
     \@@_forth_pop_int:NNNN
       \l_@@_tmpa_int \l_@@_tmpb_int
       \l_@@_tmpc_int \l_@@_tmpd_int
-    \@@_forth_push:nn
+    \@@_forth_push:nnnn
       { \l_@@_tmpc_int } { \l_@@_tmpd_int }
       { \l_@@_tmpa_int } { \l_@@_tmpb_int }
   }
@@ -4562,11 +4604,8 @@
 \@@_forth_new_core:nn { PICK }
   {
     \@@_forth_pop_int:N \l_@@_tmpa_int
-    \int_compare:nNnF
-      { \l_@@_forth_stack_here_int - \l_@@_tmpa_int }
-      > \g_@@_forth_stack_min_int
-      { \@@_forth_abort:nx { pick-too-far } { } }
-    \@@_forth_push:n
+    \@@_forth_check_stack_bottom:n { \l_@@_tmpa_int + \c_one }
+    \@@_forth_push_unsafe:n
       {
         \@@_array_item:Nn \g_@@_forth_array
           { \l_@@_forth_stack_here_int - \l_@@_tmpa_int - 1 }
@@ -4575,10 +4614,7 @@
 \@@_forth_new_core:nn { ROLL }
   {
     \@@_forth_pop_int:N \l_@@_tmpa_int
-    \int_compare:nNnF
-      { \l_@@_forth_stack_here_int - \l_@@_tmpa_int }
-      > \g_@@_forth_stack_min_int
-      { \@@_forth_abort:nx { pick-too-far } { } }
+    \@@_forth_check_stack_bottom:n { \l_@@_tmpa_int + \c_one }
     \int_set:Nn \l_@@_tmpb_int
       {
         \@@_array_item:Nn \g_@@_forth_array
