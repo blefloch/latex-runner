@@ -103,6 +103,11 @@
     \int_eval:n
       { #1 - #1 / \c__runner_forth_mod_int * \c__runner_forth_mod_int }
   }
+\cs_new_protected:Npn \__runner_forth_set_signed:N #1
+  {
+    \int_set:Nn #1
+      { #1 - #1 / \c__runner_forth_mod_int * \c__runner_forth_mod_int }
+  }
 \cs_new_protected_nopar:Npn \__runner_forth_check_data_bottom:
   {
     \int_compare:nNnT
@@ -1636,7 +1641,6 @@
   { \__runner_forth_state_to_interpret: }
 \__runner_forth_new_immediate_core:nn { ] }
   { \__runner_forth_state_to_compile: }
-\bool_new:N \l__runner_forth_loop_bool
 \__runner_forth_new_compilation_core:nn { DO }
   { \__runner_forth_control_open:n { 6 } }
 \__runner_forth_new_compilation_core:nn { ?DO }
@@ -1644,15 +1648,14 @@
 \__runner_forth_new_compilation_core:nn { LOOP }
   {
     \__runner_forth_compile_loop:n
-      { \int_set:Nn \l__runner_tmpc_int { \l__runner_tmpb_int + 1 } }
+      { \int_set_eq:NN \l__runner_tmpd_int \c_one }
   }
 \__runner_forth_new_compilation_core:nn { +LOOP }
   {
     \__runner_forth_compile_loop:n
       {
         \__runner_forth_pop_int:N \l__runner_tmpd_int
-        \int_set:Nn \l__runner_tmpc_int
-          { \l__runner_tmpb_int + \l__runner_tmpd_int }
+        \__runner_forth_set_signed:N \l__runner_tmpd_int
       }
   }
 \cs_new_protected:Npn \__runner_forth_compile_loop:n #1
@@ -1686,29 +1689,37 @@
 \cs_new_protected:Npn \__runner_forth_compiled_do:nnn #1#2#3
   {
     \__runner_forth_pop_int:NN \l__runner_tmpa_int \l__runner_tmpb_int
+    #1
     \__runner_forth_return_push:n { \l__runner_tmpa_int } % ^^A limit
     \__runner_forth_return_push:n { \l__runner_tmpb_int } % ^^A index
-    #1
-    \bool_set_true:N \l__runner_forth_loop_bool
-    \bool_do_while:Nn \l__runner_forth_loop_bool
+    \bool_do_while:Nn \c_true_bool
       {
         #2
         \__runner_forth_return_pop_int:N \l__runner_tmpb_int
         \__runner_forth_return_pop_int:N \l__runner_tmpa_int
         #3
-        \int_compare:nNnTF \l__runner_tmpb_int < \l__runner_tmpa_int
-          { \int_compare:nNnF }
-          { \int_compare:nNnT }
-              \l__runner_tmpc_int < \l__runner_tmpa_int
-              { \bool_set_false:N \l__runner_forth_loop_bool }
+        \int_compare:nNnTF \l__runner_tmpd_int < \c_zero
+          { \__runner_forth_compiled_do_aux:NN \int_compare:nNnT - }
+          { \__runner_forth_compiled_do_aux:NN \int_compare:nNnF + }
         \__runner_forth_return_push:n { \l__runner_tmpa_int }
-        \__runner_forth_return_push:n { \l__runner_tmpc_int }
+        \__runner_forth_return_push:n
+          {
+            \int_mod:nn
+              { \c__runner_forth_mod_int + \l__runner_tmpb_int + \l__runner_tmpd_int }
+              { \c__runner_forth_mod_int }
+          }
       }
-    \__runner_break_point:n
-      {
-        \__runner_forth_return_pop_int:N \l__runner_tmpb_int
-        \__runner_forth_return_pop_int:N \l__runner_tmpa_int
-      }
+    \__runner_forth_return_pop_int:N \l__runner_tmpb_int
+    \__runner_forth_return_pop_int:N \l__runner_tmpa_int
+    \__runner_break_point:n { }
+  }
+\cs_new_protected:Npn \__runner_forth_compiled_do_aux:NN #1#2
+  {
+    \int_set:Nn \l__runner_tmpc_int
+      { \l__runner_tmpa_int - \l__runner_tmpb_int }
+    #1 \l__runner_tmpc_int > \c_zero
+      { \int_add:Nn \l__runner_tmpc_int { #2 \c__runner_forth_mod_int } }
+    #1 \l__runner_tmpc_int > \l__runner_tmpd_int { \__runner_break:n { } }
   }
 \__runner_forth_new_compilation_core:nn { I }
   { \__runner_forth_def_code:x { \__runner_forth_ij:N 1 } }
@@ -1720,7 +1731,16 @@
       { \l__runner_forth_return_here_int - #1 }
   }
 \__runner_forth_new_compilation_core:nn { LEAVE }
-  { \__runner_forth_def_code:x { \__runner_break_protected:n { } } }
+  {
+    \__runner_forth_def_code:x
+      {
+        \__runner_break_protected:n
+          {
+            \__runner_forth_return_pop_int:N \l__runner_tmpb_int
+            \__runner_forth_return_pop_int:N \l__runner_tmpa_int
+          }
+      }
+  }
 \__runner_forth_new_core:nn { UNLOOP }
   {
     \__runner_forth_return_pop_int:N \l__runner_tmpa_int

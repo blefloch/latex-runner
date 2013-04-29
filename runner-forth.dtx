@@ -634,6 +634,7 @@
 % \end{variable}
 %
 % \begin{macro}[int, EXP]{\@@_forth_signed:N}
+% \begin{macro}[int]{\@@_forth_set_signed:N}
 %   Turn the unsigned |#1| into a signed number, by subtracting
 %   \(2^{24}\) if it is not less than \(2^{23}\).  We make use of
 %   \eTeX{}'s rounding behaviour: dividing |#1| by \(2^{24}\) yields
@@ -645,7 +646,13 @@
     \int_eval:n
       { #1 - #1 / \c_@@_forth_mod_int * \c_@@_forth_mod_int }
   }
+\cs_new_protected:Npn \@@_forth_set_signed:N #1
+  {
+    \int_set:Nn #1
+      { #1 - #1 / \c_@@_forth_mod_int * \c_@@_forth_mod_int }
+  }
 %    \end{macrocode}
+% \end{macro}
 % \end{macro}
 %
 % \subsubsection{Bound checking}
@@ -3475,12 +3482,6 @@
 % This section defines |DO|, |?DO|, |LOOP|, |+LOOP|, |I|, |J|, |LEAVE|,
 % |UNLOOP|.
 %
-% \begin{variable}{\l_@@_forth_loop_bool}
-%    \begin{macrocode}
-\bool_new:N \l_@@_forth_loop_bool
-%    \end{macrocode}
-% \end{variable}
-%
 % \begin{macro}[int]{DO, ?DO}
 %   Save the definition-so-far, and empty the variable, then push to the
 %   control-flow stack a flag indicating that a |DO| or a |?DO| is
@@ -3504,15 +3505,14 @@
 \@@_forth_new_compilation_core:nn { LOOP }
   {
     \@@_forth_compile_loop:n
-      { \int_set:Nn \l_@@_tmpc_int { \l_@@_tmpb_int + 1 } }
+      { \int_set_eq:NN \l_@@_tmpd_int \c_one }
   }
 \@@_forth_new_compilation_core:nn { +LOOP }
   {
     \@@_forth_compile_loop:n
       {
         \@@_forth_pop_int:N \l_@@_tmpd_int
-        \int_set:Nn \l_@@_tmpc_int
-          { \l_@@_tmpb_int + \l_@@_tmpd_int }
+        \@@_forth_set_signed:N \l_@@_tmpd_int
       }
   }
 \cs_new_protected:Npn \@@_forth_compile_loop:n #1
@@ -3543,6 +3543,8 @@
 % ^^A todo: now, this fails for i=-1, lim=0.
 % ^^A todo: bug, with overflow of negative numbers.
 % \begin{macro}[int]{\@@_forth_compiled_qdo:nn, \@@_forth_compiled_do:nnn}
+% \begin{macro}[aux]{\@@_forth_compiled_do_aux:NN}
+% ^^A todo: doc why this is correct.  The +mod is needed to make the result >=0
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \@@_forth_compiled_qdo:nn
   {
@@ -3555,31 +3557,40 @@
 \cs_new_protected:Npn \@@_forth_compiled_do:nnn #1#2#3
   {
     \@@_forth_pop_int:NN \l_@@_tmpa_int \l_@@_tmpb_int
+    #1
     \@@_forth_return_push:n { \l_@@_tmpa_int } % ^^A limit
     \@@_forth_return_push:n { \l_@@_tmpb_int } % ^^A index
-    #1
-    \bool_set_true:N \l_@@_forth_loop_bool
-    \bool_do_while:Nn \l_@@_forth_loop_bool
+    \bool_do_while:Nn \c_true_bool
       {
         #2
         \@@_forth_return_pop_int:N \l_@@_tmpb_int
         \@@_forth_return_pop_int:N \l_@@_tmpa_int
         #3
-        \int_compare:nNnTF \l_@@_tmpb_int < \l_@@_tmpa_int
-          { \int_compare:nNnF }
-          { \int_compare:nNnT }
-              \l_@@_tmpc_int < \l_@@_tmpa_int
-              { \bool_set_false:N \l_@@_forth_loop_bool }
+        \int_compare:nNnTF \l_@@_tmpd_int < \c_zero
+          { \@@_forth_compiled_do_aux:NN \int_compare:nNnT - }
+          { \@@_forth_compiled_do_aux:NN \int_compare:nNnF + }
         \@@_forth_return_push:n { \l_@@_tmpa_int }
-        \@@_forth_return_push:n { \l_@@_tmpc_int }
+        \@@_forth_return_push:n
+          {
+            \int_mod:nn
+              { \c_@@_forth_mod_int + \l_@@_tmpb_int + \l_@@_tmpd_int }
+              { \c_@@_forth_mod_int }
+          }
       }
-    \@@_break_point:n
-      {
-        \@@_forth_return_pop_int:N \l_@@_tmpb_int
-        \@@_forth_return_pop_int:N \l_@@_tmpa_int
-      }
+    \@@_forth_return_pop_int:N \l_@@_tmpb_int
+    \@@_forth_return_pop_int:N \l_@@_tmpa_int
+    \@@_break_point:n { }
+  }
+\cs_new_protected:Npn \@@_forth_compiled_do_aux:NN #1#2
+  {
+    \int_set:Nn \l_@@_tmpc_int
+      { \l_@@_tmpa_int - \l_@@_tmpb_int }
+    #1 \l_@@_tmpc_int > \c_zero
+      { \int_add:Nn \l_@@_tmpc_int { #2 \c_@@_forth_mod_int } }
+    #1 \l_@@_tmpc_int > \l_@@_tmpd_int { \@@_break:n { } }
   }
 %    \end{macrocode}
+% \end{macro}
 % \end{macro}
 %
 % \begin{macro}[int]{I, J}
@@ -3599,11 +3610,20 @@
 % \end{macro}
 %
 % \begin{macro}[int]{LEAVE}
-%   Break the current loop, which takes care of removing the loop
+%   Break the current loop, and remove the loop
 %   control parameters from the return stack.
 %    \begin{macrocode}
 \@@_forth_new_compilation_core:nn { LEAVE }
-  { \@@_forth_def_code:x { \@@_break_protected:n { } } }
+  {
+    \@@_forth_def_code:x
+      {
+        \@@_break_protected:n
+          {
+            \@@_forth_return_pop_int:N \l_@@_tmpb_int
+            \@@_forth_return_pop_int:N \l_@@_tmpa_int
+          }
+      }
+  }
 %    \end{macrocode}
 % \end{macro}
 %
