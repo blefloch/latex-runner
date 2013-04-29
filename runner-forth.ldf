@@ -273,40 +273,6 @@
              * round- ( \l__runner_forth_push_fp / \c__runner_forth_mod_int )
       }
   }
-\cs_new_protected:Npn \__runner_forth_control_open:n #1
-  {
-    \seq_push:NV \l__runner_forth_def_seq \l__runner_forth_def_code_tl
-    \tl_clear:N \l__runner_forth_def_code_tl
-    \int_compare:nNnF
-      \l__runner_forth_control_here_int < \g__runner_forth_control_max_int
-      { \__runner_forth_abort:nx { out-of-memory } { } }
-    \__runner_array_gset:Nnn \g__runner_forth_array
-      \l__runner_forth_control_here_int {#1}
-    \int_incr:N \l__runner_forth_control_here_int
-  }
-\prg_new_protected_conditional:Npnn \__runner_forth_control_close:n #1 { TF }
-  {
-    \__runner_forth_control_if_aux:nn {#1}
-      { \int_decr:N \l__runner_forth_control_here_int }
-  }
-\prg_new_protected_conditional:Npnn \__runner_forth_control_if:n #1 { TF }
-  { \__runner_forth_control_if_aux:nn {#1} { } }
-\cs_new_protected:Npn \__runner_forth_control_if_aux:nn #1#2
-  {
-    \int_compare:nNnTF
-      \l__runner_forth_control_here_int > \g__runner_forth_control_min_int
-      {
-        \int_compare:nNnTF
-          {
-            \__runner_array_item:Nn \g__runner_forth_array
-              { \l__runner_forth_control_here_int - 1 }
-          }
-          = {#1}
-          { #2 \prg_return_true: }
-          { \prg_return_false: }
-      }
-      { \prg_return_false: }
-  }
 \cs_new_protected:Npn \__runner_forth_return_pop_int:N #1
   {
     \int_compare:nNnF
@@ -364,7 +330,7 @@
           { \exp_not:n {#3} }
       }
     \prop_gput:Nnx \g__runner_forth_core_words_prop {#2}
-      { \int_eval:n { #1 00000 + \g__runner_forth_core_toks_int } }
+      { #1 \int_use:N \g__runner_forth_core_toks_int }
     \int_gincr:N \g__runner_forth_core_toks_int
   }
 \cs_new_protected:Npn \__runner_forth_core_alias:nn #1#2
@@ -376,8 +342,7 @@
 \cs_new_protected:Npn \__runner_forth_set_word_token:nn #1#2
   {
     \str_set:Nn \l__runner_forth_def_name_str {#1}
-    \prop_put:Nnx \l__runner_forth_words_prop {#1}
-      { \int_eval:n { 100000 + #2 } }
+    \prop_put:Nnx \l__runner_forth_words_prop {#1} { 1 \int_eval:n {#2} }
   }
 \cs_new_protected:Npn \__runner_forth_set_word:nn #1#2
   {
@@ -386,41 +351,39 @@
     \int_incr:N \l__runner_forth_toks_int
   }
 \cs_generate_variant:Nn \__runner_forth_set_word:nn { ox }
-\cs_new_protected_nopar:Npn \__runner_forth_input_word_and_set:x
+\cs_new_protected:Npn \__runner_forth_control_open:n #1
   {
-    \__runner_forth_input_word:
-    \__runner_forth_input_set_word:
-    \__runner_forth_set_word:ox \l__runner_forth_input_word_str
+    \seq_push:NV \l__runner_forth_def_seq \l__runner_forth_def_code_tl
+    \tl_clear:N \l__runner_forth_def_code_tl
+    \int_compare:nNnF
+      \l__runner_forth_control_here_int < \g__runner_forth_control_max_int
+      { \__runner_forth_abort:nx { out-of-memory } { } }
+    \__runner_array_gset:Nnn \g__runner_forth_array
+      \l__runner_forth_control_here_int {#1}
+    \int_incr:N \l__runner_forth_control_here_int
   }
-\cs_new_protected_nopar:Npn \__runner_forth_input_word_xt:N #1
+\prg_new_protected_conditional:Npnn \__runner_forth_control_close:n #1 { TF }
   {
-    \__runner_forth_input_word:
-    \__runner_forth_input_set_word:
-    \prop_get:NoNF \l__runner_forth_words_prop
-      \l__runner_forth_input_word_str #1
-      { \__runner_forth_abort_unknown_word: }
+    \__runner_forth_control_if_aux:nn {#1}
+      { \int_decr:N \l__runner_forth_control_here_int }
   }
-\cs_new_protected:Npn \__runner_forth_last_def_xt:N #1
+\prg_new_protected_conditional:Npnn \__runner_forth_control_if:n #1 { TF }
+  { \__runner_forth_control_if_aux:nn {#1} { } }
+\cs_new_protected:Npn \__runner_forth_control_if_aux:nn #1#2
   {
-    \prop_get:NoNF \l__runner_forth_words_prop
-      \l__runner_forth_def_name_str #1
+    \int_compare:nNnTF
+      \l__runner_forth_control_here_int > \g__runner_forth_control_min_int
       {
-        \__runner_forth_abort:nx { unknown-word }
-          { \l__runner_forth_def_name_str }
+        \int_compare:nNnTF
+          {
+            \__runner_array_item:Nn \g__runner_forth_array
+              { \l__runner_forth_control_here_int - 1 }
+          }
+          = {#1}
+          { #2 \prg_return_true: }
+          { \prg_return_false: }
       }
-  }
-\cs_new_protected:Npn \__runner_forth_abort:nx #1#2
-  {
-    \msg_error:nnx { runner/forth } {#1} {#2}
-    \int_set_eq:NN \l__runner_forth_stack_here_int
-      \g__runner_forth_stack_min_int
-    \__runner_forth_do_quit:
-  }
-\cs_new_protected_nopar:Npn \__runner_forth_abort_unknown_word:
-  {
-    \__runner_forth_input_set_word:
-    \__runner_forth_abort:nx { unknown-word }
-      { \l__runner_forth_input_word_str }
+      { \prg_return_false: }
   }
 \int_new:N \l__runner_forth_input_word_begin_int
 \int_new:N \l__runner_forth_input_word_end_int
@@ -722,6 +685,42 @@
             )
           }
       }
+  }
+\cs_new_protected_nopar:Npn \__runner_forth_input_word_and_set:x
+  {
+    \__runner_forth_input_word:
+    \__runner_forth_input_set_word:
+    \__runner_forth_set_word:ox \l__runner_forth_input_word_str
+  }
+\cs_new_protected_nopar:Npn \__runner_forth_input_word_xt:N #1
+  {
+    \__runner_forth_input_word:
+    \__runner_forth_input_set_word:
+    \prop_get:NoNF \l__runner_forth_words_prop
+      \l__runner_forth_input_word_str #1
+      { \__runner_forth_abort_unknown_word: }
+  }
+\cs_new_protected:Npn \__runner_forth_last_def_xt:N #1
+  {
+    \prop_get:NoNF \l__runner_forth_words_prop
+      \l__runner_forth_def_name_str #1
+      {
+        \__runner_forth_abort:nx { unknown-word }
+          { \l__runner_forth_def_name_str }
+      }
+  }
+\cs_new_protected:Npn \__runner_forth_abort:nx #1#2
+  {
+    \msg_error:nnx { runner/forth } {#1} {#2}
+    \int_set_eq:NN \l__runner_forth_stack_here_int
+      \g__runner_forth_stack_min_int
+    \__runner_forth_do_quit:
+  }
+\cs_new_protected_nopar:Npn \__runner_forth_abort_unknown_word:
+  {
+    \__runner_forth_input_set_word:
+    \__runner_forth_abort:nx { unknown-word }
+      { \l__runner_forth_input_word_str }
   }
 \int_new:N \l__runner_forth_state_address_int
 \int_new:N \l__runner_forth_tib_size_address_int

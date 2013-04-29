@@ -325,7 +325,7 @@
 \cs_generate_variant:Nn \str_set_convert:Nnnn { Nxnn }
 %    \end{macrocode}
 %
-% \subsection{Data structures}
+% \subsection{Data space and data stack}
 %
 % ^^A todo: convert the control-flow stack to be a simple tl.
 % ^^A todo: what is the return stack used for.
@@ -363,7 +363,7 @@
 % of \(24\)-bit unsigned integers.  See \texttt{runner.dtx} for the
 % array implementation.
 %
-% \subsubsection{Data space and stacks}
+% \subsubsection{The array}
 %
 % The array \cs{g_@@_forth_array} is split into several regions, in the
 % following order (from low-numbered to high-numbered items).  For
@@ -953,64 +953,6 @@
 %    \end{macrocode}
 % \end{macro}
 %
-% \subsubsection{Control-flow stack}
-%
-% \begin{macro}[int]{\@@_forth_control_open:n}
-%   All ``opening'' control words (|BEGIN|, |DO|, and so on) store the
-%   definition-so-far into the \texttt{def} stack, and empty the
-%   variable to accept further definition code.  Then an integer in
-%   \([0,9]\) onto the control-flow stack, at \texttt{control_here},
-%   failing if the control-flow stack is full.
-%    \begin{macrocode}
-\cs_new_protected:Npn \@@_forth_control_open:n #1
-  {
-    \seq_push:NV \l_@@_forth_def_seq \l_@@_forth_def_code_tl
-    \tl_clear:N \l_@@_forth_def_code_tl
-    \int_compare:nNnF
-      \l_@@_forth_control_here_int < \g_@@_forth_control_max_int
-      { \@@_forth_abort:nx { out-of-memory } { } }
-    \@@_array_gset:Nnn \g_@@_forth_array
-      \l_@@_forth_control_here_int {#1}
-    \int_incr:N \l_@@_forth_control_here_int
-  }
-%    \end{macrocode}
-% \end{macro}
-%
-% \begin{macro}[int, TF]{\@@_forth_control_close:n, \@@_forth_control_if:n}
-% \begin{macro}[aux]{\@@_forth_control_if_aux:nn}
-%   Read the top of the control-flow stack if not empty.  If this
-%   matches with |#1|, \texttt{control_close} removes it (by shifting
-%   \texttt{control_here}), while \texttt{control_if} does not.  Return
-%   \texttt{true} if the top of the control stack matched the argument;
-%   otherwise \texttt{false}.
-%    \begin{macrocode}
-\prg_new_protected_conditional:Npnn \@@_forth_control_close:n #1 { TF }
-  {
-    \@@_forth_control_if_aux:nn {#1}
-      { \int_decr:N \l_@@_forth_control_here_int }
-  }
-\prg_new_protected_conditional:Npnn \@@_forth_control_if:n #1 { TF }
-  { \@@_forth_control_if_aux:nn {#1} { } }
-\cs_new_protected:Npn \@@_forth_control_if_aux:nn #1#2
-  {
-    \int_compare:nNnTF
-      \l_@@_forth_control_here_int > \g_@@_forth_control_min_int
-      {
-        \int_compare:nNnTF
-          {
-            \@@_array_item:Nn \g_@@_forth_array
-              { \l_@@_forth_control_here_int - 1 }
-          }
-          = {#1}
-          { #2 \prg_return_true: }
-          { \prg_return_false: }
-      }
-      { \prg_return_false: }
-  }
-%    \end{macrocode}
-% \end{macro}
-% \end{macro}
-%
 % \subsubsection{Return stack}
 %
 % \begin{macro}[int]{\@@_forth_return_pop_int:N}
@@ -1048,7 +990,7 @@
 %    \end{macrocode}
 % \end{macro}
 %
-% \subsection{Defining words: name space and code space}
+% \subsection{Defining new words}
 %
 % The \TeX{} code to execute Forth words is stored within \tn{toks}
 % registers, labelled by so-called ``execution tokens''.  An execution
@@ -1114,11 +1056,11 @@
 %   \texttt{core_words} global property list are words from the core
 %   set, with which the \texttt{words} property list is initialized.
 %
-%   Values are a digit \(d \in \{1, 2, 3\}\) followed by five (decimal)
-%   digits forming an execution token \(\mathrm{xt}\), which lies in the
+%   Values are a digit \(d \in \{1, 2, 3\}\) followed by an execution
+%   token \(\mathrm{xt}\), which lies in the
 %   range \([0, 2^{15}-1]\) for \pdfTeX{} and \XeTeX{}, and in the range
 %   \([0, 2^{16}-1]\) for \LuaTeX{}.  The code to be run upon execution
-%   is always found in the \tn{toks} register given by this five-digit
+%   is always found in the \tn{toks} register given by this
 %   integer.  The compilation semantics is to append \(\mathrm{xt}\) to
 %   the current definition if \(d = 1\), to perform \(\mathrm{xt}\) if
 %   \(d = 2\), and to perform \(\mathrm{xt} + 1\) if \(d = 3\).
@@ -1139,6 +1081,7 @@
 %    \end{macrocode}
 % \end{macro}
 %
+% ^^A todo: remove distinction between core/non-core words.
 % \begin{macro}[int]
 %   {
 %     \@@_forth_new_core:nn,
@@ -1171,7 +1114,7 @@
           { \exp_not:n {#3} }
       }
     \prop_gput:Nnx \g_@@_forth_core_words_prop {#2}
-      { \int_eval:n { #1 00000 + \g_@@_forth_core_toks_int } }
+      { #1 \int_use:N \g_@@_forth_core_toks_int }
     \int_gincr:N \g_@@_forth_core_toks_int
   }
 %    \end{macrocode}
@@ -1195,8 +1138,7 @@
 \cs_new_protected:Npn \@@_forth_set_word_token:nn #1#2
   {
     \str_set:Nn \l_@@_forth_def_name_str {#1}
-    \prop_put:Nnx \l_@@_forth_words_prop {#1}
-      { \int_eval:n { 100000 + #2 } }
+    \prop_put:Nnx \l_@@_forth_words_prop {#1} { 1 \int_eval:n {#2} }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -1218,73 +1160,65 @@
 %    \end{macrocode}
 % \end{macro}
 %
-% \subsection{Helpers}
+% \subsubsection{Control-flow stack}
 %
-% \begin{macro}[int]{\@@_forth_input_word_and_set:x}
+% \begin{macro}[int]{\@@_forth_control_open:n}
+%   All ``opening'' control words (|BEGIN|, |DO|, and so on) store the
+%   definition-so-far into the \texttt{def} stack, and empty the
+%   variable to accept further definition code.  Then an integer in
+%   \([0,9]\) onto the control-flow stack, at \texttt{control_here},
+%   failing if the control-flow stack is full.
 %    \begin{macrocode}
-\cs_new_protected_nopar:Npn \@@_forth_input_word_and_set:x
+\cs_new_protected:Npn \@@_forth_control_open:n #1
   {
-    \@@_forth_input_word:
-    \@@_forth_input_set_word:
-    \@@_forth_set_word:ox \l_@@_forth_input_word_str
+    \seq_push:NV \l_@@_forth_def_seq \l_@@_forth_def_code_tl
+    \tl_clear:N \l_@@_forth_def_code_tl
+    \int_compare:nNnF
+      \l_@@_forth_control_here_int < \g_@@_forth_control_max_int
+      { \@@_forth_abort:nx { out-of-memory } { } }
+    \@@_array_gset:Nnn \g_@@_forth_array
+      \l_@@_forth_control_here_int {#1}
+    \int_incr:N \l_@@_forth_control_here_int
   }
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[int]{\@@_forth_input_word_xt:N}
+% \begin{macro}[int, TF]{\@@_forth_control_close:n, \@@_forth_control_if:n}
+% \begin{macro}[aux]{\@@_forth_control_if_aux:nn}
+%   Read the top of the control-flow stack if not empty.  If this
+%   matches with |#1|, \texttt{control_close} removes it (by shifting
+%   \texttt{control_here}), while \texttt{control_if} does not.  Return
+%   \texttt{true} if the top of the control stack matched the argument;
+%   otherwise \texttt{false}.
 %    \begin{macrocode}
-\cs_new_protected_nopar:Npn \@@_forth_input_word_xt:N #1
+\prg_new_protected_conditional:Npnn \@@_forth_control_close:n #1 { TF }
   {
-    \@@_forth_input_word:
-    \@@_forth_input_set_word:
-    \prop_get:NoNF \l_@@_forth_words_prop
-      \l_@@_forth_input_word_str #1
-      { \@@_forth_abort_unknown_word: }
+    \@@_forth_control_if_aux:nn {#1}
+      { \int_decr:N \l_@@_forth_control_here_int }
   }
-%    \end{macrocode}
-% \end{macro}
-%
-% \begin{macro}[int]{\@@_forth_last_def_xt:N}
-%    \begin{macrocode}
-\cs_new_protected:Npn \@@_forth_last_def_xt:N #1
+\prg_new_protected_conditional:Npnn \@@_forth_control_if:n #1 { TF }
+  { \@@_forth_control_if_aux:nn {#1} { } }
+\cs_new_protected:Npn \@@_forth_control_if_aux:nn #1#2
   {
-    \prop_get:NoNF \l_@@_forth_words_prop
-      \l_@@_forth_def_name_str #1
+    \int_compare:nNnTF
+      \l_@@_forth_control_here_int > \g_@@_forth_control_min_int
       {
-        \@@_forth_abort:nx { unknown-word }
-          { \l_@@_forth_def_name_str }
+        \int_compare:nNnTF
+          {
+            \@@_array_item:Nn \g_@@_forth_array
+              { \l_@@_forth_control_here_int - 1 }
+          }
+          = {#1}
+          { #2 \prg_return_true: }
+          { \prg_return_false: }
       }
+      { \prg_return_false: }
   }
 %    \end{macrocode}
+% \end{macro}
 % \end{macro}
 %
-% ^^A todo: also empty the def_code etc.?
-% \begin{macro}[int]{\@@_forth_abort:nx}
-%   Some ambiguous conditions lead the interpreter to balk and go away
-%   from all words being executed, emptying all stacks.
-%    \begin{macrocode}
-\cs_new_protected:Npn \@@_forth_abort:nx #1#2
-  {
-    \msg_error:nnx { runner/forth } {#1} {#2}
-    \int_set_eq:NN \l_@@_forth_stack_here_int
-      \g_@@_forth_stack_min_int
-    \@@_forth_do_quit:
-  }
-%    \end{macrocode}
-% \end{macro}
-%
-% \begin{macro}[int]{\@@_forth_abort_unknown_word:}
-%   After attempting to parse a word as a number and failing, this error
-%   is raised.
-%    \begin{macrocode}
-\cs_new_protected_nopar:Npn \@@_forth_abort_unknown_word:
-  {
-    \@@_forth_input_set_word:
-    \@@_forth_abort:nx { unknown-word }
-      { \l_@@_forth_input_word_str }
-  }
-%    \end{macrocode}
-% \end{macro}
+% \subsection{Helpers}
 %
 % \subsubsection{Input}
 %
@@ -1294,10 +1228,11 @@
 %     \l_@@_forth_input_word_end_int,
 %     \l_@@_forth_input_word_str,
 %   }
-%   The parsed word is stored as the \texttt{input_word} string, and the
-%   \texttt{input_word_begin} and \texttt{input_word_end} integers point
-%   to the first character and just after the last one in the source
-%   buffer.
+%   When parsing a word, the \texttt{input_word_begin} and
+%   \texttt{input_word_end} integers point to the first character and
+%   just after the last one in the source buffer.  Some functions
+%   manipulate a native-string representation of the word, and store it
+%   in the \texttt{input_word} string.
 %    \begin{macrocode}
 \int_new:N \l_@@_forth_input_word_begin_int
 \int_new:N \l_@@_forth_input_word_end_int
@@ -1796,6 +1731,72 @@
 %
 % \subsubsection{Misc}
 %
+% \begin{macro}[int]{\@@_forth_input_word_and_set:x}
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \@@_forth_input_word_and_set:x
+  {
+    \@@_forth_input_word:
+    \@@_forth_input_set_word:
+    \@@_forth_set_word:ox \l_@@_forth_input_word_str
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int]{\@@_forth_input_word_xt:N}
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \@@_forth_input_word_xt:N #1
+  {
+    \@@_forth_input_word:
+    \@@_forth_input_set_word:
+    \prop_get:NoNF \l_@@_forth_words_prop
+      \l_@@_forth_input_word_str #1
+      { \@@_forth_abort_unknown_word: }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int]{\@@_forth_last_def_xt:N}
+%    \begin{macrocode}
+\cs_new_protected:Npn \@@_forth_last_def_xt:N #1
+  {
+    \prop_get:NoNF \l_@@_forth_words_prop
+      \l_@@_forth_def_name_str #1
+      {
+        \@@_forth_abort:nx { unknown-word }
+          { \l_@@_forth_def_name_str }
+      }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% ^^A todo: also empty the def_code etc.?
+% \begin{macro}[int]{\@@_forth_abort:nx}
+%   Some ambiguous conditions lead the interpreter to balk and go away
+%   from all words being executed, emptying all stacks.
+%    \begin{macrocode}
+\cs_new_protected:Npn \@@_forth_abort:nx #1#2
+  {
+    \msg_error:nnx { runner/forth } {#1} {#2}
+    \int_set_eq:NN \l_@@_forth_stack_here_int
+      \g_@@_forth_stack_min_int
+    \@@_forth_do_quit:
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int]{\@@_forth_abort_unknown_word:}
+%   After attempting to parse a word as a number and failing, this error
+%   is raised.
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \@@_forth_abort_unknown_word:
+  {
+    \@@_forth_input_set_word:
+    \@@_forth_abort:nx { unknown-word }
+      { \l_@@_forth_input_word_str }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
 % \begin{variable}
 %   {
 %     \l_@@_forth_state_address_int,
@@ -1854,7 +1855,7 @@
       }
   }
 %    \end{macrocode}
-% ^^A todo: rename \@@_forth_store_interval:NNN to \@@_forth_move_up:NNN
+% ^^A todo: rename \@@_forth_store_interval:NNN to \@@_forth_copy_up:NNN
 % \end{macro}
 %
 % \subsection{Running the interpreter}
