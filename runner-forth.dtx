@@ -37,6 +37,9 @@
 % Additionally, the interpreter provides the Programming-Tools words
 % |.S|, |?|, |DUMP|, |[IF]|, |[THEN]|, |[ELSE]|, |BYE|.
 %
+% ^^A The words |SEE|, |WORDS|, |;CODE|, |AHEAD|, |ASSEMBLER|, |CODE|,
+% ^^A |CS-PICK|, |CS-ROLL|, |EDITOR|, |FORGET|, are not implemented.
+%
 % In non-interactive mode (common case within a \TeX{} document), the
 % system reads \plang{forth} code and input from files, or obtains them
 % from \TeX{}, hence it has no prompt.  This mode is otherwise
@@ -107,7 +110,7 @@
 % Arithmetic operations take arguments from the stack and push their
 % result back onto the stack.
 % \begin{itemize}
-% \item |ABS| and |NEGATE| are both unary: |(n -- n)|.
+% \item |ABS|, |NEGATE|, |1+| and |1-| are unary: |(n -- n')|.
 % \item |MAX|, |MIN|, |-|, |+|, |*|, |/|, and |MOD| are binary: |(n1 n2 -- n)|
 % \item |/MOD| has stack effect |(n1 n2 -- n3 n4)| where |n4| is the
 %   quotient and |n3| the remainder.
@@ -123,7 +126,6 @@
 % Bit operations take arguments from the stack and push their result
 % back onto the stack.
 % \begin{itemize}
-% \item |1+| and |1-| add or subtract~\(1\) from the top of stack.
 % \item |2*| and |2/| shift the top of stack by one bit to the left/right.
 % \item |D2/| and |D2*| shift the topmost double-cell by one bit.
 % \item |INVERT| changes all bits of the top of stack.
@@ -1636,7 +1638,7 @@
     \int_compare:nNnTF \l_@@_tmpe_int = \l_@@_tmpf_int
       { \exp_after:wN \@@_forth_get_double_aux:NN \l_@@_tmpa_tl }
       {
-        \@@_to_number:
+        \@@_forth_to_number:
         \exp_args:Nx \@@_forth_get_float:n
           { \int_eval:n { \l_@@_tmpe_int - #1 - 1 } }
       }
@@ -1706,7 +1708,7 @@
     \int_zero:N \l_@@_tmpc_int
     \int_zero:N \l_@@_tmpd_int
     \@@_forth_get_number_sign:
-    \@@_to_number:
+    \@@_forth_to_number:
     \int_compare:nNnTF \l_@@_tmpe_int = \l_@@_tmpf_int
       { \exp_after:wN \@@_forth_get_float_aux:NNnnn \l_@@_tmpa_tl }
       { \@@_forth_abort_unknown_word: }
@@ -2014,13 +2016,13 @@
 % \end{macro}
 % \end{macro}
 %
-% \subsection{Core words}
+% \subsection{Words}
 %
 % \subsubsection{Arithmetic}
 %
-% This section defines the words |ABS|, |NEGATE|, |MAX|, |MIN|, |-|,
-% |+|, |*|, |/|, |MOD|, |/MOD|, |*/|, |M*|, |UM*|, |FM/MOD|, |SM/REM|,
-% |UM/MOD|, |*/MOD|.
+% This section defines the words |ABS|, |NEGATE|, |MAX|, |MIN|, |1+|,
+% |1-|, |-|, |+|, |*|, |/|, |MOD|, |/MOD|, |*/|, |M*|, |UM*|, |FM/MOD|,
+% |SM/REM|, |UM/MOD|, |*/MOD|, |DABS|, |DNEGATE|, |D+|, |D-|, |M+|.
 %
 % \begin{macro}[int]{ABS}
 %   Get a signed integer from the top of the stack, and change it to its
@@ -2071,6 +2073,25 @@
           { \@@_forth_signed:N \l_@@_tmpa_int }
           { \@@_forth_signed:N \l_@@_tmpb_int }
       }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int]{1+, 1-}
+%   Increment or decrement the top of the stack.  Catch overflow by
+%   making sure that the result is in \([-2^{24}, 2^{24}-1]\) and
+%   calling the \texttt{push_signed} function.
+%    \begin{macrocode}
+\@@_forth_new_core:nn { 1+ }
+  {
+    \@@_forth_pop_int:N \l_@@_tmpa_int
+    \@@_forth_push_signed:n
+      { \l_@@_tmpa_int + 1 - \c_@@_forth_mod_int }
+  }
+\@@_forth_new_core:nn { 1- }
+  {
+    \@@_forth_pop_int:N \l_@@_tmpa_int
+    \@@_forth_push_signed:n { \l_@@_tmpa_int - 1 }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -2302,29 +2323,126 @@
 %    \end{macrocode}
 % \end{macro}
 %
-% \subsubsection{Bit operations}
-%
-% This section defines the words |1+|, |1-|, |2*|, |2/|, |AND|, |OR|,
-% |XOR|, |INVERT|, |LSHIFT|, |RSHIFT|.
-%
-% \begin{macro}[int]{1+, 1-}
-%   Increment or decrement the top of the stack.  Catch overflow by
-%   making sure that the result is in \([-2^{24}, 2^{24}-1]\) and
-%   calling the \texttt{push_signed} function.
-%    \begin{macrocode}
-\@@_forth_new_core:nn { 1+ }
+% \begin{macro}[int]{DABS}
+%   If the cell pair \((a,b)\) has \(b < 2^{23}\), it represents a
+%   positive number and we push \((a,b)\).  Otherwise, push \((2^{24}-a,
+%   2^{24}-1-b)\), with the exception of \((0, 2^{23})\), whose absolute
+%   value cannot be expressed as a non-negative double-cell number.
+%   \begin{macrocode}
+\@@_forth_new_core:nn { DABS }
   {
-    \@@_forth_pop_int:N \l_@@_tmpa_int
-    \@@_forth_push_signed:n
-      { \l_@@_tmpa_int + 1 - \c_@@_forth_mod_int }
-  }
-\@@_forth_new_core:nn { 1- }
-  {
-    \@@_forth_pop_int:N \l_@@_tmpa_int
-    \@@_forth_push_signed:n { \l_@@_tmpa_int - 1 }
+    \@@_forth_pop_int:NN \l_@@_tmpa_int \l_@@_tmpb_int
+    \bool_if:nTF
+      {
+        \int_compare_p:nNn
+          \l_@@_tmpb_int < { \c_@@_forth_mod_int / \c_two }
+        ||
+        \int_compare_p:nNn
+          \l_@@_tmpb_int = { \c_@@_forth_mod_int / \c_two }
+        &&
+        \int_compare_p:nNn \l_@@_tmpa_int = \c_zero
+      }
+      { \@@_forth_push:nn { \l_@@_tmpa_int } { \l_@@_tmpb_int } }
+      {
+        \@@_forth_push:nn
+          { \c_@@_forth_mod_int - \l_@@_tmpa_int }
+          { \c_@@_forth_mod_int - 1 - \l_@@_tmpb_int }
+      }
   }
 %    \end{macrocode}
 % \end{macro}
+%
+% \begin{macro}[int]{DNEGATE}
+%   Unless the cell pair \((a,b)\) is zero, push \((2^{24}-a,
+%   2^{24}-1-b)\).
+%   \begin{macrocode}
+\@@_forth_new_core:nn { DNEGATE }
+  {
+    \@@_forth_pop_int:NN \l_@@_tmpa_int \l_@@_tmpb_int
+    \int_compare:nNnTF
+      { \l_@@_tmpa_int + \l_@@_tmpb_int } = \c_zero
+      { \@@_forth_push:nn { \c_zero } { \c_zero } }
+      {
+        \@@_forth_push:nn
+          { \c_@@_forth_mod_int - \l_@@_tmpa_int }
+          { \c_@@_forth_mod_int - 1 - \l_@@_tmpb_int }
+      }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int]{D+}
+%   Pop \((a,b)\) and \((c,d)\).  Compute \(a' = a + c - 2^{14}\) and
+%   \(b' = b + d - 2^{14} + \text{carry}\), where the carry is \(1\) if
+%   \(a'\geq 0\).  Push \(a'\in[-2^{24},2^{24}-1]\) and
+%   \(b'\in[-2^{24},2^{24}-1]\), both reduced modulo \(2^{24}\).
+%    \begin{macrocode}
+\@@_forth_new_core:nn { D+ }
+  {
+    \@@_forth_pop_int:NNNN
+      \l_@@_tmpa_int \l_@@_tmpb_int
+      \l_@@_tmpc_int \l_@@_tmpd_int
+    \int_add:Nn \l_@@_tmpa_int
+      { \l_@@_tmpc_int - \c_@@_forth_mod_int }
+    \int_add:Nn \l_@@_tmpb_int
+      {
+        \l_@@_tmpd_int - \c_@@_forth_mod_int
+        \int_compare:nNnF \l_@@_tmpa_int < \c_zero { + \c_one }
+      }
+    \@@_forth_push_signed:n { \l_@@_tmpa_int }
+    \@@_forth_push_signed:n { \l_@@_tmpb_int }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int]{D-}
+%   Pop \((a,b)\) and \((c,d)\).  Compute \(a' = a - c\) and \(b' = b -
+%   d + \text{carry}\), where the carry is \(-1\) if \(a' < 0\).  Push
+%   \(a'\in[-2^{24},2^{24}-1]\) and \(b'\in[-2^{24},2^{24}-1]\), both
+%   reduced modulo \(2^{24}\).
+%    \begin{macrocode}
+\@@_forth_new_core:nn { D- }
+  {
+    \@@_forth_pop_int:NNNN
+      \l_@@_tmpa_int \l_@@_tmpb_int
+      \l_@@_tmpc_int \l_@@_tmpd_int
+    \int_sub:Nn \l_@@_tmpa_int \l_@@_tmpc_int
+    \int_add:Nn \l_@@_tmpb_int
+      {
+        \l_@@_tmpd_int
+        \int_compare:nNnT \l_@@_tmpa_int < \c_zero { - \c_one }
+      }
+    \@@_forth_push_signed:n { \l_@@_tmpa_int }
+    \@@_forth_push_signed:n { \l_@@_tmpb_int }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int]{M+}
+%   Pop \((a,b)\) and \(c\).  The number \(a' = a + c - 2^{24}\) is
+%   negative if there is no carry, and non-negative for a carry
+%   of~\(1\).  Perform the carry, then push \((a',b')\) onto the stack.
+%    \begin{macrocode}
+\@@_forth_new_core:nn { M+ }
+  {
+    \@@_forth_pop_int:NNN
+      \l_@@_tmpa_int \l_@@_tmpb_int \l_@@_tmpc_int
+    \int_add:Nn \l_@@_tmpa_int
+      { \l_@@_tmpc_int - \c_@@_forth_mod_int }
+    \@@_forth_push_signed:n { \l_@@_tmpa_int }
+    \@@_forth_push_signed:n
+      {
+        \l_@@_tmpb_int - \c_@@_forth_mod_int
+        \int_compare:nNnF \l_@@_tmpa_int < \c_zero { + \c_one }
+      }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \subsubsection{Bit operations}
+%
+% This section defines the words |2*|, |2/|, |AND|, |OR|,
+% |XOR|, |INVERT|, |LSHIFT|, |RSHIFT|, |D2/|, |D2*|.
 %
 % \begin{macro}[int]{2*, 2/}
 %   Multiply or divide the top of the stack by~\(2\).  For
@@ -2410,16 +2528,44 @@
 % \end{macro}
 %
 % \begin{macro}[int]{RSHIFT}
-%   The function \cs{@@_bit_rshift:NN} expects a signed integer, and
-%   repeatedly does floored division by \(2\).
+%   The function \cs{@@_bit_rshift:NN} repeatedly does floored division
+%   by \(2\).
 %    \begin{macrocode}
 \@@_forth_new_core:nn { RSHIFT }
   {
     \@@_forth_pop_int:NN \l_@@_tmpa_int \l_@@_tmpb_int
-    \int_set:Nn \l_@@_tmpa_int
-      { \@@_forth_signed:N \l_@@_tmpa_int }
     \@@_bit_rshift:NN \l_@@_tmpa_int \l_@@_tmpb_int
-    \@@_forth_push_signed:n { \l_@@_tmpa_int }
+    \@@_forth_push:n { \l_@@_tmpa_int }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int]{D2/, D2*}
+%    \begin{macrocode}
+\@@_forth_new_core:nn { D2/ }
+  {
+    \@@_forth_pop_int:NN \l_@@_tmpa_int \l_@@_tmpb_int
+    \int_if_even:nTF { \l_@@_tmpb_int }
+      { \int_set:Nn \l_@@_tmpb_int { \l_@@_tmpb_int / 2 } }
+      {
+        \int_add:Nn \l_@@_tmpa_int { \c_@@_forth_mod_int }
+        \int_set:Nn \l_@@_tmpb_int { ( \l_@@_tmpb_int - 1 ) / 2 }
+      }
+    \@@_forth_push:nn
+      { ( \l_@@_tmpa_int + 1 ) / 2 - 1 }
+      { \l_@@_tmpb_int }
+  }
+\@@_forth_new_core:nn { D2* }
+  {
+    \@@_forth_pop_int:NN \l_@@_tmpa_int \l_@@_tmpb_int
+    \int_set:Nn \l_@@_tmpa_int { \l_@@_tmpa_int * \c_two }
+    \int_set:Nn \l_@@_tmpb_int { \l_@@_tmpb_int * \c_two }
+    \int_compare:nNnTF \l_@@_tmpa_int < \c_@@_forth_mod_int
+      { \int_incr:N \l_@@_tmpb_int }
+    \@@_forth_push_signed:n
+      { \l_@@_tmpa_int - \c_@@_forth_mod_int }
+    \@@_forth_push_signed:n
+      { \l_@@_tmpb_int - \c_@@_forth_mod_int }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -2427,7 +2573,8 @@
 % \subsubsection{Comparisons}
 %
 % This section defines the words |FALSE|, |TRUE|, |0=|, |0<>|, |0<|,
-% |0>|, |=|, |<>|, |U<|, |U>|, |<|, |>|, |WITHIN|, |?DUP|.
+% |0>|, |=|, |<>|, |U<|, |U>|, |<|, |>|, |WITHIN|, |?DUP|, |D0=|, |D0<|,
+% |D=|, |D<|, |DU<|, |DMAX|, |DMIN|.
 %
 % \begin{macro}[int]{FALSE, TRUE}
 %   Pushing a \texttt{true} or \texttt{false} flag to the stack.
@@ -2467,6 +2614,7 @@
     \@@_forth_pop_int:N \l_@@_tmpa_int
     \int_compare:nNnTF
       { \@@_forth_signed:N \l_@@_tmpa_int } #1 \c_zero
+      { \@@_forth_push_true: } { \@@_forth_push_false: }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -2550,10 +2698,112 @@
 %    \end{macrocode}
 % \end{macro}
 %
+% \begin{macro}[int]{D0=, D0<}
+%   A cell pair is zero if both \(a\) and \(b\) vanish.  It is negative
+%   if \(b\in[2^{23},2^{24}-1]\).
+%    \begin{macrocode}
+\@@_forth_new_core:nn { D0= }
+  {
+    \@@_forth_pop_int:NN \l_@@_tmpa_int \l_@@_tmpb_int
+    \bool_if:nTF
+      {
+        \int_compare_p:nNn \l_@@_tmpa_int = \c_zero
+        && \int_compare_p:nNn \l_@@_tmpb_int = \c_zero
+      }
+      { \@@_forth_push_true: }
+      { \@@_forth_push_false: }
+  }
+\@@_forth_new_core:nn { D0< }
+  {
+    \@@_forth_pop_int:NN \l_@@_tmpa_int \l_@@_tmpb_int
+    \int_compare:nNnTF
+      { \@@_forth_signed:N \l_@@_tmpb_int } < \c_zero
+      { \@@_forth_push_true: }
+      { \@@_forth_push_false: }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int]{D=}
+%   Cell pairs are equal if both of their components match.
+%    \begin{macrocode}
+\@@_forth_new_core:nn { D= }
+  {
+    \@@_forth_pop_int:NNNN
+      \l_@@_tmpa_int \l_@@_tmpb_int
+      \l_@@_tmpc_int \l_@@_tmpd_int
+    \bool_if:nTF
+      {
+        \int_compare:nNnTF \l_@@_tmpa_int = \l_@@_tmpc_int
+        && \int_compare:nNnTF \l_@@_tmpb_int = \l_@@_tmpd_int
+      }
+      { \@@_forth_push_true: }
+      { \@@_forth_push_false: }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int]{D<, DU<, DMAX, DMIN}
+% \begin{macro}[aux]{\@@_forth_double_cmp:Nnn}
+%   Compare two signed or unsigned double-cell numbers \((a,b)\) and
+%   \((c,d)\).  The value of such a double-cell is \(a + b\cdot 2^{24}\)
+%   if \(b\in[0,2^{23}-1]\) and \(a + (b - 2^{24})\cdot 2^{24}\)
+%   otherwise.  The order is equivalent to lexicographical order, using
+%   signed comparison for the top cells \(b\) and \(d\), and then
+%   unsigned comparison for \(a\) and \(c\).  Here, \(e\) holds the
+%   difference of signed (or unsigned) numbers \(s(b) - s(d)\), in order
+%   to do several comparisons in a row.
+%    \begin{macrocode}
+\@@_forth_new_core:nn { D< }
+  {
+    \@@_forth_double_cmp:Nnn \@@_forth_signed:N
+      \@@_forth_push_true:
+      \@@_forth_push_false:
+  }
+\@@_forth_new_core:nn { DU< }
+  {
+    \@@_forth_double_cmp:Nnn \prg_do_nothing:
+      \@@_forth_push_true:
+      \@@_forth_push_false:
+  }
+\@@_forth_new_core:nn { DMAX }
+  {
+    \@@_forth_double_cmp:Nnn \@@_forth_signed:N
+      { \@@_forth_push:nn \l_@@_tmpc_int \l_@@_tmpd_int }
+      { \@@_forth_push:nn \l_@@_tmpa_int \l_@@_tmpb_int }
+  }
+\@@_forth_new_core:nn { DMIN }
+  {
+    \@@_forth_double_cmp:Nnn \@@_forth_signed:N
+      { \@@_forth_push:nn \l_@@_tmpa_int \l_@@_tmpb_int }
+      { \@@_forth_push:nn \l_@@_tmpc_int \l_@@_tmpd_int }
+  }
+\cs_new_protected:Npn \@@_forth_double_cmp:Nnn #1#2#3
+  {
+    \@@_forth_pop_int:NNNN
+      \l_@@_tmpa_int \l_@@_tmpb_int
+      \l_@@_tmpc_int \l_@@_tmpd_int
+    \int_set:Nn \l_@@_tmpe_int
+      { #1 \l_@@_tmpb_int - #1 \l_@@_tmpd_int }
+    \int_compare:nNnTF { \l_@@_tmpe_int } < \c_zero
+      {#2}
+      {
+        \int_compare:nNnTF { \l_@@_tmpe_int } = \c_zero
+          {
+            \int_compare:nNnTF \l_@@_tmpa_int < \l_@@_tmpc_int
+              {#2} {#3}
+          }
+          {#3}
+      }
+  }
+%    \end{macrocode}
+% \end{macro}
+% \end{macro}
+%
 % \subsubsection{Conditionals}
 %
 % This section defines the words |IF|, |ELSE|, |THEN|, |CASE|, |OF|,
-% |ENDOF|, |ENDCASE|.
+% |ENDOF|, |ENDCASE|, |[IF]|, |[THEN]|, |[ELSE]|.
 %
 % \begin{macro}[int]{IF}
 %   Save the definition-so-far in the \texttt{def} stack, and empty that
@@ -2721,12 +2971,73 @@
 % \end{macro}
 % \end{macro}
 %
+% \begin{variable}{\l_@@_forth_if_int}
+%   Nesting level of conditionals.
+%    \begin{macrocode}
+\int_new:N \l_@@_forth_if_int
+%    \end{macrocode}
+% \end{variable}
+%
+% \begin{macro}[int]{[IF], [ELSE], [THEN]}
+% \begin{macro}[aux]{\@@_forth_bracket_if:n}
+%   |[IF]| jumps to the matching [ELSE] or [THEN] if the top of flag is
+%   \texttt{false} (\(0\)).  |[ELSE]| jumps unconditionally to the
+%   matching [THEN].  |[THEN]| does nothing.  This is done by repeatedly
+%   getting words, until the \texttt{forth_if} integer, which keeps
+%   track of nesting, becomes negative.  Each word is compared with the
+%   words |[IF]| (increment nesting), |[ELSE]| (do nothing, or for
+%   |[IF]| check that the nesting is non-zero), |[THEN]| (decrement
+%   nesting).  An empty word marks the end of the line.
+%    \begin{macrocode}
+\@@_forth_new_immediate_core:nn { [IF] }
+  {
+    \@@_forth_pop_int:N \l_@@_tmpa_int
+    \int_compare:nNnT \l_@@_tmpa_int = \c_zero
+      {
+        \@@_forth_bracket_if:n
+          {
+            { [ELSE] }
+              {
+                \int_compare:nNnF \l_@@_forth_if_int > \c_zero
+                  { \int_decr:N \l_@@_forth_if_int }
+              }
+          }
+      }
+  }
+\@@_forth_new_immediate_core:nn { [ELSE] }
+  { \@@_forth_bracket_if:n { } }
+\@@_forth_new_immediate_core:nn { [THEN] } { }
+\cs_new_protected:Npn \@@_forth_bracket_if:n #1
+  {
+    \int_zero:N \l_@@_forth_if_int
+    \int_until_do:nNnn \l_@@_forth_if_int < \c_zero
+      {
+        \@@_forth_input_word:
+        \@@_forth_input_set_word:
+        \str_case:onn { \l_@@_forth_input_word_str }
+          {
+            { }
+              {
+                \@@_forth_refill:TF { }
+                  { \int_set_eq:NN \l_@@_forth_if_int \c_minus_one }
+              }
+            {  [IF]  } { \int_incr:N \l_@@_forth_if_int }
+            { [THEN] } { \int_decr:N \l_@@_forth_if_int }
+            #1
+          }
+          { }
+      }
+  }
+%    \end{macrocode}
+% \end{macro}
+% \end{macro}
+%
 % \subsubsection{Defining words}
 %
-% This section defines the words |CONSTANT|, |CREATE|, |VARIABLE|,
-% |>BODY|, |VALUE|, |TO|, |:NONAME|, |:|, |DOES>|, |;|, |IMMEDIATE|,
-% |LITERAL|, |MARKER|, |POSTPONE|, |[COMPILE]|, |RECURSE|, |COMPILE,|,
-% |STATE|, |[|, |]|.
+% This section defines the words |CONSTANT|, |2CONSTANT|, |CREATE|,
+% |VARIABLE|, |2VARIABLE|, |>BODY|, |VALUE|, |TO|, |:NONAME|, |:|,
+% |DOES>|, |;|, |IMMEDIATE|, |LITERAL|, |2LITERAL|, |MARKER|,
+% |POSTPONE|, |[COMPILE]|, |RECURSE|, |COMPILE,|, |STATE|, |[|, |]|.
 %
 % \begin{variable}{\l_@@_forth_def_token_int, \l_@@_forth_def_code_tl}
 %   The execution token whose definition is being built, and the
@@ -2769,9 +3080,9 @@
 %    \end{macrocode}
 % \end{variable}
 %
-% \begin{macro}[int]{CONSTANT}
-%   The next word in the input buffer is defined to push the given
-%   integer value.
+% \begin{macro}[int]{CONSTANT, 2CONSTANT}
+%   The next word in the input buffer is defined to push the topmost
+%   cell or cell pair.
 %    \begin{macrocode}
 \@@_forth_new_core:nn { CONSTANT }
   {
@@ -2779,22 +3090,38 @@
     \@@_forth_input_word_and_set:x
       { \@@_forth_push:n { \int_use:N \l_@@_tmpa_int } }
   }
+\@@_forth_new_core:nn { 2CONSTANT }
+  {
+    \@@_forth_pop_int:NN \l_@@_tmpa_int \l_@@_tmpb_int
+    \@@_forth_input_word_and_set:x
+      {
+        \@@_forth_push:nn
+          { \int_use:N \l_@@_tmpa_int }
+          { \int_use:N \l_@@_tmpb_int }
+      }
+  }
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[int]{CREATE, VARIABLE}
+% \begin{macro}[int]{CREATE, VARIABLE, 2VARIABLE}
 % \begin{macro}[aux]{\@@_forth_create:}
 %   The auxiliary reads the next word in the input buffer and defines it
 %   to push the current value of |HERE|.  No space is allotted.  The
 %   |VARIABLE| word additionally reserves one cell by putting |0| there
 %   (actually putting a fixed value is unnecessary, but that is the
-%   available auxiliary).
+%   available auxiliary), and the |2VARIABLE| word reserves two cells.
 %    \begin{macrocode}
 \@@_forth_new_core:nn { CREATE }
   { \@@_forth_create: }
 \@@_forth_new_core:nn { VARIABLE }
   {
     \@@_forth_create:
+    \@@_forth_put_here:n { 0 }
+  }
+\@@_forth_new_core:nn { 2VARIABLE }
+  {
+    \@@_forth_create:
+    \@@_forth_put_here:n { 0 }
     \@@_forth_put_here:n { 0 }
   }
 \cs_new_protected_nopar:Npn \@@_forth_create:
@@ -3039,15 +3366,26 @@
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[int]{LITERAL}
-%   The current top of stack is stored in the current definition: it
-%   will be pushed back onto the stack at run-time.
+% \begin{macro}[int]{LITERAL, 2LITERAL}
+%   The current top of stack cell or double-cell is stored in the
+%   current definition: it will be pushed back onto the stack at
+%   run-time.
 %    \begin{macrocode}
 \@@_forth_new_compilation_core:nn { LITERAL }
   {
     \@@_forth_pop_int:N \l_@@_tmpa_int
     \@@_forth_def_code:x
       { \@@_forth_push:n { \int_use:N \l_@@_tmpa_int } }
+  }
+\@@_forth_new_compilation_core:nn { 2LITERAL }
+  {
+    \@@_forth_pop_int:NN \l_@@_tmpa_int \l_@@_tmpb_int
+    \@@_forth_def_code:x
+      {
+        \@@_forth_push:nn
+          { \int_use:N \l_@@_tmpa_int }
+          { \int_use:N \l_@@_tmpb_int }
+      }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -3545,8 +3883,8 @@
     \@@_forth_input_word:
     \@@_forth_def_code:x
       {
-        \@@_forth_push_value:n
-          { \int_use:N \l_@@_forth_input_word_begin_int }
+        \@@_forth_push:n
+          { \@@_forth_data_get:N \l_@@_forth_input_word_begin_int }
       }
   }
 %    \end{macrocode}
@@ -3629,7 +3967,7 @@
 % \begin{macro}[int]{COUNT}
 %   Convert the address of a counted string to its length (on top of the
 %   stack), and the address of the first character.  This could be
-%   defined with |: COUNT DUP 1+ SWAP @ ;| but this is faster.
+%   defined with |: COUNT DUP CHAR+ SWAP @ ;| but this is faster.
 %    \begin{macrocode}
 \@@_forth_new_core:nn { COUNT }
   {
@@ -3891,7 +4229,7 @@
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[int]{!}
+% \begin{macro}[int]{!, C!}
 %   Store value at a given address.  Since all addresses are aligned,
 %   |C!| is equivalent to~|!|.
 %    \begin{macrocode}
@@ -3921,8 +4259,8 @@
 % \end{macro}
 %
 % \begin{macro}[int]{+!}
-%   Sum \(a\) and the value at \(b\) into the integer
-%   \cs{l_@@_tmpa_int}, then store that into the address at \(b\).
+%   Sum \(a\) and the value at \(b\) into the integer \(a\), then store
+%   that into the address at \(b\).
 %    \begin{macrocode}
 \@@_forth_new_core:nn { +! }
   {
@@ -4194,7 +4532,8 @@
 % \subsubsection{Output}
 %
 % This section defines the words |.|, |U.|, |.R|, |U.R|, |."|, |.(|,
-% |BL|, |CR|, |EMIT|, |SPACE|, |SPACES|, |TYPE|.%^^A)
+% |BL|, |CR|, |EMIT|, |SPACE|, |SPACES|, |TYPE|, |D.|, |D.R|, |.S|, |?|,
+% |DUMP|.%^^A)
 %
 % \begin{macro}[int]{., U.}
 % \begin{macro}[aux]{\@@_forth_outnum:n}
@@ -4347,9 +4686,119 @@
 %    \end{macrocode}
 % \end{macro}
 %
+% \begin{macro}[int]{D., D.R}
+% \begin{macro}[aux]{\@@_forth_outdouble:nn}
+%   Display a double-cell number.
+%    \begin{macrocode}
+\@@_forth_new_core:nn { D. }
+  { \@@_forth_outdouble:nn { } { , 32 } }
+\@@_forth_new_core:nn { D.R }
+  {
+    \@@_forth_pop_int:N \l_@@_tmpe_int
+    \@@_forth_outdouble:nn
+      {
+        \prg_replicate:nn
+          {
+            \int_max:nn
+              { \c_zero }
+              {
+                \l_@@_tmpe_int
+                - \g_@@_forth_picnum_max_int
+                + \l_@@_forth_picnum_here_int
+              }
+          }
+          { 32 , }
+      }
+      { }
+  }
+\cs_new_protected:Npn \@@_forth_outdouble:nn #1#2
+  {
+    \@@_forth_pop_int:NN \l_@@_tmpc_int \l_@@_tmpd_int
+    \int_set_eq:NN \l_@@_forth_picnum_here_int
+      \g_@@_forth_picnum_max_int
+    \tl_set:Nx \l_@@_tmpa_tl { \@@_forth_signed:N \l_@@_tmpc_int }
+    \int_set:Nn \l_@@_tmpb_int { \@@_forth_base: }
+    \int_while_do:nNnn
+      { \l_@@_tmpc_int + \l_@@_tmpd_int } > \c_zero
+      { \@@_forth_picnum_aux: }
+    \@@_output_clist:x
+      {
+        #1
+        \int_compare:nNnT { \l_@@_tmpa_tl } < \c_zero { 45 , }
+        \@@_forth_interval_to_clist:nn
+          \l_@@_forth_picnum_here_int
+          \g_@@_forth_picnum_max_int
+        #2
+      }
+  }
+%    \end{macrocode}
+% \end{macro}
+% \end{macro}
+%
+% \begin{macro}[int]{.S}
+%   Show the contents of the stack, in the current |BASE|.
+%    \begin{macrocode}
+\@@_forth_new_core:nn { .S }
+  {
+    \int_step_inline:nnnn
+      { \g_@@_forth_stack_min_int }
+      { 1 }
+      { \l_@@_forth_stack_here_int - 1 }
+      {
+        \@@_output:x
+          {
+            \int_to_base:nn
+              { \@@_array_item:Nn \g_@@_forth_array {#1} }
+              { \@@_forth_base: } ~
+          }
+      }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int]{?}
+%   Show the contents of an address cell.
+%    \begin{macrocode}
+\@@_forth_new_core:nn { ? }
+  {
+    \@@_forth_pop_int:N \l_@@_tmpa_int
+    \@@_output:x
+      {
+        \int_to_base:nn { \@@_forth_data_get:N \l_@@_tmpa_int }
+          { \@@_forth_base: } ~
+      }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int]{DUMP}
+%   Go from address~\(a\) to~\(a+b-1\), printing each cell's contents.
+%    \begin{macrocode}
+\@@_forth_new_core:nn { DUMP }
+  {
+    \@@_forth_pop_int:NN \l_@@_tmpa_int \l_@@_tmpb_int
+    \int_step_inline:nnnn
+      { \l_@@_tmpa_int }
+      { 1 }
+      { \l_@@_tmpa_int + \l_@@_tmpb_int - 1 }
+      {
+        \@@_output:x
+          {
+            \int_to_base:nn { \@@_forth_data_get:n {#1} }
+              { \@@_forth_base: } ~
+          }
+      }
+  }
+%    \end{macrocode}
+% ^^A todo: add auxiliary for outputting in the BASE.
+% \end{macro}
+%
 % \subsubsection{Quitting}
 %
-% This section defines the words |EXIT|, |QUIT|, |ABORT|, |ABORT"|.
+% This section defines the words |EXIT|, |QUIT|, |ABORT|, |ABORT"|,
+% |BYE|.
+%
+% ^^A todo: for ABORT, print a reasonable prompt, not nothing.
 %
 % \begin{macro}[int]{\@@_forth_exit:, \@@_forth_exit_point:}
 %   When executing code given an execution token (see
@@ -4421,11 +4870,27 @@
 %    \end{macrocode}
 % \end{macro}
 %
+% ^^A todo: conceptually, BYE means 'no input left', should be done by runner.
+% \begin{macro}[int]{BYE}
+%   Set the \texttt{run_loop} function to do nothing, to stop the
+%   interpreter loop.  Perform the action of |ABORT|.
+%    \begin{macrocode}
+\@@_forth_new_core:nn { BYE }
+  {
+    \cs_set_eq:NN \@@_forth_run_loop: \prg_do_nothing:
+    \int_set_eq:NN \l_@@_forth_stack_here_int
+      \g_@@_forth_stack_min_int
+    \@@_forth_do_quit:
+  }
+%    \end{macrocode}
+% \end{macro}
+%
 % \subsubsection{Stacks}
 %
 % This section defines the words |DEPTH|, |DROP|, |2DROP|, |NIP|,
-% |SWAP|, |2SWAP|, |ROT|, |DUP|, |2DUP|, |OVER|, |2OVER|, |TUCK|,
-% |PICK|, |ROLL|, |R>|, |2R>|, |R@|, |2R@|, |>R|, |2>R|, |S>D|.
+% |SWAP|, |2SWAP|, |ROT|, |2ROT|, |DUP|, |2DUP|, |OVER|, |2OVER|,
+% |TUCK|, |PICK|, |ROLL|, |R>|, |2R>|, |R@|, |2R@|, |>R|, |2>R|, |S>D|,
+% |D>S|.
 %
 % \begin{macro}[int]{DEPTH}
 %    \begin{macrocode}
@@ -4479,8 +4944,9 @@
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[int]{ROT}
-%   Turn \(x_1, x_2, x_3\) to \(x_2, x_3, x_1\).
+% \begin{macro}[int]{ROT, 2ROT}
+%   Turn \(x_1, x_2, x_3\) to \(x_2, x_3, x_1\), or \(a,b,c,d,e,f\) to
+%   \(c,d,e,f,a,b\).
 %    \begin{macrocode}
 \@@_forth_new_core:nn { ROT }
   {
@@ -4488,6 +4954,16 @@
       \l_@@_tmpa_int \l_@@_tmpb_int \l_@@_tmpc_int
     \@@_forth_push:nnn
       { \l_@@_tmpb_int } { \l_@@_tmpc_int } { \l_@@_tmpa_int }
+  }
+\@@_forth_new_core:nn { 2ROT }
+  {
+    \@@_forth_pop_int:NN \l_@@_tmpe_int \l_@@_tmpf_int
+    \@@_forth_pop_int:NN \l_@@_tmpc_int \l_@@_tmpd_int
+    \@@_forth_pop_int:NN \l_@@_tmpa_int \l_@@_tmpb_int
+    \@@_forth_push:nnnnnn
+      \l_@@_tmpc_int \l_@@_tmpd_int
+      \l_@@_tmpe_int \l_@@_tmpf_int
+      \l_@@_tmpa_int \l_@@_tmpb_int
   }
 %    \end{macrocode}
 % \end{macro}
@@ -4654,6 +5130,15 @@
 %    \end{macrocode}
 % \end{macro}
 %
+% \begin{macro}[int]{D>S}
+%   Since the most significant part of a double is stored on top of the
+%   stack, turning a double cell into a single cell integer amounts to
+%   dropping the most significant part.
+%    \begin{macrocode}
+\@@_forth_core_alias:nn { D>S } { DROP }
+%    \end{macrocode}
+% \end{macro}
+%
 % \subsubsection{While loops}
 %
 % This section defines the words |BEGIN|, |AGAIN|, |UNTIL|, |WHILE|,
@@ -4687,7 +5172,7 @@
   { \@@_forth_again:Nn \@@_forth_compiled_again:n { AGAIN } }
 \@@_forth_new_compilation_core:nn { UNTIL }
   { \@@_forth_again:Nn \@@_forth_compiled_until:n { UNTIL } }
-\cs_new_protected:Npn \@@_forth_compile_again:Nn #1#2
+\cs_new_protected:Npn \@@_forth_again:Nn #1#2
   {
     \@@_forth_control_close:nTF { 8 }
       {
@@ -4715,6 +5200,7 @@
 % \end{macro}
 % \end{macro}
 %
+% ^^A todo: this fails the BEGIN ... WHILE ... WHILE ... REPEAT test.
 % \begin{macro}[int]{WHILE, REPEAT}
 % \begin{macro}[aux]{\@@_forth_compiled_repeat:nn}
 %   |WHILE| must follow |BEGIN| (magic number \(9\)).  Store the first
@@ -4759,553 +5245,6 @@
   }
 %    \end{macrocode}
 % \end{macro}
-% \end{macro}
-%
-% \subsection{Double-Number words}
-%
-% \subsubsection{Arithmetic}
-%
-% This section defines the words |DABS|, |DNEGATE| |D+|, |D-|, |M+|.
-%
-% \begin{macro}[int]{DABS}
-%   If the cell pair \((a,b)\) has \(b < 2^{23}\), it represents a
-%   positive number and we push \((a,b)\).  Otherwise, push \((2^{24}-a,
-%   2^{24}-1-b)\), with the exception of \((0, 2^{23})\), whose absolute
-%   value cannot be expressed as a non-negative double-cell number.
-%   \begin{macrocode}
-\@@_forth_new_core:nn { DABS }
-  {
-    \@@_forth_pop_int:NN \l_@@_tmpa_int \l_@@_tmpb_int
-    \bool_if:nTF
-      {
-        \int_compare_p:nNn
-          \l_@@_tmpb_int < { \c_@@_forth_mod_int / \c_two }
-        ||
-        \int_compare_p:nNn
-          \l_@@_tmpb_int = { \c_@@_forth_mod_int / \c_two }
-        &&
-        \int_compare_p:nNn \l_@@_tmpa_int = \c_zero
-      }
-      { \@@_forth_push:nn { \l_@@_tmpa_int } { \l_@@_tmpb_int } }
-      {
-        \@@_forth_push:nn
-          { \c_@@_forth_mod_int - \l_@@_tmpa_int }
-          { \c_@@_forth_mod_int - 1 - \l_@@_tmpb_int }
-      }
-  }
-%    \end{macrocode}
-% \end{macro}
-%
-% \begin{macro}[int]{DNEGATE}
-%   Unless the cell pair \((a,b)\) is zero, push \((2^{24}-a,
-%   2^{24}-1-b)\).
-%   \begin{macrocode}
-\@@_forth_new_core:nn { DNEGATE }
-  {
-    \@@_forth_pop_int:NN \l_@@_tmpa_int \l_@@_tmpb_int
-    \int_compare:nNnTF
-      { \l_@@_tmpa_int + \l_@@_tmpb_int } = \c_zero
-      { \@@_forth_push:nn { \c_zero } { \c_zero } }
-      {
-        \@@_forth_push:nn
-          { \c_@@_forth_mod_int - \l_@@_tmpa_int }
-          { \c_@@_forth_mod_int - 1 - \l_@@_tmpb_int }
-      }
-  }
-%    \end{macrocode}
-% \end{macro}
-%
-% \begin{macro}[int]{D+}
-%   Pop \((a,b)\) and \((c,d)\).  Compute \(a' = a + c - 2^{14}\) and
-%   \(b' = b + d - 2^{14} + \text{carry}\), where the carry is \(1\) if
-%   \(a'\geq 0\).  Push \(a'\in[-2^{24},2^{24}-1]\) and
-%   \(b'\in[-2^{24},2^{24}-1]\), both reduced modulo \(2^{24}\).
-%    \begin{macrocode}
-\@@_forth_new_core:nn { D+ }
-  {
-    \@@_forth_pop_int:NNNN
-      \l_@@_tmpa_int \l_@@_tmpb_int
-      \l_@@_tmpc_int \l_@@_tmpd_int
-    \int_add:Nn \l_@@_tmpa_int
-      { \l_@@_tmpc_int - \c_@@_forth_mod_int }
-    \int_add:Nn \l_@@_tmpb_int
-      {
-        \l_@@_tmpd_int - \c_@@_forth_mod_int
-        \int_compare:nNnF \l_@@_tmpa_int < \c_zero { + \c_one }
-      }
-    \@@_forth_push_signed:n { \l_@@_tmpa_int }
-    \@@_forth_push_signed:n { \l_@@_tmpb_int }
-  }
-%    \end{macrocode}
-% \end{macro}
-%
-% \begin{macro}[int]{D-}
-%   Pop \((a,b)\) and \((c,d)\).  Compute \(a' = a - c\) and \(b' = b -
-%   d + \text{carry}\), where the carry is \(-1\) if \(a' < 0\).  Push
-%   \(a'\in[-2^{24},2^{24}-1]\) and \(b'\in[-2^{24},2^{24}-1]\), both
-%   reduced modulo \(2^{24}\).
-%    \begin{macrocode}
-\@@_forth_new_core:nn { D- }
-  {
-    \@@_forth_pop_int:NNNN
-      \l_@@_tmpa_int \l_@@_tmpb_int
-      \l_@@_tmpc_int \l_@@_tmpd_int
-    \int_sub:Nn \l_@@_tmpa_int \l_@@_tmpc_int
-    \int_add:Nn \l_@@_tmpb_int
-      {
-        \l_@@_tmpd_int
-        \int_compare:nNnT \l_@@_tmpa_int < \c_zero { - \c_one }
-      }
-    \@@_forth_push_signed:n { \l_@@_tmpa_int }
-    \@@_forth_push_signed:n { \l_@@_tmpb_int }
-  }
-%    \end{macrocode}
-% \end{macro}
-%
-% \begin{macro}[int]{M+}
-%   Pop \((a,b)\) and \(c\).  The number \(a' = a + c - 2^{24}\) is
-%   negative if there is no carry, and non-negative for a carry
-%   of~\(1\).  Perform the carry, then push \((a',b')\) onto the stack.
-%    \begin{macrocode}
-\@@_forth_new_core:nn { M+ }
-  {
-    \@@_forth_pop_int:NNN
-      \l_@@_tmpa_int \l_@@_tmpb_int \l_@@_tmpc_int
-    \int_add:Nn \l_@@_tmpa_int
-      { \l_@@_tmpc_int - \c_@@_forth_mod_int }
-    \@@_forth_push_signed:n { \l_@@_tmpa_int }
-    \@@_forth_push_signed:n
-      {
-        \l_@@_tmpb_int - \c_@@_forth_mod_int
-        \int_compare:nNnF \l_@@_tmpa_int < \c_zero { + \c_one }
-      }
-  }
-%    \end{macrocode}
-% \end{macro}
-%
-% \subsubsection{Bit operations}
-%
-% This section defines the words |D2/|, |D2*|.
-%
-% \begin{macro}[int]{D2/, D2*}
-%    \begin{macrocode}
-\@@_forth_new_core:nn { D2/ }
-  {
-    \@@_forth_pop_int:NN \l_@@_tmpa_int \l_@@_tmpb_int
-    \int_if_even:nTF { \l_@@_tmpb_int }
-      { \int_set:Nn \l_@@_tmpb_int { \l_@@_tmpb_int / 2 } }
-      {
-        \int_add:Nn \l_@@_tmpa_int { \c_@@_forth_mod_int }
-        \int_set:Nn \l_@@_tmpb_int { ( \l_@@_tmpb_int - 1 ) / 2 }
-      }
-    \@@_forth_push:nn
-      { ( \l_@@_tmpa_int + 1 ) / 2 - 1 }
-      { \l_@@_tmpb_int }
-  }
-\@@_forth_new_core:nn { D2* }
-  {
-    \@@_forth_pop_int:NN \l_@@_tmpa_int \l_@@_tmpb_int
-    \int_set:Nn \l_@@_tmpa_int { \l_@@_tmpa_int * \c_two }
-    \int_set:Nn \l_@@_tmpb_int { \l_@@_tmpb_int * \c_two }
-    \int_compare:nNnTF \l_@@_tmpa_int < \c_@@_forth_mod_int
-      { \int_incr:N \l_@@_tmpb_int }
-    \@@_forth_push_signed:n
-      { \l_@@_tmpa_int - \c_@@_forth_mod_int }
-    \@@_forth_push_signed:n
-      { \l_@@_tmpb_int - \c_@@_forth_mod_int }
-  }
-%    \end{macrocode}
-% \end{macro}
-%
-% \subsubsection{Comparisons}
-%
-% This section defines the words |D0=|, |D0<|, |D=|, |D<|, |DU<|,
-% |DMAX|, |DMIN|.
-%
-% \begin{macro}[int]{D0=, D0<}
-%   A cell pair is zero if both \(a\) and \(b\) vanish.  It is negative
-%   if \(b\in[2^{23},2^{24}-1]\).
-%    \begin{macrocode}
-\@@_forth_new_core:nn { D0= }
-  {
-    \@@_forth_pop_int:NN \l_@@_tmpa_int \l_@@_tmpb_int
-    \bool_if:nTF
-      {
-        \int_compare_p:nNn \l_@@_tmpa_int = \c_zero
-        && \int_compare_p:nNn \l_@@_tmpb_int = \c_zero
-      }
-      { \@@_forth_push_true: }
-      { \@@_forth_push_false: }
-  }
-\@@_forth_new_core:nn { D0< }
-  {
-    \@@_forth_pop_int:NN \l_@@_tmpa_int \l_@@_tmpb_int
-    \int_compare:nNnTF
-      { \@@_forth_signed:N \l_@@_tmpb_int } < \c_zero
-      { \@@_forth_push_true: }
-      { \@@_forth_push_false: }
-  }
-%    \end{macrocode}
-% \end{macro}
-%
-% \begin{macro}[int]{D=}
-%   Cell pairs are equal if both of their components match.
-%    \begin{macrocode}
-\@@_forth_new_core:nn { D= }
-  {
-    \@@_forth_pop_int:NNNN
-      \l_@@_tmpa_int \l_@@_tmpb_int
-      \l_@@_tmpc_int \l_@@_tmpd_int
-    \bool_if:nTF
-      {
-        \int_compare:nNnTF \l_@@_tmpa_int = \l_@@_tmpc_int
-        && \int_compare:nNnTF \l_@@_tmpb_int = \l_@@_tmpd_int
-      }
-      { \@@_forth_push_true: }
-      { \@@_forth_push_false: }
-  }
-%    \end{macrocode}
-% \end{macro}
-%
-% \begin{macro}[int]{D<, DU<, DMAX, DMIN}
-% \begin{macro}[aux]{\@@_forth_double_cmp:Nnn}
-%   Compare two signed or unsigned double-cell numbers \((a,b)\) and
-%   \((c,d)\).  The value of such a double-cell is \(a + b\cdot 2^{24}\)
-%   if \(b\in[0,2^{23}-1]\) and \(a + (b - 2^{24})\cdot 2^{24}\)
-%   otherwise.  The order is equivalent to lexicographical order, using
-%   signed comparison for the top cells \(b\) and \(d\), and then
-%   unsigned comparison for \(a\) and \(c\).  Here, \(e\) holds the
-%   difference of signed (or unsigned) numbers \(s(b) - s(d)\), in order
-%   to do several comparisons in a row.
-%    \begin{macrocode}
-\@@_forth_new_core:nn { D< }
-  {
-    \@@_forth_double_cmp:Nnn \@@_forth_signed:N
-      \@@_forth_push_true:
-      \@@_forth_push_false:
-  }
-\@@_forth_new_core:nn { DU< }
-  {
-    \@@_forth_double_cmp:Nnn \prg_do_nothing:
-      \@@_forth_push_true:
-      \@@_forth_push_false:
-  }
-\@@_forth_new_core:nn { DMAX }
-  {
-    \@@_forth_double_cmp:Nnn \@@_forth_signed:N
-      { \@@_forth_push:nn \l_@@_tmpc_int \l_@@_tmpd_int }
-      { \@@_forth_push:nn \l_@@_tmpa_int \l_@@_tmpb_int }
-  }
-\@@_forth_new_core:nn { DMIN }
-  {
-    \@@_forth_double_cmp:Nnn \@@_forth_signed:N
-      { \@@_forth_push:nn \l_@@_tmpa_int \l_@@_tmpb_int }
-      { \@@_forth_push:nn \l_@@_tmpc_int \l_@@_tmpd_int }
-  }
-\cs_new_protected:Npn \@@_forth_double_cmp:Nnn #1#2#3
-  {
-    \@@_forth_pop_int:NNNN
-      \l_@@_tmpa_int \l_@@_tmpb_int
-      \l_@@_tmpc_int \l_@@_tmpd_int
-    \int_set:Nn \l_@@_tmpe_int
-      { #1 \l_@@_tmpb_int - #1 \l_@@_tmpd_int }
-    \int_compare:nNnTF { \l_@@_tmpe_int } < \c_zero
-      {#2}
-      {
-        \int_compare:nNnTF { \l_@@_tmpe_int } = \c_zero
-          {
-            \int_compare:nNnTF \l_@@_tmpa_int < \l_@@_tmpc_int
-              {#2} {#3}
-          }
-          {#3}
-      }
-  }
-%    \end{macrocode}
-% \end{macro}
-% \end{macro}
-%
-% \subsubsection{Defining words}
-%
-% This section defines the words |2CONSTANT|, |2VARIABLE|, |2LITERAL|.
-%
-% \begin{macro}[int]{2CONSTANT}
-%   The next word in the input buffer is defined to push the two cells
-%   currently on top of the stack.
-%    \begin{macrocode}
-\@@_forth_new_core:nn { 2CONSTANT }
-  {
-    \@@_forth_pop_int:NN \l_@@_tmpa_int \l_@@_tmpb_int
-    \@@_forth_input_word_and_set:x
-      {
-        \@@_forth_push:nn
-          { \int_use:N \l_@@_tmpa_int }
-          { \int_use:N \l_@@_tmpb_int }
-      }
-  }
-%    \end{macrocode}
-% \end{macro}
-%
-% \begin{macro}[int]{2VARIABLE}
-%   See |VARIABLE|, but reserving two cells.
-%    \begin{macrocode}
-\@@_forth_new_core:nn { 2VARIABLE }
-  {
-    \@@_forth_create:
-    \@@_forth_put_here:n { 0 }
-    \@@_forth_put_here:n { 0 }
-  }
-%    \end{macrocode}
-% \end{macro}
-%
-% \begin{macro}[int]{2LITERAL}
-%   The two current tops of stack are stored in the current definition:
-%   they will be pushed back onto the stack at run-time.
-%    \begin{macrocode}
-\@@_forth_new_compilation_core:nn { 2LITERAL }
-  {
-    \@@_forth_pop_int:NN \l_@@_tmpa_int \l_@@_tmpb_int
-    \@@_forth_def_code:x
-      {
-        \@@_forth_push:nn
-          { \int_use:N \l_@@_tmpa_int }
-          { \int_use:N \l_@@_tmpb_int }
-      }
-  }
-%    \end{macrocode}
-% \end{macro}
-%
-% \subsubsection{Output}
-%
-% This section defines the words |D.|, |D.R|.
-%
-% \begin{macro}[int]{D., D.R}
-% \begin{macro}[aux]{\@@_forth_outdouble:nn}
-%   Display a double-cell number.
-%    \begin{macrocode}
-\@@_forth_new_core:nn { D. }
-  { \@@_forth_outdouble:nn { } { , 32 } }
-\@@_forth_new_core:nn { D.R }
-  {
-    \@@_forth_pop_int:N \l_@@_tmpe_int
-    \@@_forth_outdouble:nn
-      {
-        \prg_replicate:nn
-          {
-            \int_max:nn
-              { \c_zero }
-              {
-                \l_@@_tmpe_int
-                - \g_@@_forth_picnum_max_int
-                + \l_@@_forth_picnum_here_int
-              }
-          }
-          { 32 , }
-      }
-      { }
-  }
-\cs_new_protected:Npn \@@_forth_outdouble:nn #1#2
-  {
-    \@@_forth_pop_int:NN \l_@@_tmpc_int \l_@@_tmpd_int
-    \int_set_eq:NN \l_@@_forth_picnum_here_int
-      \g_@@_forth_picnum_max_int
-    \tl_set:Nx \l_@@_tmpa_tl { \@@_forth_signed:N \l_@@_tmpc_int }
-    \int_set:Nn \l_@@_tmpb_int { \@@_forth_base: }
-    \int_while_do:nNnn
-      { \l_@@_tmpc_int + \l_@@_tmpd_int } > \c_zero
-      { \@@_forth_picnum_aux: }
-    \@@_output_clist:x
-      {
-        #1
-        \int_compare:nNnT { \l_@@_tmpa_tl } < \c_zero { 45 , }
-        \@@_forth_interval_to_clist:nn
-          \l_@@_forth_picnum_here_int
-          \g_@@_forth_picnum_max_int
-        #2
-      }
-  }
-%    \end{macrocode}
-% \end{macro}
-% \end{macro}
-%
-% \subsubsection{Stacks}
-%
-% This section defines the words |D>S|, |2ROT|.
-%
-% \begin{macro}[int]{D>S}
-%   Since the most significant part of a double is stored on top of the
-%   stack, turning a double cell into a single cell integer amounts to
-%   dropping the most significant part.
-%    \begin{macrocode}
-\@@_forth_core_alias:nn { D>S } { DROP }
-%    \end{macrocode}
-% \end{macro}
-%
-% \begin{macro}[int]{2ROT}
-%   Turn \(a,b,c,d,e,f\) to \(c,d,e,f,a,b\).
-%    \begin{macrocode}
-\@@_forth_new_core:nn { 2ROT }
-  {
-    \@@_forth_pop_int:NN \l_@@_tmpe_int \l_@@_tmpf_int
-    \@@_forth_pop_int:NN \l_@@_tmpc_int \l_@@_tmpd_int
-    \@@_forth_pop_int:NN \l_@@_tmpa_int \l_@@_tmpb_int
-    \@@_forth_push:nnnnnn
-      \l_@@_tmpc_int \l_@@_tmpd_int
-      \l_@@_tmpe_int \l_@@_tmpf_int
-      \l_@@_tmpa_int \l_@@_tmpb_int
-  }
-%    \end{macrocode}
-% \end{macro}
-%
-% \subsection{Programming-Tools words}
-%
-% This section implements some of the programming tools words.  The
-% words |SEE|, |WORDS|, |;CODE|, |AHEAD|, |ASSEMBLER|, |CODE|,
-% |CS-PICK|, |CS-ROLL|, |EDITOR|, |FORGET|, are not implemented.
-%
-% \subsubsection{Conditionals}
-%
-% This section defines the words |[IF]|, |[THEN]|, |[ELSE]|.
-%
-% \begin{variable}{\l_@@_forth_if_int}
-%   Nesting level of conditionals.
-%    \begin{macrocode}
-\int_new:N \l_@@_forth_if_int
-%    \end{macrocode}
-% \end{variable}
-%
-% \begin{macro}[int]{[IF], [ELSE], [THEN]}
-% \begin{macro}[aux]{\@@_forth_bracket_if:n}
-%   |[IF]| jumps to the matching [ELSE] or [THEN] if the top of flag is
-%   \texttt{false} (\(0\)).  |[ELSE]| jumps unconditionally to the
-%   matching [THEN].  |[THEN]| does nothing.  This is done by repeatedly
-%   getting words, until the \texttt{forth_if} integer, which keeps
-%   track of nesting, becomes negative.  Each word is compared with the
-%   words |[IF]| (increment nesting), |[ELSE]| (do nothing, or for
-%   |[IF]| check that the nesting is non-zero), |[THEN]| (decrement
-%   nesting).  An empty word marks the end of the line.
-%    \begin{macrocode}
-\@@_forth_new_immediate_core:nn { [IF] }
-  {
-    \@@_forth_pop_int:N \l_@@_tmpa_int
-    \int_compare:nNnT \l_@@_tmpa_int = \c_zero
-      {
-        \@@_forth_bracket_if:n
-          {
-            { [ELSE] }
-              {
-                \int_compare:nNnF \l_@@_forth_if_int > \c_zero
-                  { \int_decr:N \l_@@_forth_if_int }
-              }
-          }
-      }
-  }
-\@@_forth_new_immediate_core:nn { [ELSE] }
-  { \@@_forth_bracket_if:n { } }
-\@@_forth_new_immediate_core:nn { [THEN] } { }
-\cs_new_protected:Npn \@@_forth_bracket_if:n #1
-  {
-    \int_zero:N \l_@@_forth_if_int
-    \int_until_do:nNnn \l_@@_forth_if_int < \c_zero
-      {
-        \@@_forth_input_word:
-        \@@_forth_input_set_word:
-        \str_case:onn { \l_@@_forth_input_word_str }
-          {
-            { }
-              {
-                \@@_forth_refill:TF { }
-                  { \int_set_eq:NN \l_@@_forth_if_int \c_minus_one }
-              }
-            {  [IF]  } { \int_incr:N \l_@@_forth_if_int }
-            { [THEN] } { \int_decr:N \l_@@_forth_if_int }
-            #1
-          }
-          { }
-      }
-  }
-%    \end{macrocode}
-% \end{macro}
-% \end{macro}
-%
-% \subsubsection{Output}
-%
-% This section defines the words |.S|, |?|, |DUMP|.
-%
-% \begin{macro}[int]{.S}
-%   Show the contents of the stack, in the current |BASE|.
-%    \begin{macrocode}
-\@@_forth_new_core:nn { .S }
-  {
-    \int_step_inline:nnnn
-      { \g_@@_forth_stack_min_int }
-      { 1 }
-      { \l_@@_forth_stack_here_int - 1 }
-      {
-        \@@_output:x
-          {
-            \int_to_base:nn
-              { \@@_array_item:Nn \g_@@_forth_array {#1} }
-              { \@@_forth_base: } ~
-          }
-      }
-  }
-%    \end{macrocode}
-% \end{macro}
-%
-% \begin{macro}[int]{?}
-%   Show the contents of an address cell.
-%    \begin{macrocode}
-\@@_forth_new_core:nn { ? }
-  {
-    \@@_forth_pop_int:N \l_@@_tmpa_int
-    \@@_output:x
-      {
-        \int_to_base:nn { \@@_forth_data_get:N \l_@@_tmpa_int }
-          { \@@_forth_base: } ~
-      }
-  }
-%    \end{macrocode}
-% \end{macro}
-%
-% \begin{macro}[int]{DUMP}
-%   Go from address~\(a\) to~\(a+b-1\), printing each cell's contents.
-%    \begin{macrocode}
-\@@_forth_new_core:nn { DUMP }
-  {
-    \@@_forth_pop_int:NN \l_@@_tmpa_int \l_@@_tmpb_int
-    \int_step_inline:nnnn
-      { \l_@@_tmpa_int }
-      { 1 }
-      { \l_@@_tmpa_int + \l_@@_tmpb_int - 1 }
-      {
-        \@@_output:x
-          {
-            \int_to_base:nn { \@@_forth_data_get:n {#1} }
-              { \@@_forth_base: } ~
-          }
-      }
-  }
-%    \end{macrocode}
-% ^^A todo: add auxiliary for outputting in the BASE.
-% \end{macro}
-%
-% \subsubsection{Quitting}
-%
-% This section defines the word |BYE|.
-%
-% ^^A todo: conceptually, BYE means 'no input left', should be done by runner.
-% \begin{macro}[int]{BYE}
-%   Set the \texttt{run_loop} function to do nothing, to stop the
-%   interpreter loop.  Perform the action of |ABORT|.
-%    \begin{macrocode}
-\@@_forth_new_core:nn { BYE }
-  {
-    \cs_set_eq:NN \@@_forth_run_loop: \prg_do_nothing:
-    \int_set_eq:NN \l_@@_forth_stack_here_int
-      \g_@@_forth_stack_min_int
-    \@@_forth_do_quit:
-  }
-%    \end{macrocode}
 % \end{macro}
 %
 % \subsection{Messages}
