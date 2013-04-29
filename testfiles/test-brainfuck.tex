@@ -58,4 +58,14 @@
 @@ABCDEF@
 \typeout{\result}
 
-\stop
+\documentclass{article}
+\begin{document}
+
+\setbox0\hbox{\runner{brainfuck}@,+[-.>,+]@@some input@}
+\immediate\write\outfile{\the\wd0}
+
+\setbox0\hbox{\runner{brainfuck}[use]@,+[-.>,+]@@some input@}
+\setbox2\hbox{some input}
+\immediate\write\outfile{\the\wd0 \space = \the\wd2}
+
+\end{document}

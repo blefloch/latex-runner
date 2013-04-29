@@ -84,9 +84,10 @@
 %   the last argument as its input.  For instance, since the
 %   \plang{forth} program ``\texttt{SOURCE TYPE}'' outputs its input,
 %   \begin{verbatim}
-%     \runner{forth}|SOURCE TYPE||some input|
+%     \runner{forth}[use]|SOURCE TYPE||some input|
 %   \end{verbatim}
-%   will yield ``\texttt{some input}''.  This text will be left to be
+%   will yield ``\texttt{some input}''.  Because of the key
+%   \texttt{use}, this text will be left to be
 %   processed by \TeX{} (as if it were typed directly in the document).
 %   To store the result for later reuse, use the \texttt{output} key.
 % \end{function}
@@ -226,14 +227,6 @@
 %   documentation of \pkg{l3str-convert} for a list of allowed values.
 % \end{function}
 %
-% \begin{function}{output-rescan}
-%   If this boolean is set to \texttt{true}, the output obtained by
-%   running the program is read again with the current category codes
-%   (see \cs{tl_set_rescan:Nnn}), before being either stored in a macro
-%   or used as \TeX{} code.  Rescanning happens after the output is
-%   encoded to the given |output-encoding|.
-% \end{function}
-%
 % \subsection{Other keys}
 %
 % \begin{function}{interactive}
@@ -244,6 +237,22 @@
 %   request input directly using language-specific constructs.  This key
 %   is incompatible with the \texttt{output-stream} key.  When this key
 %   is set, no output is sent to be typeset by \TeX{}.
+% \end{function}
+%
+% \begin{function}{rescan}
+%   If this boolean is set to \texttt{true}, the output obtained by
+%   running the program is read again with the current category codes
+%   (see \cs{tl_set_rescan:Nnn}), before being either stored in a macro
+%   or used as \TeX{} code.  Rescanning happens after the output is
+%   encoded to the given |output-encoding|.
+% \end{function}
+%
+% \begin{function}{use}
+%   If this boolean is set to \texttt{true}, the output obtained by
+%   running the program is used as an input for \TeX{}, as if it was
+%   typed directly into the document.  Specifically, the output is
+%   encoded following the |output-encoding|, the possibly |rescan|ned,
+%   then used as \TeX{} code.
 % \end{function}
 %
 % \subsection{Useful variables}
@@ -456,7 +465,7 @@
 % \end{variable}
 %
 % \begin{variable}[int]{\l_@@_output_rescan_bool}
-%   The value of the |output-rescan| key, indicating whether the output
+%   The value of the |rescan| key, indicating whether the output
 %   should be rescanned before being stored in a macro or used in the
 %   \TeX{} document.
 %    \begin{macrocode}
@@ -543,13 +552,12 @@
 %     runner/program, runner/program-file, runner/program-stream,
 %     runner/input  , runner/input-file  , runner/input-stream  ,
 %     runner/output , runner/output-file , runner/output-stream ,
-%     runner/output-encoding, runner/output-rescan, runner/interactive
+%     runner/output-encoding,
+%     runner/rescan , runner/interactive , runner/use ,
 %   }
 %   Simply store the values provided by the user.  The |program| and
-%   |input| keys expand their values before storing.  The |output| key
-%   suppresses output to the document by unsetting
-%   \cs{l_@@_output_use_bool}.
-%   ^^A todo: redoc.
+%   |input| keys expand their values before storing.
+%   ^^A todo: doc.
 %    \begin{macrocode}
 \keys_define:nn { runner }
   {
@@ -567,17 +575,14 @@
       } ,
     input-file     .clist_set:N = \l_@@_input_file_clist   ,
     input-stream   .tl_set:N    = \l_@@_input_stream_tl    ,
-    output         .code:n =
-      {
-        \tl_set:Nn \l_@@_output_key_tl {#1}
-        \bool_set_false:N \l_@@_output_use_bool
-      } ,
-    output         .default:n = { } ,
+    output         .tl_set:N    = \l_@@_output_key_tl      ,
+    output         .default:n   = { } ,
     output-file    .clist_set:N = \l_@@_output_file_clist  ,
     output-stream  .tl_set:N    = \l_@@_output_stream_tl   ,
     output-encoding .tl_set:N   = \l_@@_output_encoding_tl ,
-    output-rescan  .bool_set:N  = \l_@@_output_rescan_bool ,
-    interactive .bool_set:N = \l_@@_interactive_bool
+    interactive    .bool_set:N  = \l_@@_interactive_bool   ,
+    rescan         .bool_set:N  = \l_@@_output_rescan_bool ,
+    use            .bool_set:N  = \l_@@_output_use_bool    ,
   }
 %    \end{macrocode}
 % \end{macro}
@@ -1005,7 +1010,6 @@
         { \exp_args:NV \tl_expandable_lowercase:n \l_@@_language_str }
       \exp_args:NV \@@_load_language:nT \l_@@_language_str
         {
-          \bool_set_true:N \l_@@_output_use_bool
           \keys_set:nn { runner } {#2}
           \seq_set_split:Nxn \l_@@_program_arg_seq
             { \iow_char:N \^^M } {#3}

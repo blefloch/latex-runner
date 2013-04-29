@@ -102,17 +102,14 @@
       } ,
     input-file     .clist_set:N = \l__runner_input_file_clist   ,
     input-stream   .tl_set:N    = \l__runner_input_stream_tl    ,
-    output         .code:n =
-      {
-        \tl_set:Nn \l__runner_output_key_tl {#1}
-        \bool_set_false:N \l__runner_output_use_bool
-      } ,
-    output         .default:n = { } ,
+    output         .tl_set:N    = \l__runner_output_key_tl      ,
+    output         .default:n   = { } ,
     output-file    .clist_set:N = \l__runner_output_file_clist  ,
     output-stream  .tl_set:N    = \l__runner_output_stream_tl   ,
     output-encoding .tl_set:N   = \l__runner_output_encoding_tl ,
-    output-rescan  .bool_set:N  = \l__runner_output_rescan_bool ,
-    interactive .bool_set:N = \l__runner_interactive_bool
+    interactive    .bool_set:N  = \l__runner_interactive_bool   ,
+    rescan         .bool_set:N  = \l__runner_output_rescan_bool ,
+    use            .bool_set:N  = \l__runner_output_use_bool    ,
   }
 \cs_new_protected:Npn \__runner_get_line_next_source:NTF #1
   {
@@ -321,7 +318,6 @@
         { \exp_args:NV \tl_expandable_lowercase:n \l__runner_language_str }
       \exp_args:NV \__runner_load_language:nT \l__runner_language_str
         {
-          \bool_set_true:N \l__runner_output_use_bool
           \keys_set:nn { runner } {#2}
           \seq_set_split:Nxn \l__runner_program_arg_seq
             { \iow_char:N \^^M } {#3}
