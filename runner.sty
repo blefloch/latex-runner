@@ -130,19 +130,6 @@
       { \use_i:nn }
       { \__runner_get_line_next_source:NTF #2 }
   }
-\cs_new_protected:Npn \__runner_split_newline:NnnF #1#2#3#4
-  {
-    \exp_after:wN \__runner_split_newline_aux:w #1
-      \q_mark {#2} {#3} ^^J
-      \q_mark { #4 \use_none:nn } { }
-      \q_stop
-  }
-\cs_new_protected:Npn \__runner_split_newline_aux:w
-    #1 ^^J #2 \q_mark #3 #4 #5 \q_stop
-  {
-    #3 {#1}
-    #4 {#2}
-  }
 \cs_new_protected:Npn \__runner_get_file_line:nNTF #1#2
   {
     \ior_open:NnTF \l__runner_ior {#1}

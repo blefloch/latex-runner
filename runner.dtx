@@ -640,32 +640,6 @@
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[int]{\@@_split_newline:NnnF}
-% \begin{macro}[aux]{\@@_split_newline_aux:w}
-%   The newline is found with a delimited function: if there is a
-%   newline in |#1|, the first \cs{q_mark} serves as a delimiter, and
-%   |#3| and |#4| of the auxiliary are the |#2| and |#3| of the main
-%   function.  Otherwise, the second \cs{q_mark} serves as a delimiter,
-%   and |#3| and |#4| of the auxiliary take care of performing |#4| and
-%   removing spurious tokens.
-%    \begin{macrocode}
-\cs_new_protected:Npn \@@_split_newline:NnnF #1#2#3#4
-  {
-    \exp_after:wN \@@_split_newline_aux:w #1
-      \q_mark {#2} {#3} ^^J
-      \q_mark { #4 \use_none:nn } { }
-      \q_stop
-  }
-\cs_new_protected:Npn \@@_split_newline_aux:w
-    #1 ^^J #2 \q_mark #3 #4 #5 \q_stop
-  {
-    #3 {#1}
-    #4 {#2}
-  }
-%    \end{macrocode}
-% \end{macro}
-% \end{macro}
-%
 % \begin{macro}[int]{\@@_get_file_line:nNTF}
 %   Try to open the given file.  If that is possible, then redefine
 %   \cs{@@_get_line:NTF} to use \cs{@@_get_ior_line:NNTF} with
