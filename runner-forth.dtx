@@ -4508,7 +4508,7 @@
   {
     \@@_forth_pop_int:NN \l_@@_tmpc_int \l_@@_tmpd_int
     \int_set:Nn \l_@@_tmpb_int { \@@_forth_base: }
-    \int_while_do:nNnn
+    \int_do_while:nNnn
       { \l_@@_tmpc_int + \l_@@_tmpd_int } > \c_zero
       { \@@_forth_picnum_aux: }
     \@@_forth_push:nn { \l_@@_tmpc_int } { \l_@@_tmpd_int }
@@ -4521,9 +4521,12 @@
         * \c_@@_forth_mod_int
       }
     \int_decr:N \l_@@_forth_picnum_here_int
-    \@@_array_gset:Nnn \g_@@_forth_array
-      { \l_@@_forth_picnum_here_int }
+    \int_set:Nn \l_@@_tmpe_int
       { `0 + \int_mod:nn { \l_@@_tmpc_int } { \l_@@_tmpb_int } }
+    \int_compare:nNnF \l_@@_tmpe_int < { `: }
+      { \int_add:Nn \l_@@_tmpe_int { 7 } }
+    \@@_array_gset:Nnn \g_@@_forth_array
+      { \l_@@_forth_picnum_here_int } { \l_@@_tmpe_int }
     \int_set:Nn \l_@@_tmpc_int
       { \int_div_truncate:nn { \l_@@_tmpc_int } { \l_@@_tmpb_int } }
     \int_set:Nn \l_@@_tmpd_int
@@ -4752,7 +4755,7 @@
   { \@@_forth_outdouble:nn { } { , 32 } }
 \@@_forth_new_core:nn { D.R }
   {
-    \@@_forth_pop_int:N \l_@@_tmpe_int
+    \@@_forth_pop_int:N \l_@@_tmpf_int
     \@@_forth_outdouble:nn
       {
         \prg_replicate:nn
@@ -4760,7 +4763,7 @@
             \int_max:nn
               { \c_zero }
               {
-                \l_@@_tmpe_int
+                \l_@@_tmpf_int
                 - \g_@@_forth_picnum_max_int
                 + \l_@@_forth_picnum_here_int
               }
@@ -4776,7 +4779,7 @@
       \g_@@_forth_picnum_max_int
     \tl_set:Nx \l_@@_tmpa_tl { \@@_forth_signed:N \l_@@_tmpc_int }
     \int_set:Nn \l_@@_tmpb_int { \@@_forth_base: }
-    \int_while_do:nNnn
+    \int_do_while:nNnn
       { \l_@@_tmpc_int + \l_@@_tmpd_int } > \c_zero
       { \@@_forth_picnum_aux: }
     \@@_output_clist:x

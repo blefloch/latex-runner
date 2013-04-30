@@ -2231,7 +2231,7 @@
   {
     \__runner_forth_pop_int:NN \l__runner_tmpc_int \l__runner_tmpd_int
     \int_set:Nn \l__runner_tmpb_int { \__runner_forth_base: }
-    \int_while_do:nNnn
+    \int_do_while:nNnn
       { \l__runner_tmpc_int + \l__runner_tmpd_int } > \c_zero
       { \__runner_forth_picnum_aux: }
     \__runner_forth_push:nn { \l__runner_tmpc_int } { \l__runner_tmpd_int }
@@ -2244,9 +2244,12 @@
         * \c__runner_forth_mod_int
       }
     \int_decr:N \l__runner_forth_picnum_here_int
-    \__runner_array_gset:Nnn \g__runner_forth_array
-      { \l__runner_forth_picnum_here_int }
+    \int_set:Nn \l__runner_tmpe_int
       { `0 + \int_mod:nn { \l__runner_tmpc_int } { \l__runner_tmpb_int } }
+    \int_compare:nNnF \l__runner_tmpe_int < { `: }
+      { \int_add:Nn \l__runner_tmpe_int { 7 } }
+    \__runner_array_gset:Nnn \g__runner_forth_array
+      { \l__runner_forth_picnum_here_int } { \l__runner_tmpe_int }
     \int_set:Nn \l__runner_tmpc_int
       { \int_div_truncate:nn { \l__runner_tmpc_int } { \l__runner_tmpb_int } }
     \int_set:Nn \l__runner_tmpd_int
@@ -2369,7 +2372,7 @@
   { \__runner_forth_outdouble:nn { } { , 32 } }
 \__runner_forth_new_core:nn { D.R }
   {
-    \__runner_forth_pop_int:N \l__runner_tmpe_int
+    \__runner_forth_pop_int:N \l__runner_tmpf_int
     \__runner_forth_outdouble:nn
       {
         \prg_replicate:nn
@@ -2377,7 +2380,7 @@
             \int_max:nn
               { \c_zero }
               {
-                \l__runner_tmpe_int
+                \l__runner_tmpf_int
                 - \g__runner_forth_picnum_max_int
                 + \l__runner_forth_picnum_here_int
               }
@@ -2393,7 +2396,7 @@
       \g__runner_forth_picnum_max_int
     \tl_set:Nx \l__runner_tmpa_tl { \__runner_forth_signed:N \l__runner_tmpc_int }
     \int_set:Nn \l__runner_tmpb_int { \__runner_forth_base: }
-    \int_while_do:nNnn
+    \int_do_while:nNnn
       { \l__runner_tmpc_int + \l__runner_tmpd_int } > \c_zero
       { \__runner_forth_picnum_aux: }
     \__runner_output_clist:x
