@@ -365,10 +365,10 @@
 %    \end{macrocode}
 % \end{variable}
 %
-% \begin{variable}{\l_@@_ior}
+% \begin{variable}{\g_@@_ior}
 %   Stream used to read program and input files line by line.
 %    \begin{macrocode}
-\ior_new:N \l_@@_ior
+\ior_new:N \g_@@_ior
 %    \end{macrocode}
 % \end{variable}
 %
@@ -436,10 +436,10 @@
 %    \end{macrocode}
 % \end{variable}
 %
-% \begin{variable}{\l_@@_iow}
+% \begin{variable}{\g_@@_iow}
 %   Stream used to write the output to a file.
 %    \begin{macrocode}
-\iow_new:N \l_@@_iow
+\iow_new:N \g_@@_iow
 %    \end{macrocode}
 % \end{variable}
 %
@@ -643,15 +643,15 @@
 % \begin{macro}[int]{\@@_get_file_line:nNTF}
 %   Try to open the given file.  If that is possible, then redefine
 %   \cs{@@_get_line:NTF} to use \cs{@@_get_ior_line:NNTF} with
-%   \cs{l_@@_ior} as its input stream.  Otherwise, complain, and go to
+%   \cs{g_@@_ior} as its input stream.  Otherwise, complain, and go to
 %   the \texttt{next_source}.
 %    \begin{macrocode}
 \cs_new_protected:Npn \@@_get_file_line:nNTF #1#2
   {
-    \ior_open:NnTF \l_@@_ior {#1}
+    \ior_open:NnTF \g_@@_ior {#1}
       {
         \cs_set_protected_nopar:Npn \@@_get_line:NTF
-          { \@@_get_ior_line:NNTF \l_@@_ior }
+          { \@@_get_ior_line:NNTF \g_@@_ior }
         \@@_get_line:NTF #2
       }
       {
@@ -1055,9 +1055,9 @@
     \clist_clear:N \l_@@_output_line_clist
     \clist_map_inline:Nn \l_@@_output_file_clist
       {
-        \iow_open:Nn \l_@@_iow {##1}
-        \iow_now:Nx \l_@@_iow { \l_@@_output_str }
-        \iow_close:N \l_@@_iow
+        \iow_open:Nn \g_@@_iow {##1}
+        \iow_now:Nx \g_@@_iow { \l_@@_output_str }
+        \iow_close:N \g_@@_iow
       }
     \tl_if_single:NF \l_@@_output_key_tl
       { \tl_set:Nn \l_@@_output_key_tl { \l_@@_internal_tl } }

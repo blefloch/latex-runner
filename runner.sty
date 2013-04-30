@@ -44,7 +44,7 @@
 \seq_new:N \l__runner_input_arg_seq
 \seq_new:N \l__runner_sources_seq
 \tl_new:N \l__runner_get_line_code_tl
-\ior_new:N \l__runner_ior
+\ior_new:N \g__runner_ior
 \bool_new:N \l__runner_interactive_bool
 \tl_new:N \l__runner_program_str
 \tl_new:N \l__runner_input_str
@@ -62,7 +62,7 @@
 \tl_new:N \l__runner_output_key_tl
 \clist_new:N \l__runner_output_file_clist
 \tl_new:N \l__runner_output_stream_tl
-\iow_new:N \l__runner_iow
+\iow_new:N \g__runner_iow
 \clist_new:N \l__runner_output_line_clist
 \tl_new:N \l__runner_output_encoding_tl
 \str_new:N \l__runner_output_str
@@ -132,10 +132,10 @@
   }
 \cs_new_protected:Npn \__runner_get_file_line:nNTF #1#2
   {
-    \ior_open:NnTF \l__runner_ior {#1}
+    \ior_open:NnTF \g__runner_ior {#1}
       {
         \cs_set_protected_nopar:Npn \__runner_get_line:NTF
-          { \__runner_get_ior_line:NNTF \l__runner_ior }
+          { \__runner_get_ior_line:NNTF \g__runner_ior }
         \__runner_get_line:NTF #2
       }
       {
@@ -349,9 +349,9 @@
     \clist_clear:N \l__runner_output_line_clist
     \clist_map_inline:Nn \l__runner_output_file_clist
       {
-        \iow_open:Nn \l__runner_iow {##1}
-        \iow_now:Nx \l__runner_iow { \l__runner_output_str }
-        \iow_close:N \l__runner_iow
+        \iow_open:Nn \g__runner_iow {##1}
+        \iow_now:Nx \g__runner_iow { \l__runner_output_str }
+        \iow_close:N \g__runner_iow
       }
     \tl_if_single:NF \l__runner_output_key_tl
       { \tl_set:Nn \l__runner_output_key_tl { \l__runner_internal_tl } }
