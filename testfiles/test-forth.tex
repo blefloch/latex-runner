@@ -266,9 +266,9 @@
 \typeout{\result}
 
 \runner{forth}[output = \result, output-stream = \z@]|
-  : weird CREATE DOES> ." bip" DEPTH . RECURSE ;
+  : weird CREATE DOES> ." bip " OVER - . 5 , weird ;
 ||
-  weird foobar foobar baz baz bar bar boo
+  HERE weird foobar foobar baz baz bar bar boo 3 DUMP
 |
 \typeout{\result}
 
