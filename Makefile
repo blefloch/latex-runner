@@ -11,6 +11,13 @@ documentation: package
 	pdflatex runner.dtx
 	pdflatex runner.dtx
 
+test: package
+	cd testfiles ; \
+	pdflatex test-forth ; \
+	pdflatex test-brainfuck ; \
+	pdflatex runanstests
+	git st
+
 clean:
 	@rm `\
 	for D in $(JOB_NAMES); do\
