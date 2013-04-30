@@ -101,7 +101,7 @@
 %   The value at the current cell.  This macro is protected, but can be
 %   used within integer expressions.
 %    \begin{macrocode}
-\cs_new_protected:Npn \@@_brainfuck_current_value:
+\cs_new_protected_nopar:Npn \@@_brainfuck_current_value:
   {
     \@@_array_item:NN \g_@@_brainfuck_array
       \l_@@_brainfuck_cell_int

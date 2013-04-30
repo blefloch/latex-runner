@@ -25,7 +25,7 @@
 \int_new:N \l__runner_brainfuck_cell_int
 \int_new:N \l__runner_brainfuck_min_cell_int
 \int_new:N \l__runner_brainfuck_max_cell_int
-\cs_new_protected:Npn \__runner_brainfuck_current_value:
+\cs_new_protected_nopar:Npn \__runner_brainfuck_current_value:
   {
     \__runner_array_item:NN \g__runner_brainfuck_array
       \l__runner_brainfuck_cell_int
