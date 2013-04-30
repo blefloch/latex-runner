@@ -1274,7 +1274,7 @@
 %   back until the \texttt{sources_seq} is exhausted: this concatenates
 %   program and input sources.  The transfer function
 %   \texttt{term_refill:} (only called with the terminal input buffer as
-%   a targe) starts by splitting the string if it is too long, then
+%   a target) starts by splitting the string if it is too long, then
 %   going through the first part one character at a time, filling the
 %   input buffer with the character codes, and makes sure to set
 %   \texttt{term_end}, \texttt{source_begin}, \texttt{source_parsed},
@@ -4060,10 +4060,14 @@
 % \end{macro}
 % \end{macro}
 %
+% ^^A todo: what should QUIT or BYE do within an EVALUATEd string?
 % ^^A todo: bug?  Should ': X 0 S" 1 ." EVALUATE . ; X' give '0 1' or '1 0'?
 % \begin{macro}[int]{EVALUATE}
+% \begin{macro}[aux]
+%   {\@@_forth_evaluate:, \@@_forth_evaluate_aux:, \@@_forth_evaluate_after:}
 %    \begin{macrocode}
-\@@_forth_new_core:nn { EVALUATE }
+\@@_forth_new_core:nn { EVALUATE } { \@@_forth_evaluate: }
+\cs_new_protected_nopar:Npn \@@_forth_evaluate:
   {
     \seq_push:NV \l_@@_forth_sources_seq
       \l_@@_forth_source_begin_int
@@ -4078,8 +4082,35 @@
       { \l_@@_forth_source_begin_int + \l_@@_tmpa_int }
     \tl_clear:N \l_@@_forth_input_str
     \@@_forth_data_gset:nn \l_@@_forth_in_address_int { 0 }
+    \@@_forth_evaluate_aux:
+  }
+\cs_new_protected_nopar:Npn \@@_forth_evaluate_aux:
+  {
+    \@@_forth_input_word:
+    \int_compare:nNnTF
+      \l_@@_forth_input_word_begin_int
+      < \l_@@_forth_input_word_end_int
+      {
+        \@@_forth_perform:
+        \@@_forth_quit_point:
+        \@@_forth_evaluate_aux:
+      }
+      { \@@_forth_evaluate_after: }
+  }
+\cs_new_protected_nopar:Npn \@@_forth_evaluate_after:
+  {
+    \seq_pop:NN \l_@@_forth_sources_seq \l_@@_forth_input_str
+    \seq_pop:NN \l_@@_forth_sources_seq \l_@@_tmpc_tl
+    \seq_pop:NN \l_@@_forth_sources_seq \l_@@_tmpb_tl
+    \seq_pop:NN \l_@@_forth_sources_seq \l_@@_tmpa_tl
+    \int_set:Nn \l_@@_forth_source_begin_int { \l_@@_tmpa_tl }
+    \@@_forth_data_gset:nn
+      { \l_@@_forth_in_address_int }
+      { \l_@@_tmpb_tl }
+    \int_set:Nn \l_@@_forth_source_end_int { \l_@@_tmpc_tl }
   }
 %    \end{macrocode}
+% \end{macro}
 % \end{macro}
 %
 % ^^A todo: what to do with the extra text \l_@@_tmpb_tl ?

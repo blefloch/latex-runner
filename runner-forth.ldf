@@ -1977,7 +1977,8 @@
       \l__runner_forth_input_word_end_int
       \l__runner_tmpb_int
   }
-\__runner_forth_new_core:nn { EVALUATE }
+\__runner_forth_new_core:nn { EVALUATE } { \__runner_forth_evaluate: }
+\cs_new_protected_nopar:Npn \__runner_forth_evaluate:
   {
     \seq_push:NV \l__runner_forth_sources_seq
       \l__runner_forth_source_begin_int
@@ -1992,6 +1993,32 @@
       { \l__runner_forth_source_begin_int + \l__runner_tmpa_int }
     \tl_clear:N \l__runner_forth_input_str
     \__runner_forth_data_gset:nn \l__runner_forth_in_address_int { 0 }
+    \__runner_forth_evaluate_aux:
+  }
+\cs_new_protected_nopar:Npn \__runner_forth_evaluate_aux:
+  {
+    \__runner_forth_input_word:
+    \int_compare:nNnTF
+      \l__runner_forth_input_word_begin_int
+      < \l__runner_forth_input_word_end_int
+      {
+        \__runner_forth_perform:
+        \__runner_forth_quit_point:
+        \__runner_forth_evaluate_aux:
+      }
+      { \__runner_forth_evaluate_after: }
+  }
+\cs_new_protected_nopar:Npn \__runner_forth_evaluate_after:
+  {
+    \seq_pop:NN \l__runner_forth_sources_seq \l__runner_forth_input_str
+    \seq_pop:NN \l__runner_forth_sources_seq \l__runner_tmpc_tl
+    \seq_pop:NN \l__runner_forth_sources_seq \l__runner_tmpb_tl
+    \seq_pop:NN \l__runner_forth_sources_seq \l__runner_tmpa_tl
+    \int_set:Nn \l__runner_forth_source_begin_int { \l__runner_tmpa_tl }
+    \__runner_forth_data_gset:nn
+      { \l__runner_forth_in_address_int }
+      { \l__runner_tmpb_tl }
+    \int_set:Nn \l__runner_forth_source_end_int { \l__runner_tmpc_tl }
   }
 \__runner_forth_new_core:nn { ACCEPT }
   {
