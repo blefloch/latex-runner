@@ -323,6 +323,7 @@
 \cs_generate_variant:Nn \prop_get:NnNF { No }
 \cs_generate_variant:Nn \prop_put:Nnn { Nxx }
 \cs_generate_variant:Nn \tl_item:nn { o }
+\cs_generate_variant:Nn \tl_if_head_eq_meaning:nNF { V }
 \cs_generate_variant:Nn \tl_if_head_eq_meaning:nNTF { V }
 \cs_generate_variant:Nn \str_set_convert:Nnnn { Nxnn }
 %    \end{macrocode}
@@ -3146,13 +3147,16 @@
 % \begin{macro}[int]{>BODY}
 %   Pop execution token from the stack.  Hope that it has the form built
 %   by |CREATE|: then the second item of its code (as a token list) is
-%   an address, which we put onto the stack.  This is very fragile.
+%   an address, which we put onto the stack.  This is quite fragile.
 %    \begin{macrocode}
 \@@_forth_new_core:nn { >BODY }
   {
     \@@_forth_pop_int:N \l_@@_tmpa_int
-    \@@_forth_push:n
-      { \tl_item:on { \tex_the:D \tex_toks:D \l_@@_tmpa_int } { 2 } }
+    \tl_set:Nx \l_@@_tmpa_tl
+      { \tex_the:D \tex_toks:D \l_@@_tmpa_int }
+    \tl_if_head_eq_meaning:VNF \l_@@_tmpa_tl \@@_forth_push:n
+      { \@@_forth_abort:nx { not-created } { \int_use:N \l_@@_tmpa_int } }
+    \@@_forth_push:n { \tl_item:Nn \l_@@_tmpa_tl \c_two }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -3348,10 +3352,13 @@
 \cs_new_protected:Npn \@@_forth_compiled_does:n #1
   {
     \@@_forth_last_def_xt:N \l_@@_tmpa_tl
+    \tl_set:Nx \l_@@_tmpb_tl
+      { \tex_the:D \tex_toks:D \tl_tail:N \l_@@_tmpa_tl }
+    \tl_if_head_eq_meaning:VNF \l_@@_tmpb_tl \@@_forth_push:n
+      { \@@_forth_abort:nx { not-created } { \int_use:N \l_@@_tmpa_int } }
     \@@_forth_set_word:ox \l_@@_forth_def_name_str
       {
-        \tex_the:D \tex_toks:D
-          \tl_tail:N \l_@@_tmpa_tl \c_space_tl
+        \@@_forth_push:n { \tl_item:Nn \l_@@_tmpb_tl \c_two }
         #1
       }
   }
@@ -5397,8 +5404,8 @@
   { Misplaced~#1. }
 \msg_new:nnn { runner/forth } { internal }
   { Internal~error.~Please~report. }
-\msg_new:nnn { runner/forth } { pick-too-far }
-  { PICK~or~ROLL's~first~argument~larger~than~DEPTH. }
+\msg_new:nnn { runner/forth } { not-created }
+  { The~execution~token~#1~was~not~generated~with~CREATE. }
 %    \end{macrocode}
 %
 % \end{runner-implementation}
