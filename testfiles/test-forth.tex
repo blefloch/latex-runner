@@ -3,15 +3,26 @@
 %%% Tests.
 \newcommand{\result}{}
 \makeatletter
-\newwrite \outfile
-\immediate\openout\outfile \jobname.out
-\RunnerOptions{output-stream = \outfile}
-
-\ExplSyntaxOn
-\msg_redirect_module:nnn { runner/forth } { error } { warning }
-\ExplSyntaxOff
 
 \runner{forth}[output-stream = ]||||
+
+\ExplSyntaxOn
+\iow_new:N \l_test_iow
+\iow_open:Nn \l_test_iow { \jobname.out }
+\RunnerOptions { output-stream = \l_test_iow }
+\cs_gset_protected:Npn \__runner_forth_abort:nxx #1#2#3
+  {
+    \group_begin:
+      \cs_set_eq:NN \c_term_iow \l_test_iow
+      \cs_set_eq:NN \c_log_iow \l_test_iow
+      \msg_warning:nnxx { runner/forth } {#1} {#2} {#3}
+    \group_end:
+    \int_set_eq:NN \l__runner_forth_stack_here_int
+      \g__runner_forth_stack_min_int
+    \__runner_forth_do_quit:
+  }
+% \msg_redirect_module:nnn { runner/forth } { error } { warning }
+\ExplSyntaxOff
 
 % \runner{forth}[interactive]||||
 % \stop
@@ -245,11 +256,11 @@
 |||
 \typeout{\result}
 
-\runner{forth}[output, output-stream = \z@]|
+\runner{forth}[output]|
   564 . 453 . boom CR boom 897 .
 |||
 
-\runner{forth}[output, output-stream = \z@]|
+\runner{forth}[output]|
   : x 0 . ;
   MARKER revert
   : x 1 . ;
@@ -260,19 +271,19 @@
   UNUSED ALLOT boom 1 ALLOT
 |||
 
-\runner{forth}[output = \result, output-stream = \z@]|
+\runner{forth}[output = \result]|
   : const CREATE , DOES> @ ;
 ||7 const SEVEN SEVEN .|
 \typeout{\result}
 
-\runner{forth}[output = \result, output-stream = \z@]|
+\runner{forth}[output = \result]|
   : weird CREATE DOES> ." bip " OVER - . 5 , weird ;
 ||
   HERE weird foobar foobar baz baz bar bar boo 3 DUMP
 |
 \typeout{\result}
 
-\runner{forth}[output, output-stream = \z@]|
+\runner{forth}[output]|
   : 2EQ ROT = IF = IF -1 ELSE 0 THEN ELSE 0 THEN ;
 ||
   1234567 2345678 M*
