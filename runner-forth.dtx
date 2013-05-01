@@ -132,6 +132,8 @@
 % \item |LSHIFT| and |RSHIFT| have stack effect |(x1 u -- x2)|.
 % \end{itemize}
 %
+% Case words: |CASE|, |OF|, |ENDOF|, |ENDCASE|.
+%
 % Comparisons take arguments from the stack and push flags (false:
 % \(0\), true: \(-1\)) onto the stack.
 % \begin{itemize}
@@ -148,9 +150,8 @@
 % \item |DU<|
 % \end{itemize}
 %
-% Conditionals can be compiled as are |IF|, |ELSE|, |THEN|, |CASE|,
-% |OF|, |ENDOF|, |ENDCASE|, or immediate, as are |[IF]|, |[ELSE]|,
-% |[THEN]|.
+% Control-flow words: |IF|, |ELSE|, |THEN|, |BEGIN|, |AGAIN|, |UNTIL|,
+% |WHILE|, |REPEAT|.
 %
 % Defining words: |CONSTANT|, |2CONSTANT|, |CREATE|, |VARIABLE|,
 % |2VARIABLE|, |>BODY|, |VALUE|, |TO|, |:NONAME|, |:|, |DOES>|, |;|,
@@ -162,6 +163,8 @@
 % Environmental queries: |PAD|, |ENVIRONMENT?|.
 %
 % Execution tokens: |'|, |[']|, |EXECUTE|, |FIND|.
+%
+% Immediate conditionals: |[IF]|, |[ELSE]|, |[THEN]|.
 %
 % Input: |>IN|, |SOURCE|, |TIB|, |#TIB|, |CHAR|, |[CHAR]|, |(|, |\|,
 % |PARSE|, |WORD|, |COUNT|, |S"|, |EVALUATE|, |ACCEPT|, |SOURCE-ID|,
@@ -182,8 +185,6 @@
 % Stacks: |DEPTH|, |DROP|, |2DROP|, |NIP|, |SWAP|, |2SWAP|, |ROT|,
 % |DUP|, |2DUP|, |OVER|, |2OVER|, |TUCK|, |PICK|, |ROLL|, |R>|, |2R>|,
 % |R@|, |2R@|, |>R|, |2>R|, |S>D|, |D>S|, |2ROT|.
-%
-% While loops: |BEGIN|, |AGAIN|, |UNTIL|, |WHILE|, |REPEAT|.
 %
 % \subsection{Details of the interpreter}
 % \label{seq:forth-details}
@@ -1234,9 +1235,9 @@
 %
 % \subsubsection{Control-flow stack}
 %
-% \begin{variable}{\l_@@_forth_control_tl}
+% \begin{variable}{\l_@@_forth_control_seq}
 %    \begin{macrocode}
-\tl_new:N \l_@@_forth_control_tl
+\seq_new:N \l_@@_forth_control_seq
 %    \end{macrocode}
 % \end{variable}
 %
@@ -2693,6 +2694,106 @@
 %    \end{macrocode}
 % \end{macro}
 %
+% \subsubsection{Case statements}
+%
+% This section defines the words |CASE|, |OF|, |ENDOF|, |ENDCASE|.
+%
+% \begin{macro}[int]{CASE}
+%   Copy the current definition code to a safe place, and place \(4\)
+%   (magic number for |CASE|) onto the control-flow stack.
+%    \begin{macrocode}
+\@@_forth_new_compilation_core:nn { CASE }
+  {
+    \@@_forth_control_open:n { 4 }
+    \seq_push:NV \l_@@_forth_def_code_seq \l_@@_forth_def_code_tl
+    \tl_clear:N \l_@@_forth_def_code_tl
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int]{OF}
+%   Make sure the previous control-flow word was |CASE|, and leave that
+%   item onto the control flow stack.  Place \(5\) onto the control-flow
+%   stack.
+%    \begin{macrocode}
+\@@_forth_new_compilation_core:nn { OF }
+  {
+    \@@_forth_control_if:nTF { 4 }
+      {
+        \@@_forth_control_open:n { 5 }
+        \seq_push:NV \l_@@_forth_def_code_seq \l_@@_forth_def_code_tl
+        \tl_clear:N \l_@@_forth_def_code_tl
+      }
+      { \@@_forth_abort:nx { misplaced } { OF } }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int]{ENDOF}
+% \begin{macro}[aux]{\@@_forth_compiled_of:n}
+%   Make sure the previous control-flow word was |OF|.  Go back to the
+%   previously built definition code, and append to it the
+%   \texttt{compiled_of} function, with as its argument the code
+%   collected between |OF| and |ENDOF|.  At run-time, compare the two
+%   topmost items on the stack: if they are equal, break to the end of
+%   the |CASE...ENDCASE| construct and perform the code for that
+%   |OF...ENDOF| clause; otherwise push back the case element, for
+%   comparisons with further |OF...ENDOF| clauses.
+%    \begin{macrocode}
+\@@_forth_new_compilation_core:nn { ENDOF }
+  {
+    \@@_forth_control_close:nTF { 5 }
+      {
+        \tl_set_eq:NN \l_@@_tmpa_tl \l_@@_forth_def_code_tl
+        \seq_pop:NN \l_@@_forth_def_code_seq \l_@@_forth_def_code_tl
+        \@@_forth_def_code:x
+          { \@@_forth_compiled_of:n { \l_@@_tmpa_tl } }
+      }
+      { \@@_forth_abort:nx { misplaced } { ENDOF } }
+  }
+\cs_new_protected:Npn \@@_forth_compiled_of:n #1
+  {
+    \@@_forth_pop_int:NN \l_@@_tmpa_int \l_@@_tmpb_int
+    \int_compare:nNnTF \l_@@_tmpa_int = \l_@@_tmpb_int
+      { \@@_break:n {#1} }
+      { \@@_forth_push:n \l_@@_tmpa_int }
+  }
+%    \end{macrocode}
+% \end{macro}
+% \end{macro}
+%
+% ^^A todo: test nested CASE...ENDCASE.
+% \begin{macro}[int]{ENDCASE}
+% \begin{macro}[aux]{\@@_forth_compiled_case:n}
+%   An |ENDCASE| word should match with |CASE| (magic number \(4\) on
+%   the control flow stack).  Restore the definition collected before
+%   |CASE|, and append \texttt{compiled_case} with the code collected
+%   within |CASE...ENDCASE| as its argument.  This function, performed
+%   at run-time, simply sets up the necessary end-marker to allow
+%   |OF...ENDOF| clauses to jump out of the |CASE...ENDCASE| block.  If
+%   none of the clauses match, the case value is dropped before exiting.
+%    \begin{macrocode}
+\@@_forth_new_compilation_core:nn { ENDCASE }
+  {
+    \@@_forth_control_close:nTF { 4 }
+      {
+        \tl_set_eq:NN \l_@@_tmpa_tl \l_@@_forth_def_code_tl
+        \seq_pop:NN \l_@@_forth_def_code_seq \l_@@_forth_def_code_tl
+        \@@_forth_def_code:x
+          { \@@_forth_compiled_case:n { \l_@@_tmpa_tl } }
+      }
+      { \@@_forth_abort:nx { misplaced } { ENDCASE } }
+  }
+\cs_new_protected:Npn \@@_forth_compiled_case:n #1
+  {
+    #1
+    \@@_forth_pop_int:N \l_@@_tmpa_int
+    \@@_break_point:n { }
+  }
+%    \end{macrocode}
+% \end{macro}
+% \end{macro}
+%
 % \subsubsection{Comparisons}
 %
 % This section defines the words |FALSE|, |TRUE|, |0=|, |0<>|, |0<|,
@@ -2921,252 +3022,226 @@
 % \end{macro}
 % \end{macro}
 %
-% \subsubsection{Conditionals}
+% \subsubsection{Control-flow words}
 %
-% This section defines the words |IF|, |ELSE|, |THEN|, |CASE|, |OF|,
-% |ENDOF|, |ENDCASE|, |[IF]|, |[THEN]|, |[ELSE]|.
+% This section defines the words |IF|, |ELSE|, |THEN|, |BEGIN|, |AGAIN|,
+% |UNTIL|, |WHILE|, |REPEAT|.
+%
+% \begin{variable}{\l_@@_forth_flow_int}
+%   This integer labels destinations (and origins) for control flow.  It
+%   is never reset, hence limiting the total number of distinct control
+%   flow locations (in all words defined) to \(2^{31}-1\), which is more
+%   than enough.
+%    \begin{macrocode}
+\int_new:N \l_@@_forth_flow_int
+%    \end{macrocode}
+% \end{variable}
+%
+% \begin{macro}[int]
+%   {\@@_forth_flow_forward:n, \@@_forth_flow_back:nn, \@@_forth_flow_dest:w}
+%    \begin{macrocode}
+\cs_new_protected:Npn \@@_forth_flow_forward:n #1
+  {
+    \cs_set:Npn \@@_tmp:w ##1 \@@_forth_flow_dest:w #1 . { }
+    \@@_tmp:w
+  }
+\cs_new_protected:Npn \@@_forth_flow_back:nn #1#2
+  {
+    \cs_set:Npn \@@_tmp:w ##1 \@@_forth_flow_dest:w #1 . { }
+    \@@_forth_exit:n
+      {
+        \exp_after:wN \@@_tmp:w
+          \tex_the:D \tex_toks:D #2 \@@_forth_exit_point:
+      }
+  }
+\cs_new_protected:Npn \@@_forth_flow_dest:w #1 . { }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[aux]{\@@_forth_if_tos:F}
+%   Run the argument (typically a jump) if the top-of-stack is zero, and
+%   pop the top of stack in the process.
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \@@_forth_if_tos:F
+  {
+    \@@_forth_pop_int:N \l_@@_tmpa_int
+    \int_compare:nNnT \l_@@_tmpa_int = \c_zero
+  }
+%    \end{macrocode}
+% \end{macro}
 %
 % \begin{macro}[int]{IF}
-%   Save the definition-so-far in the \texttt{def_code} stack, and empty that
-%   variable.  Then continue collecting: the |THEN| word will take care
-%   of combining what is collected now with the definition-so-far saved
-%   on the \texttt{def_code} stack.  For subsequent control-flow words to
-%   know what happened, push \(2\) onto the control-flow stack.
+%   Add onto the control-flow stack an origin, labeled by a new value of
+%   the \texttt{flow} integer.  Add to the current definition some code
+%   that will jump to the destination if the top of stack is zero.  This
+%   jump is safe because the definition can only be performed if all
+%   items above the~\(0\) in the control-flow stack have been popped,
+%   including the number \texttt{flow}.
 %    \begin{macrocode}
 \@@_forth_new_compilation_core:nn { IF }
   {
-    \@@_forth_control_open:n { 2 }
-    \seq_push:NV \l_@@_forth_def_code_seq \l_@@_forth_def_code_tl
-    \tl_clear:N \l_@@_forth_def_code_tl
+    \int_incr:N \l_@@_forth_flow_int
+    \seq_push:NV \l_@@_forth_control_seq \l_@@_forth_flow_int
+    \@@_forth_def_code:x
+      {
+        \@@_forth_if_tos:F
+          {
+            \@@_forth_flow_forward:n
+              { \int_use:N \l_@@_forth_flow_int }
+          }
+      }
   }
 %    \end{macrocode}
 % \end{macro}
 %
 % \begin{macro}[int]{ELSE}
-%   The word |ELSE| can only be used if the last control flow word was
-%   |IF|.  Stash away the definition code of the \texttt{true} branch
-%   that was just collected, and empty the \texttt{def_code} variable to
-%   be ready for the \texttt{false} branch.  Then push \(3\) on the
-%   stack to indicate the presence of a dangling |ELSE|.
+%   The word |ELSE| can only be used if the top of the control-flow
+%   stack is an origin (positive integer).  Add to the current
+%   definition an unconditional jump to a new (future) destination, and
+%   push it onto the control-flow stack.  Then add a destination
+%   matching the origin \texttt{tmpa} that was previously on the stack.
+%   The order is important.
 %    \begin{macrocode}
 \@@_forth_new_compilation_core:nn { ELSE }
   {
-    \@@_forth_control_close:nTF { 2 }
-      {
-        \@@_forth_control_open:n { 3 }
-        \seq_push:NV \l_@@_forth_def_code_seq \l_@@_forth_def_code_tl
-        \tl_clear:N \l_@@_forth_def_code_tl
-      }
+    \seq_pop:NNF \l_@@_forth_control_seq \l_@@_tmpa_tl
       { \@@_forth_abort:nx { misplaced } { ELSE } }
+    \int_compare:nNnF \l_@@_tmpa_tl > \c_zero
+      { \@@_forth_abort:nx { misplaced } { ELSE } }
+    \int_incr:N \l_@@_forth_flow_int
+    \seq_push:NV \l_@@_forth_control_seq \l_@@_forth_flow_int
+    \@@_forth_def_code:x
+      {
+        \@@_forth_flow_forward:n
+          { \int_use:N \l_@@_forth_flow_int }
+        \@@_forth_flow_dest:w \l_@@_tmpa_tl .
+      }
   }
 %    \end{macrocode}
 % \end{macro}
 %
 % \begin{macro}[int]{THEN}
-% \begin{macro}[aux]{\@@_forth_compile_then:TF}
-%   The auxiliary restores the definition code to what it was before the
-%   matching |IF|, then appends to it \cs{@@_forth_compiled_if:TF}
-%   followed by the codes for the \texttt{true} branch and the
-%   \texttt{false} branch.  After an |IF| with no |ELSE| (magic number
-%   \(2\)), the \texttt{true} branch is in \texttt{def_code}, and the
-%   \texttt{false} branch is empty.  After an \texttt{ELSE} (magic
-%   number \(3\)), the \texttt{false} branch is in \texttt{def_code},
-%   and the \texttt{true} branch is on the \texttt{def_code} stack.  Any
-%   other circumstance means that |THEN| does not belong there.
+%   The word |THEN| can only be used if the top of the control-flow
+%   stack is an origin (positive integer).  Add to the current
+%   definition a destination matching the origin \texttt{tmpa}.
 %    \begin{macrocode}
 \@@_forth_new_compilation_core:nn { THEN }
   {
-    \@@_forth_control_close:nTF { 2 }
-      {
-        \exp_args:NV \@@_forth_compile_then:TF
-          \l_@@_forth_def_code_tl { }
-      }
-      {
-        \@@_forth_control_close:nTF { 3 }
-          {
-            \seq_pop:NN \l_@@_forth_def_code_seq \l_@@_tmpa_tl
-            \exp_args:NVV \@@_forth_compile_then:TF
-              \l_@@_tmpa_tl \l_@@_forth_def_code_tl
-          }
-          { \@@_forth_abort:nx { misplaced } { THEN } }
-      }
-  }
-\cs_new_protected:Npn \@@_forth_compile_then:TF #1#2
-  {
-    \seq_pop:NN \l_@@_forth_def_code_seq \l_@@_forth_def_code_tl
+    \seq_pop:NNF \l_@@_forth_control_seq \l_@@_tmpa_tl
+      { \@@_forth_abort:nx { misplaced } { THEN } }
+    \int_compare:nNnF \l_@@_tmpa_tl > \c_zero
+      { \@@_forth_abort:nx { misplaced } { THEN } }
     \@@_forth_def_code:x
-      { \@@_forth_compiled_if:TF {#1} {#2} }
-  }
-%    \end{macrocode}
-% \end{macro}
-% \end{macro}
-%
-% \begin{macro}[int, TF]{\@@_forth_compiled_if:}
-%    \begin{macrocode}
-\prg_new_protected_conditional:Npnn \@@_forth_compiled_if: { TF }
-  {
-    \@@_forth_pop_int:N \l_@@_tmpa_int
-    \int_compare:nNnTF \l_@@_tmpa_int = \c_zero
-      { \prg_return_false: } { \prg_return_true: }
+      { \@@_forth_flow_dest:w \l_@@_tmpa_tl . }
   }
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[int]{CASE}
-%   Copy the current definition code to a safe place, and place \(4\)
-%   (magic number for |CASE|) onto the control-flow stack.
+% \begin{macro}[int]{BEGIN}
+%   Add in the current definition a destination, labeled by a new value
+%   of the \texttt{flow} integer.  Also push it onto the control-flow
+%   stack, with a negative sign to indicate a backward flow.  The
+%   consumer of this destination (|REPEAT| or |UNTIL|) then adds to the
+%   definition a backwards jump to that destination.
 %    \begin{macrocode}
-\@@_forth_new_compilation_core:nn { CASE }
+\@@_forth_new_compilation_core:nn { BEGIN }
   {
-    \@@_forth_control_open:n { 4 }
-    \seq_push:NV \l_@@_forth_def_code_seq \l_@@_forth_def_code_tl
-    \tl_clear:N \l_@@_forth_def_code_tl
+    \int_incr:N \l_@@_forth_flow_int
+    \seq_push:Nx \l_@@_forth_control_seq
+      { \int_eval:n { - \l_@@_forth_flow_int } }
+    \@@_forth_def_code:x
+      { \@@_forth_flow_dest:w \int_use:N \l_@@_forth_flow_int . }
   }
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[int]{OF}
-%   Make sure the previous control-flow word was |CASE|, and leave that
-%   item onto the control flow stack.  Place \(5\) onto the control-flow
-%   stack.
+% \begin{macro}[int]{AGAIN, UNTIL}
+% \begin{macro}[aux]{\@@_forth_compile_again:nN}
+%   The words |AGAIN| and |UNTIL| can only be used if the top of the
+%   control-flow stack is a destination (negative integer).  Then add
+%   code to the current definition that jumps to this destination.  The
+%   execution token that is being defined is needed at run-time in order
+%   to go back to \TeX{} code that is ``in the past''.  For |UNTIL|, the
+%   jump happens if the top of stack is zero (\texttt{false}).
 %    \begin{macrocode}
-\@@_forth_new_compilation_core:nn { OF }
+\@@_forth_new_compilation_core:nn { AGAIN }
+  { \@@_forth_compile_again:nN { AGAIN } \use:n }
+\@@_forth_new_compilation_core:nn { UNTIL }
+  { \@@_forth_compile_again:nN { UNTIL } \@@_forth_if_tos:F }
+\cs_new_protected:Npn \@@_forth_compile_again:nN #1#2
   {
-    \@@_forth_control_if:nTF { 4 }
+    \seq_pop:NNF \l_@@_forth_control_seq \l_@@_tmpa_tl
+      { \@@_forth_abort:nx { misplaced } {#1} }
+    \int_compare:nNnF \l_@@_tmpa_tl < \c_zero
+      { \@@_forth_abort:nx { misplaced } {#1} }
+    \@@_forth_def_code:x
       {
-        \@@_forth_control_open:n { 5 }
-        \seq_push:NV \l_@@_forth_def_code_seq \l_@@_forth_def_code_tl
-        \tl_clear:N \l_@@_forth_def_code_tl
-      }
-      { \@@_forth_abort:nx { misplaced } { OF } }
-  }
-%    \end{macrocode}
-% \end{macro}
-%
-% \begin{macro}[int]{ENDOF}
-% \begin{macro}[aux]{\@@_forth_compiled_of:n}
-%   Make sure the previous control-flow word was |OF|.  Go back to the
-%   previously built definition code, and append to it the
-%   \texttt{compiled_of} function, with as its argument the code
-%   collected between |OF| and |ENDOF|.  At run-time, compare the two
-%   topmost items on the stack: if they are equal, break to the end of
-%   the |CASE...ENDCASE| construct and perform the code for that
-%   |OF...ENDOF| clause; otherwise push back the case element, for
-%   comparisons with further |OF...ENDOF| clauses.
-%    \begin{macrocode}
-\@@_forth_new_compilation_core:nn { ENDOF }
-  {
-    \@@_forth_control_close:nTF { 5 }
-      {
-        \tl_set_eq:NN \l_@@_tmpa_tl \l_@@_forth_def_code_tl
-        \seq_pop:NN \l_@@_forth_def_code_seq \l_@@_forth_def_code_tl
-        \@@_forth_def_code:x
-          { \@@_forth_compiled_of:n { \l_@@_tmpa_tl } }
-      }
-      { \@@_forth_abort:nx { misplaced } { ENDOF } }
-  }
-\cs_new_protected:Npn \@@_forth_compiled_of:n #1
-  {
-    \@@_forth_pop_int:NN \l_@@_tmpa_int \l_@@_tmpb_int
-    \int_compare:nNnTF \l_@@_tmpa_int = \l_@@_tmpb_int
-      { \@@_break:n {#1} }
-      { \@@_forth_push:n \l_@@_tmpa_int }
-  }
-%    \end{macrocode}
-% \end{macro}
-% \end{macro}
-%
-% ^^A todo: test nested CASE...ENDCASE.
-% \begin{macro}[int]{ENDCASE}
-% \begin{macro}[aux]{\@@_forth_compiled_case:n}
-%   An |ENDCASE| word should match with |CASE| (magic number \(4\) on
-%   the control flow stack).  Restore the definition collected before
-%   |CASE|, and append \texttt{compiled_case} with the code collected
-%   within |CASE...ENDCASE| as its argument.  This function, performed
-%   at run-time, simply sets up the necessary end-marker to allow
-%   |OF...ENDOF| clauses to jump out of the |CASE...ENDCASE| block.  If
-%   none of the clauses match, the case value is dropped before exiting.
-%    \begin{macrocode}
-\@@_forth_new_compilation_core:nn { ENDCASE }
-  {
-    \@@_forth_control_close:nTF { 4 }
-      {
-        \tl_set_eq:NN \l_@@_tmpa_tl \l_@@_forth_def_code_tl
-        \seq_pop:NN \l_@@_forth_def_code_seq \l_@@_forth_def_code_tl
-        \@@_forth_def_code:x
-          { \@@_forth_compiled_case:n { \l_@@_tmpa_tl } }
-      }
-      { \@@_forth_abort:nx { misplaced } { ENDCASE } }
-  }
-\cs_new_protected:Npn \@@_forth_compiled_case:n #1
-  {
-    #1
-    \@@_forth_pop_int:N \l_@@_tmpa_int
-    \@@_break_point:n { }
-  }
-%    \end{macrocode}
-% \end{macro}
-% \end{macro}
-%
-% \begin{variable}{\l_@@_forth_if_int}
-%   Nesting level of conditionals.
-%    \begin{macrocode}
-\int_new:N \l_@@_forth_if_int
-%    \end{macrocode}
-% \end{variable}
-%
-% \begin{macro}[int]{[IF], [ELSE], [THEN]}
-% \begin{macro}[aux]{\@@_forth_bracket_if:n}
-%   |[IF]| jumps to the matching [ELSE] or [THEN] if the top of flag is
-%   \texttt{false} (\(0\)).  |[ELSE]| jumps unconditionally to the
-%   matching [THEN].  |[THEN]| does nothing.  This is done by repeatedly
-%   getting words, until the \texttt{forth_if} integer, which keeps
-%   track of nesting, becomes negative.  Each word is compared with the
-%   words |[IF]| (increment nesting), |[ELSE]| (do nothing, or for
-%   |[IF]| check that the nesting is non-zero), |[THEN]| (decrement
-%   nesting).  An empty word marks the end of the line.
-%    \begin{macrocode}
-\@@_forth_new_immediate_core:nn { [IF] }
-  {
-    \@@_forth_pop_int:N \l_@@_tmpa_int
-    \int_compare:nNnT \l_@@_tmpa_int = \c_zero
-      {
-        \@@_forth_bracket_if:n
+        #2
           {
-            { [ELSE] }
-              {
-                \int_compare:nNnF \l_@@_forth_if_int > \c_zero
-                  { \int_decr:N \l_@@_forth_if_int }
-              }
+            \@@_forth_flow_back:nn
+              { \int_eval:n { - \l_@@_tmpa_tl } }
+              { \int_use:N \l_@@_forth_def_token_int }
           }
       }
   }
-\@@_forth_new_immediate_core:nn { [ELSE] }
-  { \@@_forth_bracket_if:n { } }
-\@@_forth_new_immediate_core:nn { [THEN] } { }
-\cs_new_protected:Npn \@@_forth_bracket_if:n #1
+%    \end{macrocode}
+% \end{macro}
+% \end{macro}
+%
+% \begin{macro}[int]{WHILE}
+%   Find a destination on the stack.  Create a new origin, and put it
+%   below the destination in the control-flow stack.  Then add to the
+%   current definition a conditional jump forwards to the destination of
+%   the new origin.
+%    \begin{macrocode}
+\@@_forth_new_compilation_core:nn { WHILE }
   {
-    \int_zero:N \l_@@_forth_if_int
-    \int_until_do:nNnn \l_@@_forth_if_int < \c_zero
+    \seq_pop:NNF \l_@@_forth_control_seq \l_@@_tmpa_tl
+      { \@@_forth_abort:nx { misplaced } { WHILE } }
+    \int_compare:nNnF \l_@@_tmpa_tl < \c_zero
+      { \@@_forth_abort:nx { misplaced } { WHILE } }
+    \int_incr:N \l_@@_forth_flow_int
+    \seq_push:NV \l_@@_forth_control_seq \l_@@_forth_flow_int
+    \seq_push:NV \l_@@_forth_control_seq \l_@@_tmpa_tl
+    \@@_forth_def_code:x
       {
-        \@@_forth_input_word:
-        \@@_forth_input_set_word:
-        \str_case:onn { \l_@@_forth_word_str }
+        \@@_forth_if_tos:F
           {
-            { }
-              {
-                \@@_forth_refill:TF { }
-                  { \int_set_eq:NN \l_@@_forth_if_int \c_minus_one }
-              }
-            {  [IF]  } { \int_incr:N \l_@@_forth_if_int }
-            { [THEN] } { \int_decr:N \l_@@_forth_if_int }
-            #1
+            \@@_forth_flow_forward:n
+              { \int_use:N \l_@@_forth_flow_int }
           }
-          { }
       }
   }
 %    \end{macrocode}
 % \end{macro}
+%
+% ^^A todo: better tools to manipulate the control-flow stack
+% \begin{macro}[int]{REPEAT}
+%   Find a destination and an origin on the stack.  Add to the current
+%   definition an unconditional (backwards) jump to the destination (the
+%   \texttt{flow_back} function needs to be aware of the execution token
+%   being run), followed by the destination to which the origin
+%   (typically |WHILE|, which exits the loop) will jump.
+%    \begin{macrocode}
+\@@_forth_new_compilation_core:nn { REPEAT }
+  {
+    \seq_pop:NNF \l_@@_forth_control_seq \l_@@_tmpa_tl
+      { \@@_forth_abort:nx { misplaced } { REPEAT } }
+    \int_compare:nNnF \l_@@_tmpa_tl < \c_zero
+      { \@@_forth_abort:nx { misplaced } { REPEAT } }
+    \seq_pop:NNF \l_@@_forth_control_seq \l_@@_tmpb_tl
+      { \@@_forth_abort:nx { misplaced } { REPEAT } }
+    \int_compare:nNnF \l_@@_tmpb_tl > \c_zero
+      { \@@_forth_abort:nx { misplaced } { REPEAT } }
+    \@@_forth_def_code:x
+      {
+        \@@_forth_flow_back:nn
+          { \int_eval:n { - \l_@@_tmpa_tl } }
+          { \int_use:N \l_@@_forth_def_token_int }
+        \@@_forth_flow_dest:w \l_@@_tmpb_tl .
+      }
+  }
+%    \end{macrocode}
 % \end{macro}
 %
 % \subsubsection{Defining words}
@@ -3382,7 +3457,7 @@
     \seq_push:NV \l_@@_forth_def_token_seq \l_@@_forth_def_token_int
     \int_set_eq:NN \l_@@_forth_def_token_int \l_@@_forth_token_int
     \int_incr:N \l_@@_forth_token_int
-    \tl_put_right:Nn \l_@@_forth_control_tl { 0 }
+    \seq_push:Nn \l_@@_forth_control_seq { 0 }
     \@@_forth_state_to_compile:
   }
 %    \end{macrocode}
@@ -3391,21 +3466,20 @@
 %
 % \begin{macro}[int]{;}
 %   Make sure that a definition is in progress (the \texttt{control}
-%   token list starts with the magic number \(0\)), and indicate by
-%   popping the \texttt{control} token list that the definition is done.
+%   stack starts with the magic number \(0\)), and indicate by
+%   popping the \texttt{control} stack that the definition is done.
 %   Then perform the \texttt{def_after} code, which either pushes the
 %   execution token or sets the word that followed~|:| equal to it.  The
 %   \texttt{def_code} itself is then stored as that \texttt{def_token}
 %   execution token.  Restore the \texttt{def_code} that was being built
 %   prior to~|:|, the \texttt{def_token}, and pop the \texttt{control}
-%   token list.  Finally, resume interpretation.
+%   stack.  Finally, resume interpretation.
 %    \begin{macrocode}
 \@@_forth_new_compilation_core:nn { ; }
   {
-    \tl_if_head_eq_meaning:VNF \l_@@_forth_control_tl 0
+    \seq_pop:NN \l_@@_forth_control_seq \l_@@_tmpa_tl
+    \str_if_eq_x:nnF \l_@@_tmpa_tl { 0 }
       { \@@_forth_abort:nx { misplaced } { ; } }
-    \tl_set:Nx \l_@@_forth_control_tl
-      { \tl_tail:N \l_@@_forth_control_tl }
     \seq_pop:NN \l_@@_forth_def_after_seq \l_@@_tmpa_tl
     \tl_use:N \l_@@_tmpa_tl
     \use:x
@@ -3423,7 +3497,7 @@
 %
 % \begin{macro}[int]{DOES>}
 %   This word is implemented as a hybrid of |;| and~|:|.  Make sure that
-%   the \texttt{control} token list starts with~\(0\) (definition in
+%   the \texttt{control} stack starts with~\(0\) (definition in
 %   progress): as we will remain within a definition, nothing is removed
 %   from the \texttt{control} stack.  Perform the \texttt{def_after}
 %   code, which can either push the \texttt{def_token} execution token
@@ -3443,7 +3517,8 @@
 %    \begin{macrocode}
 \@@_forth_new_compilation_core:nn { DOES> }
   {
-    \tl_if_head_eq_meaning:VNF \l_@@_forth_control_tl 0
+    \seq_get:NN \l_@@_forth_control_seq \l_@@_tmpa_tl
+    \str_if_eq_x:nnF \l_@@_tmpa_tl { 0 }
       { \@@_forth_abort:nx { misplaced } { DOES> } }
     \seq_pop:NN \l_@@_forth_def_after_seq \l_@@_tmpa_tl
     \tl_use:N \l_@@_tmpa_tl
@@ -3982,6 +4057,71 @@
       }
   }
 %    \end{macrocode}
+% \end{macro}
+%
+% \subsubsection{Immediate conditionals}
+%
+% This section defines the words |[IF]|, |[THEN]|, |[ELSE]|.
+%
+% \begin{variable}{\l_@@_forth_if_int}
+%   Nesting level of conditionals.
+%    \begin{macrocode}
+\int_new:N \l_@@_forth_if_int
+%    \end{macrocode}
+% \end{variable}
+%
+% \begin{macro}[int]{[IF], [ELSE], [THEN]}
+% \begin{macro}[aux]{\@@_forth_bracket_if:n}
+%   |[IF]| jumps to the matching [ELSE] or [THEN] if the top of flag is
+%   \texttt{false} (\(0\)).  |[ELSE]| jumps unconditionally to the
+%   matching [THEN].  |[THEN]| does nothing.  This is done by repeatedly
+%   getting words, until the \texttt{forth_if} integer, which keeps
+%   track of nesting, becomes negative.  Each word is compared with the
+%   words |[IF]| (increment nesting), |[ELSE]| (do nothing, or for
+%   |[IF]| check that the nesting is non-zero), |[THEN]| (decrement
+%   nesting).  An empty word marks the end of the line.
+%    \begin{macrocode}
+\@@_forth_new_immediate_core:nn { [IF] }
+  {
+    \@@_forth_pop_int:N \l_@@_tmpa_int
+    \int_compare:nNnT \l_@@_tmpa_int = \c_zero
+      {
+        \@@_forth_bracket_if:n
+          {
+            { [ELSE] }
+              {
+                \int_compare:nNnF \l_@@_forth_if_int > \c_zero
+                  { \int_decr:N \l_@@_forth_if_int }
+              }
+          }
+      }
+  }
+\@@_forth_new_immediate_core:nn { [ELSE] }
+  { \@@_forth_bracket_if:n { } }
+\@@_forth_new_immediate_core:nn { [THEN] } { }
+\cs_new_protected:Npn \@@_forth_bracket_if:n #1
+  {
+    \int_zero:N \l_@@_forth_if_int
+    \int_until_do:nNnn \l_@@_forth_if_int < \c_zero
+      {
+        \@@_forth_input_word:
+        \@@_forth_input_set_word:
+        \str_case:onn { \l_@@_forth_word_str }
+          {
+            { }
+              {
+                \@@_forth_refill:TF { }
+                  { \int_set_eq:NN \l_@@_forth_if_int \c_minus_one }
+              }
+            {  [IF]  } { \int_incr:N \l_@@_forth_if_int }
+            { [THEN] } { \int_decr:N \l_@@_forth_if_int }
+            #1
+          }
+          { }
+      }
+  }
+%    \end{macrocode}
+% \end{macro}
 % \end{macro}
 %
 % \subsubsection{Input}
@@ -5013,13 +5153,15 @@
 %
 % ^^A todo: for ABORT, print a reasonable prompt, not nothing.
 %
-% \begin{macro}[int]{\@@_forth_exit:, \@@_forth_exit_point:}
+% \begin{macro}[int]{\@@_forth_exit:, \@@_forth_exit:n, \@@_forth_exit_point:}
 %   When executing code given an execution token (see
 %   \cs{@@_forth_execute:n}), an \texttt{exit_point} marker is placed
 %   after the code, so that |EXIT| can safely leave definitions.
 %    \begin{macrocode}
 \cs_new_protected:Npn \@@_forth_exit:
   #1 \@@_forth_exit_point: { }
+\cs_new_protected:Npn \@@_forth_exit:n
+  #1 #2 \@@_forth_exit_point: {#1}
 \cs_new_eq:NN \@@_forth_exit_point: \scan_stop:
 %    \end{macrocode}
 % \end{macro}
@@ -5348,122 +5490,6 @@
 %    \begin{macrocode}
 \@@_forth_core_alias:nn { D>S } { DROP }
 %    \end{macrocode}
-% \end{macro}
-%
-% \subsubsection{While loops}
-%
-% This section defines the words |BEGIN|, |AGAIN|, |UNTIL|, |WHILE|,
-% |REPEAT|.
-%
-% \begin{macro}[int]{BEGIN}
-%   Similar to |IF|.  Save the definition-so-far in the \texttt{def_code}
-%   stack, and empty that variable.  Push the magic number \(8\) onto
-%   the control flow stack.  The |UNTIL| word (or |WHILE| and |REPEAT|)
-%   will take care of combining the two pieces of code.
-%    \begin{macrocode}
-\@@_forth_new_compilation_core:nn { BEGIN }
-  {
-    \@@_forth_control_open:n { 8 }
-    \seq_push:NV \l_@@_forth_def_code_seq \l_@@_forth_def_code_tl
-    \tl_clear:N \l_@@_forth_def_code_tl
-  }
-%    \end{macrocode}
-% \end{macro}
-%
-% \begin{macro}[int]{AGAIN, UNTIL}
-% \begin{macro}[int]{\@@_forth_again:Nn}
-% \begin{macro}[aux]{\@@_forth_compiled_again:n, \@@_forth_compiled_until:n}
-%   The words |AGAIN| and |UNTIL| must follow |BEGIN| (magic number
-%   \(8\)).  Save the code of the loop body as \texttt{tmpa}, and
-%   restore the previous \texttt{def_code}, then append the
-%   \texttt{compiled_again} or \texttt{compiled_until} with the loop
-%   body code as its argument.  At run-time, the \texttt{compiled_again}
-%   function runs its argument then calls itself again with no test.
-%   This endless loop can be exited with~|EXIT|.  The
-%   \texttt{compiled_until} function runs its argument, then pops the
-%   data stack: if that is zero, repeat, otherwise, stop.
-%    \begin{macrocode}
-\@@_forth_new_compilation_core:nn { AGAIN }
-  { \@@_forth_again:Nn \@@_forth_compiled_again:n { AGAIN } }
-\@@_forth_new_compilation_core:nn { UNTIL }
-  { \@@_forth_again:Nn \@@_forth_compiled_until:n { UNTIL } }
-\cs_new_protected:Npn \@@_forth_again:Nn #1#2
-  {
-    \@@_forth_control_close:nTF { 8 }
-      {
-        \tl_set_eq:NN \l_@@_tmpa_tl \l_@@_forth_def_code_tl
-        \seq_pop:NN \l_@@_forth_def_code_seq \l_@@_forth_def_code_tl
-        \@@_forth_def_code:x { #1 { \l_@@_tmpa_tl } }
-      }
-      { \@@_forth_abort:nx { misplaced } {#2} }
-  }
-\cs_new_protected:Npn \@@_forth_compiled_again:n #1
-  {
-    #1
-    \@@_forth_compiled_again:n {#1}
-  }
-\cs_new_protected:Npn \@@_forth_compiled_until:n #1
-  {
-    \int_do_while:nNnn \l_@@_tmpa_int = \c_zero
-      {
-        #1
-        \@@_forth_pop_int:N \l_@@_tmpa_int
-      }
-  }
-%    \end{macrocode}
-% \end{macro}
-% \end{macro}
-% \end{macro}
-%
-% ^^A todo: this fails the BEGIN ... WHILE ... WHILE ... REPEAT test.
-% \begin{macro}[int]{WHILE, REPEAT}
-% \begin{macro}[aux]{\@@_forth_compiled_repeat:nn}
-%   |WHILE| must follow |BEGIN| (magic number \(9\)).  Store the first
-%   part of the loop body in the \texttt{def_code} stack.  |REPEAT| must
-%   follow |WHILE| (magic number \(8\)).  The loop body code is in
-%   \texttt{tmpa} (pre-|WHILE|) and \texttt{tmpb} (post-|WHILE|), and we
-%   insert \cs{@@_forth_compiled_repeat:nn} into the definition started
-%   before |BEGIN|.  At run-time, perform the first part of the loop;
-%   pop a value; if false, stop, otherwise, perform the second part of
-%   the loop; repeat.
-%    \begin{macrocode}
-\@@_forth_new_compilation_core:nn { WHILE }
-  {
-    \@@_forth_control_close:nTF { 8 }
-      {
-        \@@_forth_control_open:n { 9 }
-        \seq_push:NV \l_@@_forth_def_code_seq \l_@@_forth_def_code_tl
-        \tl_clear:N \l_@@_forth_def_code_tl
-      }
-      { \@@_forth_abort:nx { misplaced } { WHILE } }
-  }
-\@@_forth_new_compilation_core:nn { REPEAT }
-  {
-    \@@_forth_control_close:nTF { 9 }
-      {
-        \tl_set_eq:NN \l_@@_tmpb_tl \l_@@_forth_def_code_tl
-        \seq_pop:NN \l_@@_forth_def_code_seq \l_@@_tmpa_tl
-        \seq_pop:NN \l_@@_forth_def_code_seq \l_@@_forth_def_code_tl
-        \@@_forth_def_code:x
-          {
-            \@@_forth_compiled_repeat:nn
-              { \l_@@_tmpa_tl } { \l_@@_tmpb_tl }
-          }
-      }
-      { \@@_forth_abort:nx { misplaced } { REPEAT } }
-  }
-\cs_new_protected:Npn \@@_forth_compiled_repeat:nn #1#2
-  {
-    #1
-    \@@_forth_pop_int:N \l_@@_tmpa_int
-    \int_compare:nNnF \l_@@_tmpa_int = \c_zero
-      {
-        #2
-        \@@_forth_compiled_repeat:nn {#1} {#2}
-      }
-  }
-%    \end{macrocode}
-% \end{macro}
 % \end{macro}
 %
 % \subsection{Messages}
