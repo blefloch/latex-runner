@@ -1954,11 +1954,10 @@
 \__runner_forth_new_core:nn { PARSE }
   {
     \__runner_forth_pop_int:N \l__runner_tmpa_int
-    \int_set_eq:NN \l__runner_tmpb_int \l__runner_forth_source_parsed_int
     \__runner_forth_input_until:n { \l__runner_tmpa_int }
     \__runner_forth_push:nn
-      { \l__runner_tmpb_int }
-      { \l__runner_forth_source_parsed_int - \l__runner_tmpb_int }
+      { \l__runner_forth_input_word_begin_int }
+      { \l__runner_forth_input_word_end_int - \l__runner_forth_input_word_begin_int }
   }
 \__runner_forth_new_core:nn { WORD }
   {

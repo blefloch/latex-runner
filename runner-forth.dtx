@@ -4002,19 +4002,17 @@
 % \end{macro}
 %
 % \begin{macro}[int]{PARSE}
-%   Get a character~\(a\) from the stack, save the current
-%   \texttt{source_parsed} as~\(b\), and push it to the stack.  Then
-%   read a word delimited by~\(a\), and push the length of the word
-%   found.
+%   Get a character~\(a\) from the stack and read a word delimited
+%   by~\(a\).  Then push the starting character and the length of the
+%   word found.
 %    \begin{macrocode}
 \@@_forth_new_core:nn { PARSE }
   {
     \@@_forth_pop_int:N \l_@@_tmpa_int
-    \int_set_eq:NN \l_@@_tmpb_int \l_@@_forth_source_parsed_int
     \@@_forth_input_until:n { \l_@@_tmpa_int }
     \@@_forth_push:nn
-      { \l_@@_tmpb_int }
-      { \l_@@_forth_source_parsed_int - \l_@@_tmpb_int }
+      { \l_@@_forth_input_word_begin_int }
+      { \l_@@_forth_input_word_end_int - \l_@@_forth_input_word_begin_int }
   }
 %    \end{macrocode}
 % \end{macro}
