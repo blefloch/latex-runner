@@ -213,7 +213,8 @@
 % \end{function}
 %
 % \begin{function}{output-stream}
-%   The value of this key must be a stream declared with \cs{iow_new:N}.
+%   The value of this key must be a stream declared with \cs{iow_new:N},
+%   or \LaTeXe{}'s \tn{newwrite}.
 %   The program output is written to the output stream line by line, as
 %   it is produced.  Once the program ends, the stream is still
 %   available for further use.  This key is incompatible with the
