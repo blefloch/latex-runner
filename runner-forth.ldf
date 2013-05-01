@@ -719,13 +719,15 @@
           { \l__runner_forth_def_name_str }
       }
   }
-\cs_new_protected:Npn \__runner_forth_abort:nx #1#2
+\cs_new_protected:Npn \__runner_forth_abort:nxx #1#2#3
   {
-    \msg_error:nnx { runner/forth } {#1} {#2}
+    \msg_error:nnxx { runner/forth } {#1} {#2} {#3}
     \int_set_eq:NN \l__runner_forth_stack_here_int
       \g__runner_forth_stack_min_int
     \__runner_forth_do_quit:
   }
+\cs_new_protected:Npn \__runner_forth_abort:nx #1#2
+  { \__runner_forth_abort:nxx {#1} {#2} { } }
 \cs_new_protected_nopar:Npn \__runner_forth_abort_unknown_word:
   {
     \__runner_forth_input_set_word:
@@ -2520,10 +2522,8 @@
     \__runner_forth_pop_int:N \l__runner_tmpa_int
     \int_compare:nNnF \l__runner_tmpa_int = \c_zero
       {
-        \msg_term:n { ABORT~( \__runner_forth_signed:N \l__runner_tmpa_int ): ~ #1 }
-        \int_set_eq:NN \l__runner_forth_stack_here_int
-          \g__runner_forth_stack_min_int
-        \__runner_forth_do_quit:
+        \__runner_forth_abort:nxx { abort }
+          { \__runner_forth_signed:N \l__runner_tmpa_int } {#1}
       }
   }
 \__runner_forth_new_core:nn { BYE }
@@ -2848,6 +2848,8 @@
   { Internal~error.~Please~report. }
 \msg_new:nnn { runner/forth } { not-created }
   { The~execution~token~#1~was~not~generated~with~CREATE. }
+\msg_new:nnn { runner/forth } { abort }
+  { ABORT~(#1):~#2 }
 %% 
 %%
 %% End of file `runner-forth.ldf'.

@@ -1810,17 +1810,19 @@
 % \end{macro}
 %
 % ^^A todo: also empty the def_code etc.?
-% \begin{macro}[int]{\@@_forth_abort:nx}
+% \begin{macro}[int]{\@@_forth_abort:nxx, \@@_forth_abort:nx}
 %   Some ambiguous conditions lead the interpreter to balk and go away
 %   from all words being executed, emptying all stacks.
 %    \begin{macrocode}
-\cs_new_protected:Npn \@@_forth_abort:nx #1#2
+\cs_new_protected:Npn \@@_forth_abort:nxx #1#2#3
   {
-    \msg_error:nnx { runner/forth } {#1} {#2}
+    \msg_error:nnxx { runner/forth } {#1} {#2} {#3}
     \int_set_eq:NN \l_@@_forth_stack_here_int
       \g_@@_forth_stack_min_int
     \@@_forth_do_quit:
   }
+\cs_new_protected:Npn \@@_forth_abort:nx #1#2
+  { \@@_forth_abort:nxx {#1} {#2} { } }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -4982,10 +4984,8 @@
     \@@_forth_pop_int:N \l_@@_tmpa_int
     \int_compare:nNnF \l_@@_tmpa_int = \c_zero
       {
-        \msg_term:n { ABORT~( \@@_forth_signed:N \l_@@_tmpa_int ): ~ #1 }
-        \int_set_eq:NN \l_@@_forth_stack_here_int
-          \g_@@_forth_stack_min_int
-        \@@_forth_do_quit:
+        \@@_forth_abort:nxx { abort }
+          { \@@_forth_signed:N \l_@@_tmpa_int } {#1}
       }
   }
 %    \end{macrocode}
@@ -5477,6 +5477,8 @@
   { Internal~error.~Please~report. }
 \msg_new:nnn { runner/forth } { not-created }
   { The~execution~token~#1~was~not~generated~with~CREATE. }
+\msg_new:nnn { runner/forth } { abort }
+  { ABORT~(#1):~#2 }
 %    \end{macrocode}
 %
 % \end{runner-implementation}
