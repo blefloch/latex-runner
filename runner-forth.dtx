@@ -32,7 +32,6 @@
 %     obsolescent, namely \texttt{\#TIB}, \texttt{TIB}, \texttt{EXPECT},
 %     \texttt{QUERY}, \texttt{SPAN}, \texttt{CONVERT}, \texttt{FORGET}.}
 % \item The environment variable |/COUNTED-STRING| is not recognized.
-% \item The double-number word |M*/| is not implemented.
 % \end{itemize}
 % Additionally, the interpreter provides the Programming-Tools words
 % |.S|, |?|, |DUMP|, |[IF]|, |[THEN]|, |[ELSE]|, |BYE|.
@@ -2094,7 +2093,7 @@
 %
 % This section defines the words |ABS|, |NEGATE|, |MAX|, |MIN|, |1+|,
 % |1-|, |-|, |+|, |*|, |/|, |MOD|, |/MOD|, |*/|, |M*|, |UM*|, |FM/MOD|,
-% |SM/REM|, |UM/MOD|, |*/MOD|, |DABS|, |DNEGATE|, |D+|, |D-|, |M+|.
+% |SM/REM|, |UM/MOD|, |*/MOD|, |DABS|, |DNEGATE|, |D+|, |D-|, |M+|, |M*/|.
 %
 % \begin{macro}[int]{ABS}
 %   Get a signed integer from the top of the stack, and change it to its
@@ -2472,9 +2471,13 @@
 % \end{macro}
 %
 % \begin{macro}[int]{M+}
-%   Pop \((a,b)\) and \(c\).  The number \(a' = a + c - 2^{24}\) is
-%   negative if there is no carry, and non-negative for a carry
-%   of~\(1\).  Perform the carry, then push \((a',b')\) onto the stack.
+%   Pop \((a,b)\) and the signed \(c\).  Push \(a+c\) modulo \(2^{24}\)
+%   by feeding \(a' = a + c - 2^{24} \in [-2^{24}, 2^{24}-1]\) to
+%   \texttt{push_signed}.  Since \(c\) is signed, we must subtract \(1\)
+%   from \(b\) when \(c\in [2^{23},2^{24}-1]\).  The carry of \(a + c\)
+%   is \(b\to b+1\) if \(a'\geq 0\), but we use \(1-2^{24}\) as a carry
+%   instead, ensuring that the argument of \texttt{push_signed} is in
+%   \([-2^{24},2^{24}-1]\) in all cases.
 %    \begin{macrocode}
 \@@_forth_new_core:nn { M+ }
   {
@@ -2485,8 +2488,69 @@
     \@@_forth_push_signed:n { \l_@@_tmpa_int }
     \@@_forth_push_signed:n
       {
-        \l_@@_tmpb_int - \c_@@_forth_mod_int
-        \int_compare:nNnF \l_@@_tmpa_int < \c_zero { + \c_one }
+        \l_@@_tmpb_int
+        - \l_@@_tmpc_int / \c_@@_forth_mod_int
+        \int_compare:nNnF \l_@@_tmpa_int < \c_zero
+          { + \c_one - \c_@@_forth_mod_int }
+      }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int]{M*/}
+%   Pop a signed double-cell integer \(a + 2^{24} b\), and two signed
+%   single-cell integers \(c\) and \(d\).  We first change \((a,b)\) and
+%   \(c\) to their absolute value, changing the sign of \(d\)
+%   accordingly.  At this point, \(a\in[0,2^{24}-1]\) and
+%   \(b,c\in[0,2^{23}-1]\).  We then perform the Euclidean divisions \(b
+%   c = q d + r\) (with \(r\in[0,|d|-1]\)) and \(2^{24} r + a c = s d +
+%   t\) (where \(s\geq 0\) and \(t\in[0,|d|-1]\), or \(s\leq 0\) and
+%   \(t\in[-|d|+1,0]\)).  From those Euclidean divisions, we get that
+%   \((2^{24}b+a)c = 2^{24} q d + s d + t\), hence the desired result is
+%   \(s + 2^{24} q\).  The first step in computing this result is to
+%   store the integer \(q = \lfloor b c / d \rfloor\) as
+%   \cs{l_@@_tmpa_fp}.  Then set \cs{l_@@_tmpb_fp} to be the (integer)
+%   \(s\) obtained by rounding \((2^{24} (b c - q d) + a c) / d\)
+%   towards zero.  The integer \(s\) may be larger than \(2^{24}\), or
+%   negative, so we take care of the carry (rounding towards \(-\infty\)
+%   ensures that what remains is in \([0,2^{24}-1]\)).
+%   ^^A todo: redoc.
+%    \begin{macrocode}
+\@@_forth_new_core:nn { M*/ }
+  {
+    \@@_forth_pop_int:NNNN
+      \l_@@_tmpa_int \l_@@_tmpb_int
+      \l_@@_tmpc_int \l_@@_tmpd_int
+    \@@_forth_set_signed:N \l_@@_tmpd_int
+    \int_compare:nNnF \l_@@_tmpb_int < { \c_@@_forth_mod_int / \c_two }
+      {
+        \@@_forth_double_negate:NN
+          \l_@@_tmpa_int \l_@@_tmpb_int
+        \int_set:Nn \l_@@_tmpd_int { - \l_@@_tmpd_int }
+      }
+    \int_compare:nNnF \l_@@_tmpc_int < { \c_@@_forth_mod_int / \c_two }
+      {
+        \int_set:Nn \l_@@_tmpc_int
+          { \c_@@_forth_mod_int - \l_@@_tmpc_int }
+        \int_set:Nn \l_@@_tmpd_int { - \l_@@_tmpd_int }
+      }
+    \fp_set:Nn \l_@@_tmpa_fp
+      {
+        \int_compare:nNnTF \l_@@_tmpd_int < \c_zero
+          { round+ } { round- }
+          ( \l_@@_tmpb_int * \l_@@_tmpc_int / \l_@@_tmpd_int )
+      }
+    \fp_set:Nn \l_@@_tmpb_fp
+      {
+        round0 ( ( \l_@@_tmpa_int * \l_@@_tmpc_int
+          + \c_@@_forth_mod_int * ( \l_@@_tmpb_int * \l_@@_tmpc_int
+          - \l_@@_tmpa_fp * \l_@@_tmpd_int ) ) / \l_@@_tmpd_int )
+      }
+    \@@_forth_push_fp_mod:n { \l_@@_tmpb_fp }
+    \@@_forth_push_fp_mod:n
+      {
+        \l_@@_tmpa_fp
+        + round- ( \l_@@_tmpb_fp / \c_@@_forth_mod_int )
       }
   }
 %    \end{macrocode}

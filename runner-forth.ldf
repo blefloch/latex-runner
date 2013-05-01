@@ -1072,8 +1072,47 @@
     \__runner_forth_push_signed:n { \l__runner_tmpa_int }
     \__runner_forth_push_signed:n
       {
-        \l__runner_tmpb_int - \c__runner_forth_mod_int
-        \int_compare:nNnF \l__runner_tmpa_int < \c_zero { + \c_one }
+        \l__runner_tmpb_int
+        - \l__runner_tmpc_int / \c__runner_forth_mod_int
+        \int_compare:nNnF \l__runner_tmpa_int < \c_zero
+          { + \c_one - \c__runner_forth_mod_int }
+      }
+  }
+\__runner_forth_new_core:nn { M*/ }
+  {
+    \__runner_forth_pop_int:NNNN
+      \l__runner_tmpa_int \l__runner_tmpb_int
+      \l__runner_tmpc_int \l__runner_tmpd_int
+    \__runner_forth_set_signed:N \l__runner_tmpd_int
+    \int_compare:nNnF \l__runner_tmpb_int < { \c__runner_forth_mod_int / \c_two }
+      {
+        \__runner_forth_double_negate:NN
+          \l__runner_tmpa_int \l__runner_tmpb_int
+        \int_set:Nn \l__runner_tmpd_int { - \l__runner_tmpd_int }
+      }
+    \int_compare:nNnF \l__runner_tmpc_int < { \c__runner_forth_mod_int / \c_two }
+      {
+        \int_set:Nn \l__runner_tmpc_int
+          { \c__runner_forth_mod_int - \l__runner_tmpc_int }
+        \int_set:Nn \l__runner_tmpd_int { - \l__runner_tmpd_int }
+      }
+    \fp_set:Nn \l__runner_tmpa_fp
+      {
+        \int_compare:nNnTF \l__runner_tmpd_int < \c_zero
+          { round+ } { round- }
+          ( \l__runner_tmpb_int * \l__runner_tmpc_int / \l__runner_tmpd_int )
+      }
+    \fp_set:Nn \l__runner_tmpb_fp
+      {
+        round0 ( ( \l__runner_tmpa_int * \l__runner_tmpc_int
+          + \c__runner_forth_mod_int * ( \l__runner_tmpb_int * \l__runner_tmpc_int
+          - \l__runner_tmpa_fp * \l__runner_tmpd_int ) ) / \l__runner_tmpd_int )
+      }
+    \__runner_forth_push_fp_mod:n { \l__runner_tmpb_fp }
+    \__runner_forth_push_fp_mod:n
+      {
+        \l__runner_tmpa_fp
+        + round- ( \l__runner_tmpb_fp / \c__runner_forth_mod_int )
       }
   }
 \__runner_forth_new_core:nn { 2* }
