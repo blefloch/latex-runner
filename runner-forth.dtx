@@ -1264,19 +1264,19 @@
 %
 % \begin{variable}
 %   {
-%     \l_@@_forth_input_word_begin_int,
-%     \l_@@_forth_input_word_end_int,
-%     \l_@@_forth_input_word_str,
+%     \l_@@_forth_word_begin_int,
+%     \l_@@_forth_word_end_int,
+%     \l_@@_forth_word_str,
 %   }
-%   When parsing a word, the \texttt{input_word_begin} and
-%   \texttt{input_word_end} integers point to the first character and
+%   When parsing a word, the \texttt{word_begin} and
+%   \texttt{word_end} integers point to the first character and
 %   just after the last one in the source buffer.  Some functions
 %   manipulate a native-string representation of the word, and store it
-%   in the \texttt{input_word} string.
+%   in the \texttt{word} string.
 %    \begin{macrocode}
-\int_new:N \l_@@_forth_input_word_begin_int
-\int_new:N \l_@@_forth_input_word_end_int
-\str_new:N \l_@@_forth_input_word_str
+\int_new:N \l_@@_forth_word_begin_int
+\int_new:N \l_@@_forth_word_end_int
+\str_new:N \l_@@_forth_word_str
 %    \end{macrocode}
 % \end{variable}
 %
@@ -1409,7 +1409,7 @@
 %   ignores delimiters by incrementing \texttt{source_parsed}, and stops
 %   the loop when seeing a delimiter (by setting a boolean);
 %   \texttt{input until} stops the loop when meeting a delimiter,
-%   otherwise adds the character to the \texttt{input_word} string: in
+%   otherwise adds the character to the \texttt{word} string: in
 %   both cases it goes to the next character in all cases (incrementing
 %   \texttt{source_parsed}).  The \texttt{:TFn} auxiliary finds out
 %   whether the delimiter is a space: in this case, characters in
@@ -1423,7 +1423,7 @@
 %   for the outside world to see.  This function uses
 %   \cs{l_@@_tmpa_bool} and \cs{l_@@_tmpc_int} as scratch space.
 %   After the end of the function, the input word can be found from
-%   \texttt{input_word_begin} to \texttt{input_word_end}.
+%   \texttt{word_begin} to \texttt{word_end}.
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \@@_forth_input_discard:n
   {
@@ -1436,7 +1436,7 @@
     \@@_forth_input_discard_aux:TFn
       {
         \bool_set_false:N \l_@@_tmpa_bool
-        \int_set_eq:NN \l_@@_forth_input_word_end_int
+        \int_set_eq:NN \l_@@_forth_word_end_int
           \l_@@_forth_source_parsed_int
         \int_incr:N \l_@@_forth_source_parsed_int
       }
@@ -1457,7 +1457,7 @@
         \l_@@_forth_source_begin_int
         + \@@_forth_data_get:n { \l_@@_forth_in_address_int }
       }
-    \int_set_eq:NN \l_@@_forth_input_word_begin_int
+    \int_set_eq:NN \l_@@_forth_word_begin_int
       \l_@@_forth_source_parsed_int
     \bool_set_true:N \l_@@_tmpa_bool
     \bool_while_do:Nn \l_@@_tmpa_bool
@@ -1465,7 +1465,7 @@
         \@@_forth_read_char:NTF \l_@@_tmpc_int
           { \int_compare:nNnTF \l_@@_tmpc_int #1 {#2} {#3} {#4} }
           {
-            \int_set_eq:NN \l_@@_forth_input_word_end_int
+            \int_set_eq:NN \l_@@_forth_word_end_int
               \l_@@_forth_source_parsed_int
             \bool_set_false:N \l_@@_tmpa_bool
           }
@@ -1483,15 +1483,15 @@
 % \begin{macro}[int]{\@@_forth_input_set_word:}
 %   Once the word has been found by \cs{@@_forth_input_until:n}, this
 %   function stores the actual characters in
-%   \cs{l_@@_forth_input_word_str}.
+%   \cs{l_@@_forth_word_str}.
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \@@_forth_input_set_word:
   {
-    \str_set_convert:Nxnn \l_@@_forth_input_word_str
+    \str_set_convert:Nxnn \l_@@_forth_word_str
       {
         \@@_forth_interval_to_clist:nn
-          \l_@@_forth_input_word_begin_int
-          \l_@@_forth_input_word_end_int
+          \l_@@_forth_word_begin_int
+          \l_@@_forth_word_end_int
       }
       { clist } { }
   }
@@ -1501,8 +1501,8 @@
 % \begin{macro}[int]{\@@_forth_input_word:}
 %   Many functions read a word from the input.  This is a short-hand for
 %   the task.  After its operation, the word is stored as the
-%   \texttt{input_word} string, and lies from the
-%   \texttt{input_word_begin} to the \texttt{input_word_end} (excluded)
+%   \texttt{word} string, and lies from the
+%   \texttt{word_begin} to the \texttt{word_end} (excluded)
 %   cells in memory.
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \@@_forth_input_word:
@@ -1593,8 +1593,8 @@
 % \begin{macro}[int]{\@@_forth_get_number:N}
 % \begin{macro}[aux]{\@@_forth_get_number_aux:NN}
 %   When this function is called, the word just read lies between
-%   positions \texttt{input_word_begin} (included), which we store
-%   as~\(e\), and \texttt{input_word_end} (excluded), which we store
+%   positions \texttt{word_begin} (included), which we store
+%   as~\(e\), and \texttt{word_end} (excluded), which we store
 %   as~\(f\).  We will use the \texttt{to_number} auxiliary, with
 %   initial value \((c,d)=(0,0)\) and addresses~\(e\) and~\(f\)
 %   delimiting the word just found.  Before this,
@@ -1614,8 +1614,8 @@
     \tl_set:Nn \l_@@_tmpa_tl {#1}
     \int_zero:N \l_@@_tmpc_int
     \int_zero:N \l_@@_tmpd_int
-    \int_set_eq:NN \l_@@_tmpe_int \l_@@_forth_input_word_begin_int
-    \int_set_eq:NN \l_@@_tmpf_int \l_@@_forth_input_word_end_int
+    \int_set_eq:NN \l_@@_tmpe_int \l_@@_forth_word_begin_int
+    \int_set_eq:NN \l_@@_tmpf_int \l_@@_forth_word_end_int
     \@@_forth_get_number_sign:
     \@@_forth_to_number:
     \int_compare:nNnTF \l_@@_tmpe_int = \l_@@_tmpf_int
@@ -1777,7 +1777,7 @@
   {
     \@@_forth_input_word:
     \@@_forth_input_set_word:
-    \@@_forth_set_word:ox \l_@@_forth_input_word_str
+    \@@_forth_set_word:ox \l_@@_forth_word_str
   }
 %    \end{macrocode}
 % \end{macro}
@@ -1789,7 +1789,7 @@
     \@@_forth_input_word:
     \@@_forth_input_set_word:
     \prop_get:NoNF \l_@@_forth_words_prop
-      \l_@@_forth_input_word_str #1
+      \l_@@_forth_word_str #1
       { \@@_forth_abort_unknown_word: }
   }
 %    \end{macrocode}
@@ -1834,7 +1834,7 @@
   {
     \@@_forth_input_set_word:
     \@@_forth_abort:nx { unknown-word }
-      { \l_@@_forth_input_word_str }
+      { \l_@@_forth_word_str }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -1951,7 +1951,7 @@
 %
 % \begin{macro}[int]{\@@_forth_run_loop:}
 %   The interpreter is a loop retrieving a word at each iteration, and
-%   performing it.  If the \texttt{input_word} is empty (end of line,
+%   performing it.  If the \texttt{word} is empty (end of line,
 %   tested by comparing the begin and end positions of the parsed
 %   region), refill the input buffer.  When there is nothing left,
 %   remove the \texttt{quit_point} (a dummy marker) and the
@@ -1961,8 +1961,8 @@
   {
     \@@_forth_input_word:
     \int_compare:nNnTF
-      \l_@@_forth_input_word_begin_int
-      < \l_@@_forth_input_word_end_int
+      \l_@@_forth_word_begin_int
+      < \l_@@_forth_word_end_int
       { \@@_forth_perform: }
       { \@@_forth_input_refill:TF { } { \use_none:nn } }
     \@@_forth_quit_point:
@@ -2013,8 +2013,8 @@
 % \begin{macro}[int]{\@@_forth_interpret:, \@@_forth_compile:}
 % \begin{macro}[int]{\@@_forth_perform:Nn}
 % \begin{macro}[int, EXP]{\@@_forth_perform_case:Nn}
-%   When those functions are called, the \texttt{input_word_begin} and
-%   \texttt{input_word_end} integers are set to the end-points of the
+%   When those functions are called, the \texttt{word_begin} and
+%   \texttt{word_end} integers are set to the end-points of the
 %   word just found.  Build a string out of the character codes, and
 %   search for it in the words property list.  If the word is known,
 %   then the \texttt{tmpa} token list is set to a digit \(1\) (normal
@@ -2037,7 +2037,7 @@
     \@@_forth_input_set_word:
     \prop_get:NoNTF
       \l_@@_forth_words_prop
-      \l_@@_forth_input_word_str
+      \l_@@_forth_word_str
       \l_@@_tmpa_tl
       { \@@_forth_perform_case:Nn #1 {#2} }
       { \@@_forth_get_number:N #1 }
@@ -3070,7 +3070,7 @@
       {
         \@@_forth_input_word:
         \@@_forth_input_set_word:
-        \str_case:onn { \l_@@_forth_input_word_str }
+        \str_case:onn { \l_@@_forth_word_str }
           {
             { }
               {
@@ -3289,7 +3289,7 @@
     \seq_push:Nx \l_@@_forth_def_after_seq
       {
         \@@_forth_set_word_token:nn
-          { \l_@@_forth_input_word_str }
+          { \l_@@_forth_word_str }
           { \l_@@_forth_def_token_int }
       }
     \@@_forth_colon:
@@ -3878,17 +3878,17 @@
 \@@_forth_new_core:nn { FIND }
   {
     \@@_forth_pop_int:N \l_@@_tmpa_int
-    \int_set:Nn \l_@@_forth_input_word_begin_int
+    \int_set:Nn \l_@@_forth_word_begin_int
       { \l_@@_tmpa_int + \c_one }
-    \int_set:Nn \l_@@_forth_input_word_end_int
+    \int_set:Nn \l_@@_forth_word_end_int
       {
-        \l_@@_forth_input_word_begin_int
+        \l_@@_forth_word_begin_int
         + \@@_forth_data_get:n { \l_@@_tmpa_int }
       }
     \@@_forth_input_set_word:
     \prop_get:NVNF
       \l_@@_forth_words_prop
-      \l_@@_forth_input_word_str
+      \l_@@_forth_word_str
       \l_@@_tmpa_tl
       { \tl_set:Nn \l_@@_tmpa_tl { 3 } }
     \int_compare:nNnTF { \tl_head:N \l_@@_tmpa_tl } = { 3 }
@@ -3958,7 +3958,7 @@
 \@@_forth_new_core:nn { CHAR }
   {
     \@@_forth_input_word:
-    \@@_forth_push_value:n { \l_@@_forth_input_word_begin_int }
+    \@@_forth_push_value:n { \l_@@_forth_word_begin_int }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -3973,7 +3973,7 @@
     \@@_forth_def_code:x
       {
         \@@_forth_push:n
-          { \@@_forth_data_get:N \l_@@_forth_input_word_begin_int }
+          { \@@_forth_data_get:N \l_@@_forth_word_begin_int }
       }
   }
 %    \end{macrocode}
@@ -4011,8 +4011,8 @@
     \@@_forth_pop_int:N \l_@@_tmpa_int
     \@@_forth_input_until:n { \l_@@_tmpa_int }
     \@@_forth_push:nn
-      { \l_@@_forth_input_word_begin_int }
-      { \l_@@_forth_input_word_end_int - \l_@@_forth_input_word_begin_int }
+      { \l_@@_forth_word_begin_int }
+      { \l_@@_forth_word_end_int - \l_@@_forth_word_begin_int }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -4038,8 +4038,8 @@
     \@@_forth_input_discard:n { \l_@@_tmpa_int }
     \@@_forth_input_until:n { \l_@@_tmpa_int }
     \@@_forth_store_interval:NNN
-      \l_@@_forth_input_word_begin_int
-      \l_@@_forth_input_word_end_int
+      \l_@@_forth_word_begin_int
+      \l_@@_forth_word_end_int
       \l_@@_forth_data_word_int
     \@@_forth_data_gset:nn
       { \l_@@_forth_data_here_int }
@@ -4099,8 +4099,8 @@
     \@@_forth_input_until:n { `" }
     \int_set:Nn \l_@@_tmpa_int
       {
-        \l_@@_forth_input_word_end_int
-        - \l_@@_forth_input_word_begin_int
+        \l_@@_forth_word_end_int
+        - \l_@@_forth_word_begin_int
       }
     \int_sub:Nn \l_@@_forth_data_text_int { \l_@@_tmpa_int #1 }
     \int_compare:nNnT
@@ -4118,8 +4118,8 @@
     \int_set_eq:NN \l_@@_tmpb_int \l_@@_forth_data_text_int
     #3
     \@@_forth_store_interval:NNN
-      \l_@@_forth_input_word_begin_int
-      \l_@@_forth_input_word_end_int
+      \l_@@_forth_word_begin_int
+      \l_@@_forth_word_end_int
       \l_@@_tmpb_int
   }
 %    \end{macrocode}
@@ -4155,8 +4155,8 @@
   {
     \@@_forth_input_word:
     \int_compare:nNnTF
-      \l_@@_forth_input_word_begin_int
-      < \l_@@_forth_input_word_end_int
+      \l_@@_forth_word_begin_int
+      < \l_@@_forth_word_end_int
       {
         \@@_forth_perform:
         \@@_forth_quit_point:
@@ -4721,8 +4721,8 @@
         \@@_output_clist:x
           {
             \@@_forth_interval_to_clist:nn
-              \l_@@_forth_input_word_begin_int
-              \l_@@_forth_input_word_end_int
+              \l_@@_forth_word_begin_int
+              \l_@@_forth_word_end_int
           }
       }
   }
@@ -4732,8 +4732,8 @@
     \@@_output_clist:x
       {
         \@@_forth_interval_to_clist:nn
-          \l_@@_forth_input_word_begin_int
-          \l_@@_forth_input_word_end_int
+          \l_@@_forth_word_begin_int
+          \l_@@_forth_word_end_int
       }
   }
 %    \end{macrocode}
@@ -4975,7 +4975,7 @@
     \@@_forth_input_until:n { `" }
     \@@_forth_input_set_word:
     \@@_forth_def_code:x
-      { \@@_forth_abort_quote:n { \l_@@_forth_input_word_str } }
+      { \@@_forth_abort_quote:n { \l_@@_forth_word_str } }
   }
 \cs_new_protected:Npn \@@_forth_abort_quote:n #1
   {
